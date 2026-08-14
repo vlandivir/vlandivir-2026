@@ -10,6 +10,11 @@ import { Prisma } from '../generated/prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from './storage.service';
 import { EmbeddingsService } from './embeddings.service';
+import {
+  DIARY_DUPLICATE_THRESHOLD,
+  formatVideoIndex,
+  mergeNoteWithVideoIndex,
+} from './diary-video-note';
 
 // The subset of `yt-dlp --dump-single-json` output we care about
 type YtDlpInfo = {
@@ -264,74 +269,41 @@ export class ReelsService {
 
   /**
    * Idempotently mirror an own Instagram reel into the diary as a Note+Video
-   * dated with `publishedAt`. Skips when already linked (meta.diaryNoteId),
-   * when the same video URL is already in the diary, or when a diary-v*
-   * proxy was marked as a duplicate of this shortcode.
+   * dated with `publishedAt`. Reuses an existing note when already linked
+   * (meta.diaryNoteId), when the same video URL is already in the diary,
+   * when a diary-v* proxy was marked duplicateOf this shortcode, or when
+   * the nearest diary-v* embedding is ≥ DIARY_DUPLICATE_THRESHOLD.
+   *
+   * Always writes the full video index (caption, transcript, vision) into
+   * the note so diary RAG / MCP can search it.
    */
   async ensureOwnReelInDiary(
     reelId: number,
   ): Promise<{ noteId: number; created: boolean } | null> {
     const reel = await this.prisma.reel.findUnique({ where: { id: reelId } });
-    if (!reel?.isOwn || reel.status !== 'ready' || !reel.videoUrl) {
+    if (
+      !reel?.isOwn ||
+      reel.status !== 'ready' ||
+      !reel.videoUrl ||
+      reel.shortcode.startsWith('diary-v')
+    ) {
       return null;
     }
 
     const meta = this.asMetaObject(reel.meta);
-    if (typeof meta.diaryNoteId === 'number') {
-      return { noteId: meta.diaryNoteId, created: false };
+    let existingId = await this.resolveExistingDiaryNoteId(reel);
+    if (!existingId) {
+      await this.indexReel(reel.id).catch(() => undefined);
+      existingId = await this.findSimilarDiaryNoteId(reel.id);
     }
-
-    const existingByUrl = await this.prisma.video.findFirst({
-      where: { url: reel.videoUrl, note: { chatId: getDiaryChatId() } },
-      select: { noteId: true },
-    });
-    if (existingByUrl?.noteId) {
-      await this.rememberDiaryNote(reel.id, meta, existingByUrl.noteId);
-      return { noteId: existingByUrl.noteId, created: false };
-    }
-
-    const existingByShortcode = await this.prisma.note.findFirst({
-      where: {
-        chatId: getDiaryChatId(),
-        OR: [
-          { content: { contains: reel.shortcode } },
-          { content: { contains: reel.instagramUrl } },
-        ],
-      },
-      select: { id: true },
-    });
-    if (existingByShortcode) {
-      await this.rememberDiaryNote(reel.id, meta, existingByShortcode.id);
-      return { noteId: existingByShortcode.id, created: false };
-    }
-
-    // diary-v* proxies created from Telegram copies may already cover this
-    // Instagram reel (manual duplicateOf or same caption stored earlier).
-    const diaryProxy = await this.prisma.reel.findFirst({
-      where: {
-        shortcode: { startsWith: 'diary-v' },
-        meta: { path: ['duplicateOf'], equals: reel.shortcode },
-      },
-      select: { meta: true },
-    });
-    const proxyVideoId =
-      diaryProxy &&
-      typeof this.asMetaObject(diaryProxy.meta).diaryVideoId === 'number'
-        ? (this.asMetaObject(diaryProxy.meta).diaryVideoId as number)
-        : null;
-    if (proxyVideoId) {
-      const proxyVideo = await this.prisma.video.findUnique({
-        where: { id: proxyVideoId },
-        select: { noteId: true },
-      });
-      if (proxyVideo?.noteId) {
-        await this.rememberDiaryNote(reel.id, meta, proxyVideo.noteId);
-        return { noteId: proxyVideo.noteId, created: false };
-      }
+    if (existingId) {
+      await this.rememberDiaryNote(reel.id, meta, existingId);
+      await this.writeVideoIndexToNote(reel, existingId);
+      return { noteId: existingId, created: false };
     }
 
     const caption = reel.description?.trim() || reel.title?.trim() || null;
-    const content = [caption, reel.instagramUrl].filter(Boolean).join('\n\n');
+    const content = mergeNoteWithVideoIndex('', formatVideoIndex(reel));
 
     const note = await this.prisma.note.create({
       data: {
@@ -354,10 +326,43 @@ export class ReelsService {
     });
 
     await this.rememberDiaryNote(reel.id, meta, note.id);
+    await this.indexDiaryNote(note.id, content);
     this.logger.log(
       `Own reel ${reel.shortcode} mirrored to diary note ${note.id}`,
     );
     return { noteId: note.id, created: true };
+  }
+
+  /**
+   * Push transcript/vision/caption from a reel into its linked diary note.
+   * Own Instagram reels win over diary-v* proxies that point at the same note.
+   */
+  async syncReelAnalysisIntoNote(
+    reelId: number,
+  ): Promise<{ noteId: number; updated: boolean } | null> {
+    const reel = await this.prisma.reel.findUnique({ where: { id: reelId } });
+    if (!reel) return null;
+
+    const noteId =
+      (await this.noteIdFromOwnMeta(reel.meta)) ||
+      (await this.noteIdFromDiaryProxyMeta(reel.meta));
+    if (!noteId) return null;
+
+    let source = reel;
+    if (reel.shortcode.startsWith('diary-v')) {
+      const own = await this.prisma.reel.findFirst({
+        where: {
+          isOwn: true,
+          status: 'ready',
+          NOT: { shortcode: { startsWith: 'diary-v' } },
+          meta: { path: ['diaryNoteId'], equals: noteId },
+        },
+      });
+      if (own) source = own;
+    }
+
+    const updated = await this.writeVideoIndexToNote(source, noteId);
+    return { noteId, updated };
   }
 
   private asMetaObject(meta: unknown): Record<string, unknown> {
@@ -378,6 +383,216 @@ export class ReelsService {
         meta: { ...meta, diaryNoteId: noteId } as Prisma.InputJsonValue,
       },
     });
+  }
+
+  private async resolveExistingDiaryNoteId(reel: {
+    id: number;
+    shortcode: string;
+    instagramUrl: string;
+    videoUrl: string | null;
+    meta: unknown;
+  }): Promise<number | null> {
+    const fromMeta = await this.noteIdFromOwnMeta(reel.meta);
+    if (fromMeta) return fromMeta;
+
+    if (reel.videoUrl) {
+      const existingByUrl = await this.prisma.video.findFirst({
+        where: {
+          url: reel.videoUrl,
+          note: { chatId: getDiaryChatId(), deletedAt: null },
+        },
+        select: { noteId: true },
+      });
+      if (existingByUrl?.noteId) return existingByUrl.noteId;
+    }
+
+    const existingByShortcode = await this.prisma.note.findFirst({
+      where: {
+        chatId: getDiaryChatId(),
+        deletedAt: null,
+        OR: [
+          { content: { contains: reel.shortcode } },
+          { content: { contains: reel.instagramUrl } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (existingByShortcode) return existingByShortcode.id;
+
+    const diaryProxy = await this.prisma.reel.findFirst({
+      where: {
+        shortcode: { startsWith: 'diary-v' },
+        meta: { path: ['duplicateOf'], equals: reel.shortcode },
+      },
+      select: { meta: true },
+    });
+    const fromProxy = await this.noteIdFromDiaryProxyMeta(diaryProxy?.meta);
+    if (fromProxy) return fromProxy;
+
+    return this.findSimilarDiaryNoteId(reel.id);
+  }
+
+  private async noteIdFromOwnMeta(meta: unknown): Promise<number | null> {
+    const diaryNoteId = this.asPositiveInt(this.asMetaObject(meta).diaryNoteId);
+    if (diaryNoteId == null) return null;
+    const note = await this.prisma.note.findFirst({
+      where: {
+        id: diaryNoteId,
+        chatId: getDiaryChatId(),
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    return note?.id ?? null;
+  }
+
+  private async noteIdFromDiaryProxyMeta(
+    meta: unknown,
+  ): Promise<number | null> {
+    const diaryVideoId = this.asPositiveInt(
+      this.asMetaObject(meta).diaryVideoId,
+    );
+    if (diaryVideoId == null) return null;
+    const video = await this.prisma.video.findUnique({
+      where: { id: diaryVideoId },
+      select: {
+        noteId: true,
+        url: true,
+        note: { select: { chatId: true, deletedAt: true } },
+      },
+    });
+    if (!video?.url) return null;
+
+    // Channel posts are dual-saved: the diary-v* proxy often points at the
+    // channel row, while /diary and MCP use the personal-chat copy of the
+    // same file.
+    const ownerCopy = await this.prisma.video.findFirst({
+      where: {
+        url: video.url,
+        note: { chatId: getDiaryChatId(), deletedAt: null },
+      },
+      select: { noteId: true },
+    });
+    if (ownerCopy?.noteId) return ownerCopy.noteId;
+
+    if (
+      video.noteId &&
+      video.note &&
+      !video.note.deletedAt &&
+      video.note.chatId === getDiaryChatId()
+    ) {
+      return video.noteId;
+    }
+    return null;
+  }
+
+  private asPositiveInt(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+      return value;
+    }
+    if (
+      typeof value === 'bigint' &&
+      value > 0n &&
+      value <= BigInt(Number.MAX_SAFE_INTEGER)
+    ) {
+      return Number(value);
+    }
+    if (typeof value === 'string' && /^\d+$/.test(value)) {
+      const parsed = Number(value);
+      return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+    }
+    return null;
+  }
+
+  private async findSimilarDiaryNoteId(reelId: number): Promise<number | null> {
+    const rows = await this.prisma.$queryRaw<
+      { diaryVideoId: number | null; similarity: number }[]
+    >`
+      SELECT
+        (r.meta->>'diaryVideoId')::int AS "diaryVideoId",
+        (1 - (proxy.embedding <=> own.embedding))::float AS similarity
+      FROM "Embedding" own
+      JOIN "Embedding" proxy ON proxy.kind = 'reel'
+      JOIN "Reel" r ON r.id = proxy."refId" AND r.shortcode LIKE 'diary-v%'
+      WHERE own.kind = 'reel' AND own."refId" = ${reelId}
+      ORDER BY proxy.embedding <=> own.embedding
+      LIMIT 1
+    `;
+    const row = rows[0];
+    if (!row?.diaryVideoId || row.similarity < DIARY_DUPLICATE_THRESHOLD) {
+      return null;
+    }
+    return this.noteIdFromDiaryProxyMeta({ diaryVideoId: row.diaryVideoId });
+  }
+
+  private async writeVideoIndexToNote(
+    reel: {
+      title: string | null;
+      description: string | null;
+      instagramUrl: string;
+      shortcode: string;
+      tags: string[];
+      transcriptClean: string | null;
+      transcript: string | null;
+      visionDescription: string | null;
+      videoUrl: string | null;
+    },
+    noteId: number,
+  ): Promise<boolean> {
+    const note = await this.prisma.note.findFirst({
+      where: { id: noteId, chatId: getDiaryChatId(), deletedAt: null },
+      select: { id: true, content: true, chatId: true },
+    });
+    if (!note) return false;
+
+    const content = mergeNoteWithVideoIndex(
+      note.content,
+      formatVideoIndex(reel),
+    );
+    if (!content) return false;
+
+    const changed = content !== (note.content || '').trim();
+    if (changed) {
+      await this.prisma.note.update({
+        where: { id: note.id },
+        data: { content },
+      });
+    }
+
+    const caption = reel.description?.trim() || reel.title?.trim() || null;
+    if (caption) {
+      const videos = await this.prisma.video.findMany({
+        where: { noteId: note.id },
+        select: { id: true, url: true, description: true },
+      });
+      const target =
+        videos.find((video) => video.url === reel.videoUrl) || videos[0];
+      if (target && !target.description?.trim()) {
+        await this.prisma.video.update({
+          where: { id: target.id },
+          data: { description: caption },
+        });
+      }
+    }
+
+    if (changed) {
+      await this.indexDiaryNote(note.id, content);
+    }
+    return changed;
+  }
+
+  private async indexDiaryNote(noteId: number, content: string): Promise<void> {
+    if (!content.trim()) return;
+    await this.embeddingsService.upsert(
+      'note',
+      noteId,
+      content,
+      getDiaryChatId(),
+    );
+  }
+
+  private async syncLinkedDiaryNote(reelId: number): Promise<void> {
+    await this.syncReelAnalysisIntoNote(reelId);
   }
 
   // Force (re-)transcription of an already downloaded reel: fetches the video
@@ -601,6 +816,11 @@ export class ReelsService {
     });
     await this.indexReel(reelId).catch((error) => {
       this.logger.warn(`Reel ${reelId} embedding failed: ${String(error)}`);
+    });
+    await this.syncLinkedDiaryNote(reelId).catch((error) => {
+      this.logger.warn(
+        `Reel ${reelId} diary note sync failed: ${String(error)}`,
+      );
     });
   }
 

@@ -1,15 +1,11 @@
 /*
- * Mirror own Instagram reels that are missing from the diary into Note+Video
- * rows (chat = TELEGRAM_OWNER_CHAT_ID), dated with Instagram publishedAt.
- *
- * Uses the same embedding threshold as the duplicate review: if the best
- * diary-v* match is already ≥ 0.75 (or a diary-v* was manually marked
- * duplicateOf this shortcode), ensureOwnReelInDiary only links meta —
- * it does not create a second note. Everything below the threshold gets a
- * new diary entry.
+ * Mirror own Instagram reels into the diary and write the full video index
+ * (caption, transcript, on-screen description) into the linked notes so
+ * diary RAG / MCP can search them. Diary-only videos (Telegram / uploads)
+ * get the same treatment via their diary-v* reel proxies.
  *
  * Usage:
- *   npx ts-node src/scripts/backfill-own-reels-to-diary.ts [--dry-run] [--limit N]
+ *   npx ts-node src/scripts/backfill-own-reels-to-diary.ts [--dry-run] [--limit N] [--skip-analyze]
  */
 import 'dotenv/config';
 import { ConfigService } from '@nestjs/config';
@@ -18,13 +14,17 @@ import { StorageService } from '../services/storage.service';
 import { EmbeddingsService } from '../services/embeddings.service';
 import { ReelsService } from '../services/reels.service';
 
-const THRESHOLD = 0.75;
-
-function parseArgs(argv: string[]): { dryRun: boolean; limit: number | null } {
+function parseArgs(argv: string[]): {
+  dryRun: boolean;
+  skipAnalyze: boolean;
+  limit: number | null;
+} {
   let dryRun = false;
+  let skipAnalyze = false;
   let limit: number | null = null;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--dry-run') dryRun = true;
+    else if (argv[i] === '--skip-analyze') skipAnalyze = true;
     else if (argv[i] === '--limit') {
       limit = Number(argv[++i]);
       if (!Number.isFinite(limit) || limit <= 0) {
@@ -32,11 +32,15 @@ function parseArgs(argv: string[]): { dryRun: boolean; limit: number | null } {
       }
     }
   }
-  return { dryRun, limit };
+  return { dryRun, skipAnalyze, limit };
+}
+
+function shortcodeFor(videoId: number): string {
+  return `diary-v${videoId}`;
 }
 
 async function main(): Promise<void> {
-  const { dryRun, limit } = parseArgs(process.argv.slice(2));
+  const { dryRun, skipAnalyze, limit } = parseArgs(process.argv.slice(2));
   const configService = new ConfigService();
   const prisma = new PrismaService();
   const storage = new StorageService(configService);
@@ -49,59 +53,20 @@ async function main(): Promise<void> {
   );
 
   try {
-    const marked = await prisma.reel.findMany({
-      where: { shortcode: { startsWith: 'diary-v' } },
-      select: { meta: true },
+    const ownReels = await prisma.reel.findMany({
+      where: {
+        isOwn: true,
+        status: 'ready',
+        videoUrl: { not: null },
+        NOT: { shortcode: { startsWith: 'diary-v' } },
+      },
+      select: { id: true, shortcode: true, title: true, publishedAt: true },
+      orderBy: [{ publishedAt: 'asc' }, { id: 'asc' }],
     });
-    const manualDupes = new Set(
-      marked
-        .map((r) =>
-          r.meta && typeof r.meta === 'object' && !Array.isArray(r.meta)
-            ? (r.meta as { duplicateOf?: string }).duplicateOf
-            : undefined,
-        )
-        .filter((v): v is string => typeof v === 'string'),
-    );
-
-    const pairs = await prisma.$queryRaw<
-      {
-        id: number;
-        shortcode: string;
-        title: string | null;
-        published_at: Date | null;
-        similarity: number;
-      }[]
-    >`
-      WITH own AS (
-        SELECT r.id, r.shortcode, r.title, r."publishedAt", e.embedding
-        FROM "Reel" r
-        JOIN "Embedding" e ON e.kind = 'reel' AND e."refId" = r.id
-        WHERE r."isOwn" = true AND r.status = 'ready' AND r."videoUrl" IS NOT NULL
-          AND r.shortcode NOT LIKE 'diary-v%'
-      ),
-      diary AS (
-        SELECT r.id, e.embedding
-        FROM "Reel" r
-        JOIN "Embedding" e ON e.kind = 'reel' AND e."refId" = r.id
-        WHERE r.shortcode LIKE 'diary-v%'
-      )
-      SELECT
-        o.id, o.shortcode, o.title, o."publishedAt" AS published_at,
-        (1 - (o.embedding <=> d.embedding))::float AS similarity
-      FROM own o
-      CROSS JOIN LATERAL (
-        SELECT * FROM diary d ORDER BY o.embedding <=> d.embedding LIMIT 1
-      ) d
-      ORDER BY o."publishedAt" ASC NULLS LAST, o.id ASC
-    `;
-
-    let missing = pairs.filter(
-      (r) => !manualDupes.has(r.shortcode) && r.similarity < THRESHOLD,
-    );
-    if (limit) missing = missing.slice(0, limit);
+    const ownList = limit ? ownReels.slice(0, limit) : ownReels;
 
     console.log(
-      `Own reels missing from diary: ${missing.length}` +
+      `Own Instagram reels: ${ownList.length}` +
         (dryRun ? ' (dry run)' : '') +
         '\n',
     );
@@ -110,13 +75,11 @@ async function main(): Promise<void> {
     let linked = 0;
     let failed = 0;
 
-    for (const row of missing) {
-      const date = row.published_at
-        ? new Date(row.published_at).toISOString().slice(0, 10)
+    for (const row of ownList) {
+      const date = row.publishedAt
+        ? row.publishedAt.toISOString().slice(0, 10)
         : '—';
-      console.log(
-        `• ${row.shortcode} ${date} sim=${row.similarity.toFixed(2)} — ${row.title || '—'}`,
-      );
+      console.log(`• ${row.shortcode} ${date} — ${row.title || '—'}`);
       if (dryRun) continue;
 
       try {
@@ -130,7 +93,7 @@ async function main(): Promise<void> {
           console.log(`  created diary note #${result.noteId}`);
         } else {
           linked++;
-          console.log(`  linked existing diary note #${result.noteId}`);
+          console.log(`  linked/updated diary note #${result.noteId}`);
         }
       } catch (error) {
         failed++;
@@ -139,7 +102,118 @@ async function main(): Promise<void> {
     }
 
     console.log(
-      `\nDone: created ${created}, linked ${linked}, failed ${failed}` +
+      `\nOwn reels: created ${created}, linked ${linked}, failed ${failed}` +
+        (dryRun ? ' (dry run)' : ''),
+    );
+
+    const videos = await prisma.video.findMany({
+      orderBy: { id: 'asc' },
+      include: { note: { select: { noteDate: true, content: true } } },
+    });
+    const urlWinner = new Map<string, (typeof videos)[number]>();
+    for (const video of videos) {
+      const existing = urlWinner.get(video.url);
+      if (
+        !existing ||
+        (!!video.description && !existing.description) ||
+        (!!video.description === !!existing.description &&
+          video.id < existing.id)
+      ) {
+        urlWinner.set(video.url, video);
+      }
+    }
+    let diaryVideos = [...urlWinner.values()].sort((a, b) => a.id - b.id);
+    if (limit) diaryVideos = diaryVideos.slice(0, limit);
+
+    if (skipAnalyze) {
+      const existing = await prisma.reel.findMany({
+        where: { shortcode: { startsWith: 'diary-v' } },
+        select: { shortcode: true },
+      });
+      const haveProxy = new Set(existing.map((row) => row.shortcode));
+      diaryVideos = diaryVideos.filter((video) =>
+        haveProxy.has(shortcodeFor(video.id)),
+      );
+    }
+
+    console.log(
+      `\nDiary-only videos: ${diaryVideos.length} unique` +
+        (skipAnalyze ? ' (existing proxies only)' : '') +
+        '\n',
+    );
+
+    let proxied = 0;
+    let analyzed = 0;
+    let synced = 0;
+    let diaryFailed = 0;
+
+    for (const video of diaryVideos) {
+      const shortcode = shortcodeFor(video.id);
+      const publishedAt = video.note?.noteDate ?? video.createdAt;
+      const description =
+        video.description?.trim() || video.note?.content?.trim() || null;
+
+      let reel = await prisma.reel.findUnique({ where: { shortcode } });
+      console.log(`• ${shortcode} video #${video.id}`);
+
+      if (!reel) {
+        if (dryRun) {
+          console.log('  would create diary-v proxy');
+          proxied++;
+          continue;
+        }
+        reel = await prisma.reel.create({
+          data: {
+            instagramUrl: `https://vlandivir.com/diary/video/${video.id}`,
+            shortcode,
+            source: 'notebook',
+            status: 'ready',
+            videoUrl: video.url,
+            description,
+            publishedAt,
+            meta: { diaryVideoId: video.id },
+          },
+        });
+        proxied++;
+        console.log(`  created reel #${reel.id}`);
+      }
+
+      const needsAnalyze =
+        reel.transcriptStatus !== 'ready' || reel.visionStatus !== 'ready';
+      if (needsAnalyze && !skipAnalyze && !dryRun) {
+        try {
+          console.log('  analyzing (whisper → vision → embed)…');
+          await reelsService.analyzeExistingVideo(reel.id);
+          analyzed++;
+        } catch (error) {
+          diaryFailed++;
+          console.error(`  ANALYZE FAIL: ${String(error)}`);
+        }
+      } else if (needsAnalyze && skipAnalyze) {
+        console.log('  skip analyze');
+      }
+
+      if (dryRun) continue;
+
+      try {
+        const result = await reelsService.syncReelAnalysisIntoNote(reel.id);
+        if (result) {
+          synced++;
+          console.log(
+            `  ${result.updated ? 'updated' : 'unchanged'} note #${result.noteId}`,
+          );
+        } else {
+          console.log('  no diary note linked');
+        }
+      } catch (error) {
+        diaryFailed++;
+        console.error(`  SYNC FAIL: ${String(error)}`);
+      }
+    }
+
+    console.log(
+      `\nDiary videos: proxied ${proxied}, analyzed ${analyzed},` +
+        ` synced ${synced}, failed ${diaryFailed}` +
         (dryRun ? ' (dry run)' : ''),
     );
   } finally {

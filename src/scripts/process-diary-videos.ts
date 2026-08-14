@@ -152,6 +152,9 @@ async function main(): Promise<void> {
         console.log(
           `  skip analyze (already ready), embedding ok=${!!emb[0]?.n}`,
         );
+        if (!dryRun) {
+          await reelsService.syncReelAnalysisIntoNote(reel.id);
+        }
         continue;
       }
 
@@ -184,6 +187,7 @@ async function main(): Promise<void> {
             ` embed=${emb[0]?.n || 0}` +
             (fresh?.title ? ` title="${fresh.title}"` : ''),
         );
+        await reelsService.syncReelAnalysisIntoNote(reel.id);
       } catch (error) {
         failed++;
         console.error(`  FAIL: ${String(error)}`);
