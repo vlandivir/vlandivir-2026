@@ -1,0 +1,549 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_CONNECTION_STRING")
+}
+
+model Note {
+  id         Int       @id @default(autoincrement())
+  content    String    @db.Text
+  rawMessage Json      @db.JsonB
+  noteDate   DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime? @updatedAt
+  deletedAt  DateTime?
+  chatId     BigInt
+  images     Image[]
+  videos     Video[]
+
+  @@index([chatId])
+  @@index([noteDate])
+  @@index([chatId, deletedAt])
+}
+
+model BotResponse {
+  id        Int       @id @default(autoincrement())
+  content   String    @db.Text
+  noteId    Int
+  chatId    BigInt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+
+  @@index([chatId])
+  @@index([noteId])
+}
+
+model Image {
+  id          Int      @id @default(autoincrement())
+  url         String
+  description String?  @db.Text
+  note        Note?    @relation(fields: [noteId], references: [id])
+  noteId      Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Video {
+  id          Int      @id @default(autoincrement())
+  url         String
+  description String?  @db.Text
+  note        Note?    @relation(fields: [noteId], references: [id])
+  noteId      Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Todo {
+  id           Int       @id @default(autoincrement())
+  key          String
+  content      String    @db.Text
+  createdAt    DateTime  @default(now())
+  status       String    @default("new")
+  completedAt  DateTime?
+  priority     String?   @db.VarChar(1)
+  dueDate      DateTime?
+  snoozedUntil DateTime?
+  tags         String[]
+  contexts     String[]
+  projects     String[]
+  chatId       BigInt?
+
+  @@index([key])
+  @@index([chatId])
+}
+
+model Question {
+  id           Int      @id @default(autoincrement())
+  chatId       BigInt
+  questionText String   @db.Text
+  type         String   @default("text") // "text", "number", "binary"
+  createdAt    DateTime @default(now())
+  Answer       Answer[]
+
+  @@index([chatId])
+  @@index([createdAt])
+}
+
+model Answer {
+  id           Int      @id @default(autoincrement())
+  questionId   Int
+  textAnswer   String?  @db.Text
+  numberAnswer Float?
+  answerDate   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  question     Question @relation(fields: [questionId], references: [id])
+
+  @@index([questionId])
+  @@index([answerDate])
+  @@index([createdAt])
+}
+
+model TaskNote {
+  id        Int      @id @default(autoincrement())
+  key       String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  chatId    BigInt
+
+  @@index([key])
+  @@index([chatId])
+}
+
+model TaskImage {
+  id          Int      @id @default(autoincrement())
+  key         String
+  url         String
+  description String?  @db.Text
+  chatId      BigInt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+  @@index([chatId])
+}
+
+enum GtdIdentityProvider {
+  GOOGLE
+  TELEGRAM
+}
+
+enum GtdTaskStatus {
+  ACTIVE
+  COMPLETED
+  CANCELED
+}
+
+enum GtdTaskEventType {
+  CREATED
+  UPDATED
+  PROJECT_CHANGED
+  SNOOZED
+  ROTATED
+  COMPLETED
+  CANCELED
+  ATTACHMENT_ADDED
+}
+
+model GtdWorkspace {
+  id         String        @id @default(cuid())
+  nextOrder  BigInt        @default(0)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  identities GtdIdentity[]
+  projects   GtdProject[]
+  tasks      GtdTask[]
+}
+
+model GtdIdentity {
+  id           String              @id @default(cuid())
+  workspaceId  String
+  workspace    GtdWorkspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  provider     GtdIdentityProvider
+  providerId   String
+  displayName  String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  linkRequests GtdLinkRequest[]
+
+  @@unique([provider, providerId])
+  @@unique([workspaceId, provider])
+  @@index([workspaceId])
+}
+
+model GtdLinkRequest {
+  id                 String      @id @default(cuid())
+  tokenHash          String      @unique
+  telegramIdentityId String
+  telegramIdentity   GtdIdentity @relation(fields: [telegramIdentityId], references: [id], onDelete: Cascade)
+  expiresAt          DateTime
+  consumedAt         DateTime?
+  createdAt          DateTime    @default(now())
+
+  @@index([telegramIdentityId])
+  @@index([expiresAt])
+}
+
+model GtdProject {
+  id          String       @id @default(cuid())
+  workspaceId String
+  workspace   GtdWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  archivedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  tasks       GtdTask[]
+
+  @@index([workspaceId, archivedAt])
+}
+
+model GtdTask {
+  id           String          @id @default(cuid())
+  workspaceId  String
+  workspace    GtdWorkspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId    String?
+  project      GtdProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  content      String          @db.Text
+  status       GtdTaskStatus   @default(ACTIVE)
+  orderKey     BigInt
+  dueDate      DateTime?
+  snoozedUntil DateTime?
+  completedAt  DateTime?
+  canceledAt   DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  events       GtdTaskEvent[]
+  attachments  GtdAttachment[]
+
+  @@index([workspaceId, status, snoozedUntil, orderKey])
+  @@index([workspaceId, projectId, status, orderKey])
+  @@index([workspaceId, dueDate, status, orderKey])
+  @@index([workspaceId, createdAt])
+}
+
+model GtdTaskEvent {
+  id        String           @id @default(cuid())
+  taskId    String
+  task      GtdTask          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  type      GtdTaskEventType
+  metadata  Json             @default("{}")
+  createdAt DateTime         @default(now())
+
+  @@index([taskId, createdAt])
+}
+
+model GtdAttachment {
+  id           String   @id @default(cuid())
+  taskId       String
+  task         GtdTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  storageKey   String   @unique
+  originalName String
+  mimeType     String
+  size         Int
+  createdAt    DateTime @default(now())
+
+  @@index([taskId, createdAt])
+}
+
+model MapPoint {
+  id                     Int       @id @default(autoincrement())
+  name                   String
+  description            String?   @db.Text
+  latitude               Float
+  longitude              Float
+  instagramUrl           String?
+  instagramMeta          Json?     @db.JsonB
+  instagramMetaUpdatedAt DateTime?
+  tags                   String[]  @default([])
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+}
+
+model MapTrack {
+  id                     Int       @id @default(autoincrement())
+  name                   String
+  description            String?   @db.Text
+  instagramUrl           String?
+  instagramMeta          Json?     @db.JsonB
+  instagramMetaUpdatedAt DateTime?
+  tags                   String[]  @default([])
+  points                 Json      @db.JsonB // [[lat, lng], ...]
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+}
+
+model MapTag {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  emoji     String?
+  createdAt DateTime @default(now())
+}
+
+model Reel {
+  id                Int       @id @default(autoincrement())
+  instagramUrl      String
+  shortcode         String    @unique
+  source            String    @default("notebook") // notebook | map | own
+  isOwn             Boolean   @default(false) // authored by me; hideable on the reels page
+  status            String    @default("pending") // pending | ready | error
+  error             String?   @db.Text
+  title             String?
+  description       String?   @db.Text
+  author            String?
+  publishedAt       DateTime?
+  duration          Float?
+  videoUrl          String? // copy in DO Spaces
+  coverUrl          String? // copy in DO Spaces
+  audioUrl          String? // extracted mp3 in DO Spaces
+  transcript        String?   @db.Text
+  transcriptClean   String?   @db.Text // LLM-corrected, split into replicas (one per line)
+  transcriptLang    String?
+  transcriptStatus  String    @default("none") // none | pending | ready | error
+  transcriptError   String?   @db.Text
+  frameUrls         String[]  @default([]) // 1 fps frames in DO Spaces
+  visionDescription String?   @db.Text // LLM description of what happens on screen
+  visionStatus      String    @default("none") // none | pending | ready | error
+  visionError       String?   @db.Text
+  tags              String[]  @default([]) // set by hand, shared MapTag dictionary
+  meta              Json?     @db.JsonB // raw yt-dlp info
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status])
+}
+
+// Unified embeddings for semantic search over reels, notes and images.
+// Rows are written/queried via raw SQL (pgvector); Prisma client can't
+// handle the vector type directly.
+model Embedding {
+  id        Int                         @id @default(autoincrement())
+  kind      String // reel | note | image
+  refId     Int
+  chatId    BigInt? // scope for private notes/images; null for reels
+  content   String                      @db.Text // the text that was embedded
+  embedding Unsupported("vector(1536)")
+  createdAt DateTime                    @default(now())
+  updatedAt DateTime                    @updatedAt
+
+  @@unique([kind, refId])
+}
+
+model ChatSettings {
+  chatId    BigInt   @id
+  timeZone  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- Email ingest (IMAP) ---
+// Accounts are configured via the EMAIL_ACCOUNTS env var; `account` columns
+// hold the short account name from that config (e.g. "personal").
+
+// Per-mailbox IMAP cursor: only messages with UID > lastUid are fetched.
+// If uidValidity reported by the server changes, the cursor resets.
+model EmailSyncState {
+  id          Int      @id @default(autoincrement())
+  account     String
+  mailbox     String   @default("INBOX")
+  uidValidity BigInt
+  lastUid     BigInt   @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([account, mailbox])
+}
+
+// Gmail conversation (X-GM-THRID). The agent reasons per-thread.
+model EmailThread {
+  id            Int            @id @default(autoincrement())
+  account       String
+  gmThreadId    String
+  subject       String?
+  lastMessageAt DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  messages      EmailMessage[]
+
+  @@unique([account, gmThreadId])
+}
+
+model EmailMessage {
+  id             Int               @id @default(autoincrement())
+  account        String
+  gmMsgId        String // X-GM-MSGID, stable Gmail message id
+  thread         EmailThread       @relation(fields: [threadId], references: [id])
+  threadId       Int
+  uid            BigInt
+  mailbox        String            @default("INBOX")
+  messageId      String? // RFC 5322 Message-ID
+  fromAddress    String?
+  fromName       String?
+  toAddresses    String[]          @default([])
+  ccAddresses    String[]          @default([])
+  subject        String?
+  date           DateTime?
+  snippet        String?           @db.Text
+  bodyText       String?           @db.Text
+  bodyHtml       String?           @db.Text // original text/html part when present
+  labels         String[]          @default([])
+  seen           Boolean           @default(false)
+  archived       Boolean           @default(false) // \Inbox removed (kept in All Mail)
+  hidden         Boolean           @default(false) // hidden from the dashboard default view (local only)
+  important      Boolean           @default(false) // pinned into the «Важное» section (local only)
+  hasAttachments Boolean           @default(false)
+  sizeBytes      Int?
+  rawKey         String? // DO Spaces key of the raw .eml (private object)
+  status         String            @default("new") // new | classified | error
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  attachments    EmailAttachment[]
+  actionLog      EmailActionLog[]
+
+  @@unique([account, gmMsgId])
+  @@index([status])
+  @@index([threadId])
+  @@index([date])
+}
+
+// Attachment metadata only; the bytes live inside the raw .eml in Spaces.
+// storageKey is filled later when a rule decides to save the file separately.
+model EmailAttachment {
+  id         Int          @id @default(autoincrement())
+  message    EmailMessage @relation(fields: [messageId], references: [id])
+  messageId  Int
+  filename   String?
+  mimeType   String?
+  sizeBytes  Int?
+  sha256     String?
+  inline     Boolean      @default(false)
+  storageKey String?
+  createdAt  DateTime     @default(now())
+
+  @@index([messageId])
+  @@index([sha256])
+}
+
+// A rule in the catalog: a natural-language condition (used later by the LLM
+// classifier) plus the structured effects to apply when it matches. The
+// condition is authored in NL; the effects are picked explicitly, so the
+// executor only ever runs a known, whitelisted set.
+model EmailRule {
+  id            Int       @id @default(autoincrement())
+  condition     String    @db.Text // NL rule text — also its display title
+  effects       Json      @default("{}") // { markRead?, archive?, hide?, label? }
+  accounts      String[]  @default([]) // empty = all accounts
+  enabled       Boolean   @default(true)
+  priority      Int       @default(0) // higher = evaluated first
+  matchCount    Int       @default(0)
+  lastMatchedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([enabled])
+}
+
+// Audit trail of actions applied to a message (manual or by a rule).
+// `prevState` stores what to restore for an undo (e.g. {"seen": false}).
+model EmailActionLog {
+  id        Int          @id @default(autoincrement())
+  message   EmailMessage @relation(fields: [messageId], references: [id])
+  messageId Int
+  action    String // mark_read | archive | label | hide | notify | ...
+  param     String? // e.g. the label name
+  source    String       @default("manual") // manual | rule
+  ruleId    Int? // set when a rule triggered the action
+  prevState Json? // state before the action, for undo
+  result    String       @default("ok") // ok | error
+  error     String?
+  createdAt DateTime     @default(now())
+
+  @@index([messageId])
+  @@index([createdAt])
+}
+
+// Shared trip photo/video album accessible via an unlisted secret URL.
+model Trip {
+  id                 String        @id @default(cuid())
+  secret             String        @unique
+  title              String
+  ownerContributorId String
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  media              TripMedia[]
+  projects           TripProject[]
+}
+
+model TripMedia {
+  id               String            @id @default(cuid())
+  tripId           String
+  trip             Trip              @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  contentHash      String
+  url              String
+  thumbUrl         String?
+  mimeType         String
+  size             BigInt
+  originalFilename String
+  kind             String // photo | video
+  contributorId    String
+  displayName      String
+  userAgent        String?
+  width            Int?
+  height           Int?
+  durationMs       Int?
+  takenAt          DateTime?
+  cameraModel      String?
+  /// Full EXIF (photos) or ffprobe tags (videos); `{}` = inspected, none.
+  exif             Json?
+  createdAt        DateTime          @default(now())
+  deletedAt        DateTime?
+  projectClips     TripProjectClip[]
+
+  @@unique([tripId, contentHash])
+  @@index([tripId, createdAt])
+  @@index([tripId, deletedAt])
+  @@index([tripId, takenAt])
+  @@index([tripId, originalFilename, size])
+}
+
+// Named CapCut montage projects for trip videos (Google admin only).
+model TripProject {
+  id                Int               @id @default(autoincrement())
+  tripId            String
+  name              String
+  exportZipUrl      String? // CapCut ZIP on Spaces after last successful export
+  exportZipStatus   String? // building | ready | error
+  exportZipError    String?
+  exportZipProgress String? // e.g. "5/28" while building
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  trip              Trip              @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  clips             TripProjectClip[]
+
+  @@index([tripId])
+}
+
+model TripProjectClip {
+  id              Int         @id @default(autoincrement())
+  projectId       Int
+  mediaId         String
+  position        Int // 0-based order within the project
+  trimStartSec    Float? // null = from start
+  trimEndSec      Float? // null = to end
+  trimmedVideoUrl String? // Spaces copy after ffmpeg -c copy trim
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  project         TripProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  media           TripMedia   @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, position])
+  @@index([mediaId])
+}

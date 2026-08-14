@@ -1,0 +1,38 @@
+---
+description: Shared web design system — use site-theme tokens and components only
+globs: web/**/*
+alwaysApply: false
+---
+
+# Web design system
+
+Canonical rules live in [AGENTS.md](../../AGENTS.md) → **Design system (web pages)**. Follow that section; this rule is the short agent-facing checklist.
+
+## Source of truth
+
+- Tokens + shared components: [`web/shared/site-theme.css`](../../web/shared/site-theme.css)
+- Header: [`web/shared/site-header.css`](../../web/shared/site-header.css) + `site-header.js`
+- Page CSS under `web/<page>/` is **layout-only** (grid, spacing, page-specific structure)
+
+## Do
+
+- Colors/spacing/type only via theme tokens (`hsl(var(--primary))`, `var(--v-muted)`, `--v-space-*`, `var(--font-sans)`, …)
+- Reuse theme classes: `.primary-btn`, `.ghost-btn`, `.mini-btn`, `.tool-link`, `.editor-card`, `.tool-block`, `.eyebrow`, `.badge`, `.page-shell` / `.shell`
+- Shared header on content pages; never override `.v-site-header` width
+- New pages: link order `site-theme.css → page styles`; bump `?v=` on CSS changes
+- i18n: one `index.html` + co-located `i18n.js` (see AGENTS.md)
+
+## Don't
+
+- No new hex/rgb/hsl palettes in page CSS (except AGENTS.md allowlist: media overlays, `#000` letterbox, Instagram gradient, canvas/literal color data, subs workbench `--charcoal`/`--coral`/`--yellow`/`--blue`)
+- No page-level `:root` palette redefinitions; no custom `font-family` stacks for UI chrome
+- Don't re-style `.primary-btn` / `.ghost-btn` / header with page-local colors
+- Don't invent parallel card/button systems when theme classes exist
+
+## Quick audit
+
+```bash
+rg -nE '#[0-9a-fA-F]{3,8}\b|rgba?\(|font-family\s*:|^:root\s*\{' web/<page>/styles.css
+```
+
+Justify every hit against the allowlist before merging.

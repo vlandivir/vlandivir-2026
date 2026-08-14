@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Записная книжка рилсов</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/shared/site-theme.css?v=20260801-3" />
+  <link rel="stylesheet" href="/shared/site-header.css?v=20260718-1" />
+  <link rel="stylesheet" href="/shared/app-dialog.css?v=20260805-1" />
+  <link rel="stylesheet" href="/reels/styles.css?v=20260805-2" />
+  <script src="/shared/app-dialog.js?v=20260805-1"></script>
+  <script src="/shared/site-header.js?v=20260801-1" defer></script>
+</head>
+<body>
+  <header data-site-header data-active="" data-lang-none data-lang-ru="/reels" data-lang-en="/reels"></header>
+  <div class="app">
+    <div class="player-pane">
+      <div id="player-stage" class="player-stage">
+        <div id="player-empty" class="player-empty">Выберите ролик в списке — он откроется здесь</div>
+        <video id="player" class="hidden" controls playsinline></video>
+        <div id="player-loading" class="player-loading hidden">
+          <span class="spinner"></span>
+          <span>Загружаем видео…</span>
+        </div>
+        <div id="player-status" class="player-status hidden"></div>
+      </div>
+      <button id="drawer-open" class="pane-fab" title="Открыть панель">📋</button>
+      <div id="edit-hint" class="edit-hint hidden">
+        Режим редактирования: вставьте ссылку на reel в форму, чтобы добавить ролик
+      </div>
+    </div>
+
+    <div id="drawer-overlay" class="drawer-overlay hidden"></div>
+
+    <aside id="side-panel" class="side-panel">
+      <div class="panel-top">
+        <div class="panel-head-row">
+          <a class="panel-brand" href="/">vlandivir</a>
+          <button id="drawer-close" class="ghost-btn icon-btn mobile-only" title="Закрыть">✕</button>
+        </div>
+        <h1 class="panel-title">Записная книжка рилсов</h1>
+        <div class="panel-controls">
+          <div class="search-box">
+            <input id="search-input" type="search" placeholder="Поиск по названию, описанию, автору…" autocomplete="off" />
+          </div>
+          <button id="ask-button" class="ghost-btn icon-btn" title="Спросить у записной книжки">🤖</button>
+          <button id="edit-toggle" class="ghost-btn icon-btn" title="Режим редактирования">✏️</button>
+        </div>
+      </div>
+
+      <div id="ask-panel" class="ask-panel editor-card hidden">
+        <div class="ask-panel-head">
+          <span class="ask-panel-title">🤖 Ответ по записной книжке</span>
+          <button id="ask-close" class="ghost-btn icon-btn" title="Закрыть">✕</button>
+        </div>
+        <div id="ask-answer" class="ask-answer"></div>
+        <div id="ask-sources" class="ask-sources"></div>
+      </div>
+
+      <form id="add-form" class="add-form editor-card hidden">
+        <input id="add-url" type="url" placeholder="https://www.instagram.com/reel/…" autocomplete="off" />
+        <button type="submit" class="primary-btn" id="add-submit">Добавить</button>
+      </form>
+
+      <div id="empty-state" class="empty-state editor-card">
+        Выберите ролик в списке — здесь появится описание и данные
+      </div>
+
+      <div id="reel-details" class="reel-details editor-card hidden"></div>
+
+      <section class="recent-section editor-card">
+        <div class="recent-header">Ролики</div>
+        <div class="list-filters">
+          <select id="filter-author">
+            <option value="">Все авторы</option>
+          </select>
+          <select id="filter-tag">
+            <option value="">Все теги</option>
+          </select>
+          <select id="filter-status">
+            <option value="">Все статусы</option>
+            <option value="ready">✅ Готовые</option>
+            <option value="pending">⏳ В обработке</option>
+            <option value="error">⚠️ С ошибкой</option>
+          </select>
+          <select id="filter-own">
+            <option value="">Все рилсы</option>
+            <option value="others">Скрыть мои</option>
+            <option value="own">Только мои</option>
+          </select>
+        </div>
+        <div id="recent-list"></div>
+        <button id="list-more" class="ghost-btn list-more hidden">Показать ещё</button>
+      </section>
+
+      <div id="access-denied" class="empty-state editor-card hidden">Нет доступа: неверная ссылка на страницу</div>
+    </aside>
+  </div>
+
+  <div id="frames-lightbox" class="frames-lightbox" hidden>
+    <button type="button" class="frames-lightbox__close" id="frames-lightbox-close" aria-label="Закрыть">×</button>
+    <button type="button" class="frames-lightbox__nav frames-lightbox__nav--prev" id="frames-lightbox-prev" aria-label="Предыдущий кадр">‹</button>
+    <button type="button" class="frames-lightbox__nav frames-lightbox__nav--next" id="frames-lightbox-next" aria-label="Следующий кадр">›</button>
+    <div class="frames-lightbox__stage">
+      <div class="frames-lightbox__fit">
+        <img id="frames-lightbox-image" class="frames-lightbox__image" alt="" />
+      </div>
+      <div class="frames-lightbox__meta">
+        <span id="frames-lightbox-counter" class="frames-lightbox__counter"></span>
+        <span id="frames-lightbox-time" class="frames-lightbox__time"></span>
+      </div>
+    </div>
+    <div id="frames-lightbox-strip" class="frames-lightbox__strip" aria-label="Кадры ролика"></div>
+  </div>
+
+  <script src="/reels/app.js?v=20260805-2"></script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  /* Page/body chrome comes from site-theme; keep only page layout below. */
+  color: var(--v-text);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+
+.font-page-header {
+  width: min(1160px, calc(100% - 40px));
+  min-height: 76px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.font-page-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: hsl(var(--foreground));
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.font-page-brand__mark {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid hsl(var(--primary));
+  border-radius: 8px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+}
+
+.font-page-nav a {
+  color: hsl(var(--primary) / 0.9);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.font-page-nav a:hover {
+  text-decoration: underline;
+}
+
+.font-page {
+  width: min(1160px, calc(100% - 40px));
+  margin: 0 auto 48px;
+}
+
+.font-page-intro {
+  margin-bottom: 24px;
+}
+
+.font-page-intro h1 {
+  margin: 0 0 8px;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.1;
+}
+
+.font-page-intro__lead {
+  margin: 0;
+  max-width: 62ch;
+  color: hsl(var(--shadcn-muted-foreground));
+}
+
+.font-page-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.font-page-search {
+  flex: 1 1 220px;
+}
+
+.font-page-search input {
+  width: 100%;
+}
+
+.font-page-count {
+  margin: 0;
+  color: hsl(var(--shadcn-muted-foreground));
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.font-page-status {
+  margin: 12px 0 0;
+  color: hsl(var(--primary) / 0.9);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.font-page-status--error {
+  color: hsl(var(--destructive));
+}
+
+.font-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.font-row {
+  border: 1px solid hsl(var(--shadcn-border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+  box-shadow: var(--v-shadow);
+}
+
+.font-row__label {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 20px;
+  cursor: pointer;
+}
+
+.font-row__checkbox {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  accent-color: hsl(var(--primary));
+}
+
+.font-row__body {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: clamp(16px, 3vw, 32px);
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.font-row__name {
+  flex: 0 0 auto;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 400;
+  line-height: 1;
+  color: hsl(var(--foreground));
+}
+
+.font-row__sample {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: clamp(22px, 3.2vw, 32px);
+  font-weight: 400;
+  line-height: 1;
+  color: hsl(var(--shadcn-muted-foreground));
+}
+
+.font-row__downloads {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--v-muted);
+  white-space: nowrap;
+}
+
+.font-row__download {
+  color: hsl(var(--primary) / 0.9);
+  text-decoration: none;
+}
+
+.font-row__download:hover {
+  text-decoration: underline;
+}
+
+.font-row:has(.font-row__checkbox:checked) {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 1px hsl(var(--primary)), var(--v-shadow);
+}
+
+@media (max-width: 640px) {
+  .font-page-header,
+  .font-page {
+    width: min(100%, calc(100% - 24px));
+  }
+}

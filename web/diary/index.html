@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Дневник</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/shared/site-theme.css?v=20260801-3" />
+  <link rel="stylesheet" href="/shared/site-header.css?v=20260718-1" />
+  <link rel="stylesheet" href="/shared/app-dialog.css?v=20260805-1" />
+  <link rel="stylesheet" href="/diary/styles.css?v=20260803-1" />
+  <script src="/shared/app-dialog.js?v=20260805-1"></script>
+  <script src="/shared/site-header.js?v=20260801-1" defer></script>
+  <script src="/diary/app.js?v=20260805-1" defer></script>
+</head>
+<body>
+  <header data-site-header data-active="" data-lang-none data-lang-ru="/diary" data-lang-en="/diary"></header>
+
+  <main class="page-shell diary-page">
+    <!-- Calendar (year-agnostic day-of-month grid) -->
+    <section id="calendar-view" class="diary-view">
+      <div class="diary-top">
+        <div>
+          <p class="eyebrow">Дневник</p>
+          <h1 class="page-title">Календарь</h1>
+        </div>
+        <a id="archive-link" class="ghost-btn" href="/diary/archive">Архив</a>
+      </div>
+      <p id="calendar-hint" class="muted">Выберите день, чтобы посмотреть записи за все годы.</p>
+      <div id="months" class="months"></div>
+    </section>
+
+    <!-- One day-of-month, notes grouped by year -->
+    <section id="day-view" class="diary-view hidden">
+      <div class="diary-top">
+        <div>
+          <a id="back-link" class="ghost-btn" href="/diary">← Календарь</a>
+          <h1 id="day-title" class="page-title"></h1>
+        </div>
+      </div>
+      <div id="years" class="years"></div>
+      <p id="day-empty" class="muted hidden">Записей за этот день пока нет.</p>
+    </section>
+
+    <!-- Soft-deleted notes -->
+    <section id="archive-view" class="diary-view hidden">
+      <div class="diary-top">
+        <div>
+          <a id="archive-back-link" class="ghost-btn" href="/diary">← Календарь</a>
+          <h1 class="page-title">Архив</h1>
+        </div>
+      </div>
+      <p class="muted">Удалённые записи. Их можно восстановить.</p>
+      <div id="archive-list" class="archive-list"></div>
+      <p id="archive-empty" class="muted hidden">Архив пуст.</p>
+    </section>
+
+    <p id="error" class="diary-error hidden"></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vlandivir-server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["dist/main.js"],
+      "port": 3000
+    },
+    {
+      "name": "vlandivir-server-3210",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["PORT=3210", "node", "dist/main.js"],
+      "port": 3210
+    },
+    {
+      "name": "vlandivir-server-auto",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["dist/main.js"],
+      "autoPort": true
+    }
+  ]
+}

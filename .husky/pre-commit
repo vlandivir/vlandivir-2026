@@ -1,0 +1,7 @@
+echo "Running Prettier..."
+npm run format || exit 1
+git add -A
+
+echo "Running ESLint..."
+npm run lint || exit 1
+git add -A

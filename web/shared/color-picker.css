@@ -1,0 +1,239 @@
+.color-picker {
+  position: relative;
+}
+
+.color-picker__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.color-picker__trigger {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--color-picker-line, hsl(var(--shadcn-border)));
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--color-picker-surface, hsl(var(--popover)));
+  color: var(--color-picker-muted, hsl(var(--shadcn-muted-foreground)));
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+}
+
+.color-picker__selected-swatch {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border: 1px solid var(--color-picker-line, hsl(var(--shadcn-border)));
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+}
+
+.color-picker__selected-swatch.is-none,
+.color-picker__swatch.is-none {
+  background:
+    linear-gradient(
+      135deg,
+      transparent 46%,
+      #d44 47%,
+      #d44 53%,
+      transparent 54%
+    ),
+    linear-gradient(45deg, #f5f5f5 25%, transparent 25%),
+    linear-gradient(-45deg, #f5f5f5 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #f5f5f5 75%),
+    linear-gradient(-45deg, transparent 75%, #f5f5f5 75%);
+  background-color: #fff;
+  background-position:
+    0 0,
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+  background-size:
+    100% 100%,
+    16px 16px,
+    16px 16px,
+    16px 16px,
+    16px 16px;
+}
+
+.color-picker__selected-swatch.is-inherit {
+  border-style: dashed;
+  background:
+    linear-gradient(45deg, #eef1f0 25%, transparent 25%),
+    linear-gradient(-45deg, #eef1f0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #eef1f0 75%),
+    linear-gradient(-45deg, transparent 75%, #eef1f0 75%);
+  background-color: #fff;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+  background-size:
+    16px 16px,
+    16px 16px,
+    16px 16px,
+    16px 16px;
+}
+
+.color-picker__panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  display: none;
+  width: min(330px, calc(100vw - 48px));
+  border: 1px solid var(--color-picker-line, hsl(var(--shadcn-border)));
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--color-picker-surface, hsl(var(--popover)));
+  box-shadow: var(--shadcn-popover-shadow);
+}
+
+.color-picker.is-open .color-picker__panel {
+  display: grid;
+  gap: 9px;
+}
+
+.color-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.color-picker__swatch {
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 1;
+  border: 1px solid rgba(16, 24, 28, 0.18);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.color-picker__swatch.is-active {
+  outline: 2px solid var(--color-picker-active, hsl(var(--primary)));
+  outline-offset: 2px;
+}
+
+.color-picker__selected-swatch.has-alpha,
+.color-picker__swatch.has-alpha {
+  background:
+    linear-gradient(
+      var(--color-picker-swatch-color, transparent),
+      var(--color-picker-swatch-color, transparent)
+    ),
+    linear-gradient(45deg, #e6e8eb 25%, transparent 25%),
+    linear-gradient(-45deg, #e6e8eb 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e6e8eb 75%),
+    linear-gradient(-45deg, transparent 75%, #e6e8eb 75%);
+  background-color: #fff;
+  background-position:
+    0 0,
+    0 0,
+    0 5px,
+    5px -5px,
+    -5px 0;
+  background-size:
+    100% 100%,
+    10px 10px,
+    10px 10px,
+    10px 10px,
+    10px 10px;
+}
+
+.color-picker__swatch.is-family-active:not(.is-active) {
+  box-shadow: 0 0 0 2px var(--color-picker-family-active, hsl(var(--primary) / 0.2));
+}
+
+.color-picker__swatch--split {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: none;
+}
+
+.color-picker__swatch--split::before,
+.color-picker__swatch--split::after {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  content: '';
+}
+
+.color-picker__swatch--split::before {
+  left: -1px;
+  width: calc(50% + 1px);
+  background: #fff;
+}
+
+.color-picker__swatch--split::after {
+  right: -1px;
+  width: calc(50% + 1px);
+  background: #000;
+}
+
+.color-picker__reset {
+  display: inline-flex;
+  width: 36px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-picker-line, hsl(var(--shadcn-border)));
+  border-radius: 8px;
+  background: var(--color-picker-surface, hsl(var(--popover)));
+  color: var(--color-picker-muted, hsl(var(--shadcn-muted-foreground)));
+  cursor: pointer;
+}
+
+.color-picker__reset svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+}
+
+.color-picker__reset.is-active {
+  border-color: var(--color-picker-active, hsl(var(--primary)));
+  color: var(--color-picker-active, hsl(var(--primary)));
+}
+
+.color-picker__custom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.color-picker__custom-input,
+.color-picker__custom-apply {
+  min-height: 36px;
+  border: 1px solid var(--color-picker-line, hsl(var(--shadcn-border)));
+  border-radius: 8px;
+  background: var(--color-picker-surface, hsl(var(--popover)));
+  color: var(--color-picker-muted, hsl(var(--shadcn-muted-foreground)));
+  font: inherit;
+}
+
+.color-picker__custom-input {
+  min-width: 0;
+  padding: 7px 9px;
+}
+
+.color-picker__custom-input.is-invalid {
+  border-color: hsl(var(--destructive));
+}
+
+.color-picker__custom-apply {
+  padding: 0 10px;
+  cursor: pointer;
+  font-weight: 800;
+}

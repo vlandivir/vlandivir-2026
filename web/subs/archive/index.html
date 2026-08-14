@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Архив видео, стилей и позиций редактора субтитров ASS." />
+<title>Архив — Subs ASS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/shared/site-theme.css?v=20260801-3" />
+<link rel="stylesheet" href="/shared/site-header.css?v=20260718-1" />
+<link rel="stylesheet" href="/subs/styles.css?v=20260801-1" />
+<link rel="stylesheet" href="/subs/archive/archive.css?v=20260801-1" />
+<script src="/subs/fonts-shared.js?v=20260712-1"></script>
+<script src="/shared/site-header.js?v=20260801-1" defer></script>
+<script src="/subs/archive/archive.js?v=20260517-2" defer></script>
+</head>
+<body>
+<header data-site-header data-active="subs" data-lang-ru="/subs/archive" data-lang-en="/subs/en"></header>
+
+<main class="archive-page">
+  <header class="archive-page__intro">
+    <p class="eyebrow">IndexedDB</p>
+    <h1>Архив</h1>
+    <p class="archive-page__lead">Записи, убранные из редактора. Старые видео и реплики продолжают ссылаться на них по <code>id</code>. Восстановление не предусмотрено.</p>
+  </header>
+
+  <section class="saved-links archive-section" aria-labelledby="archive-videos-title">
+    <h2 id="archive-videos-title">Видео</h2>
+    <div class="links-list" id="archiveVideosList"></div>
+    <p class="empty-state" id="archiveVideosEmpty">В архиве нет видео.</p>
+  </section>
+
+  <section class="saved-links archive-section" aria-labelledby="archive-styles-title">
+    <h2 id="archive-styles-title">Стили</h2>
+    <div class="links-list" id="archiveStylesList"></div>
+    <p class="empty-state" id="archiveStylesEmpty">В архиве нет стилей.</p>
+  </section>
+
+  <section class="saved-links archive-section" aria-labelledby="archive-positions-title">
+    <h2 id="archive-positions-title">Позиции</h2>
+    <div class="links-list" id="archivePositionsList"></div>
+    <p class="empty-state" id="archivePositionsEmpty">В архиве нет позиций.</p>
+  </section>
+</main>
+</body>
+</html>

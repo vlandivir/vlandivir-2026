@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trip Montage</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app page-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">vlandivir</p>
+          <h1>Trip Montage</h1>
+        </div>
+        <div class="topbar-actions">
+          <span id="userLabel" class="user-label"></span>
+          <button id="loginBtn" class="primary-btn" type="button">
+            Войти через Google
+          </button>
+          <button id="logoutBtn" class="ghost-btn" type="button" hidden>
+            Выйти
+          </button>
+        </div>
+      </header>
+
+      <p id="status" class="status" hidden></p>
+
+      <section id="loginView" class="panel">
+        <p class="lead">
+          Войдите тем же Google-аккаунтом, что и на сайте. Монтаж и локальный
+          export для CapCut — здесь; на вебе остаются просмотр и выбор клипов.
+        </p>
+      </section>
+
+      <section id="tripsView" class="panel" hidden>
+        <div class="panel-head">
+          <h2>Альбомы</h2>
+          <div class="panel-head-actions">
+            <button id="openCacheBtn" class="ghost-btn" type="button">Кэш</button>
+            <button id="refreshTripsBtn" class="ghost-btn" type="button">
+              Обновить
+            </button>
+          </div>
+        </div>
+        <div id="tripsList" class="trips-list"></div>
+      </section>
+
+      <section id="cacheView" class="panel album-page" hidden>
+        <div class="panel-head">
+          <button id="cacheBackBtn" class="ghost-btn" type="button">
+            ← Альбомы
+          </button>
+          <h2>Локальный кэш</h2>
+          <div class="panel-head-actions">
+            <button id="cacheClearBtn" class="ghost-btn" type="button">
+              Очистить кэш
+            </button>
+            <span id="cachePageStats" class="muted cache-stats" title=""></span>
+          </div>
+        </div>
+
+        <div class="album-split">
+          <div class="album-list editor-card">
+            <div class="panel-head album-list__head">
+              <h3>Файлы</h3>
+              <span id="cacheFileCount" class="muted"></span>
+            </div>
+            <div id="cacheGallery" class="media-list"></div>
+          </div>
+
+          <aside class="album-preview editor-card">
+            <div id="cachePreviewEmpty" class="preview-empty muted">
+              Выберите файл слева
+            </div>
+            <div id="cachePreviewBody" class="preview-body" hidden>
+              <div class="preview-stage">
+                <video
+                  id="cachePreviewVideo"
+                  class="preview-video"
+                  controls
+                  playsinline
+                  hidden
+                ></video>
+                <img id="cachePreviewImage" class="preview-image" alt="" hidden />
+              </div>
+              <div class="preview-meta">
+                <h3 id="cachePreviewName">…</h3>
+                <p id="cachePreviewMeta" class="muted"></p>
+                <p id="cachePreviewPath" class="muted cache-path"></p>
+                <div id="cachePreviewAlbums" class="cache-membership"></div>
+                <div id="cachePreviewProjects" class="cache-membership"></div>
+                <div class="preview-actions">
+                  <button
+                    id="cacheRemoveFileBtn"
+                    class="ghost-btn danger-btn"
+                    type="button"
+                  ></button>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="albumView" class="panel album-page" hidden>
+        <div class="panel-head">
+          <button id="backBtn" class="ghost-btn" type="button">← Альбомы</button>
+          <h2 id="albumTitle">…</h2>
+          <div class="panel-head-actions">
+            <button id="openCacheFromAlbumBtn" class="ghost-btn" type="button">
+              Кэш
+            </button>
+            <span id="cacheStats" class="muted cache-stats" title=""></span>
+          </div>
+        </div>
+
+        <div class="project-bar editor-card">
+          <div class="project-bar__head">
+            <p class="project-bar__label">Проекты</p>
+            <form id="createProjectForm" class="create-row project-bar__create">
+              <input
+                id="projectNameInput"
+                type="text"
+                maxlength="120"
+                placeholder="Новый проект…"
+                required
+              />
+              <button class="primary-btn" type="submit">Создать</button>
+            </form>
+          </div>
+          <div id="projectList" class="project-list" role="listbox" aria-label="Проекты"></div>
+          <div id="projectActions" class="project-bar__actions" hidden>
+            <button id="openProjectBtn" class="primary-btn" type="button">
+              Открыть
+            </button>
+            <button id="exportProjectBtn" class="ghost-btn" type="button">
+              Export
+            </button>
+            <button id="renameProjectBtn" class="ghost-btn" type="button">
+              Переименовать
+            </button>
+            <button id="deleteProjectBtn" class="ghost-btn danger-btn" type="button">
+              Удалить
+            </button>
+          </div>
+        </div>
+
+        <div class="album-split">
+          <div class="album-list editor-card">
+            <div class="panel-head album-list__head">
+              <h3>Медиа</h3>
+              <span id="mediaCount" class="muted"></span>
+            </div>
+            <div id="gallery" class="media-list"></div>
+          </div>
+
+          <aside class="album-preview editor-card">
+            <div id="albumPreviewEmpty" class="preview-empty muted">
+              Выберите видео слева
+            </div>
+            <div id="albumPreviewBody" class="preview-body" hidden>
+              <div class="preview-stage">
+                <img id="albumPreviewImage" class="preview-image" alt="" hidden />
+                <video id="albumPreviewVideo" class="preview-video" controls playsinline hidden></video>
+                <div id="albumPreviewNeedCache" class="preview-need-cache" hidden>
+                  <p class="muted">
+                    Видео ещё не загружено локально. Без локальной копии
+                    проигрывание и обрезка недоступны.
+                  </p>
+                  <button id="albumDownloadBtn" class="primary-btn" type="button"></button>
+                  <div id="albumDownloadProgress" class="cache-progress" hidden>
+                    <div class="progress">
+                      <div id="albumDownloadProgressBar" class="progress-bar"></div>
+                    </div>
+                    <p id="albumDownloadProgressLabel" class="muted cache-progress__label">
+                      0%
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="preview-meta">
+                <h3 id="albumPreviewName">…</h3>
+                <p id="albumPreviewMeta" class="muted"></p>
+                <p id="albumPreviewCache" class="muted"></p>
+                <div id="albumPreviewCacheActions" class="preview-actions" hidden>
+                  <button
+                    id="albumRemoveCacheBtn"
+                    class="ghost-btn danger-btn"
+                    type="button"
+                  ></button>
+                </div>
+                <div id="albumPreviewProjectActions" class="preview-actions" hidden>
+                  <button id="albumToggleProjectBtn" class="ghost-btn" type="button"></button>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+
+    <dialog id="projectLightbox" class="project-lightbox">
+      <div class="project-lightbox__shell">
+        <header class="project-lightbox__head">
+          <div>
+            <p class="section-kicker">CapCut</p>
+            <h2 id="lightboxProjectTitle">Проект</h2>
+            <p id="lightboxProjectStats" class="muted project-stats"></p>
+          </div>
+          <div class="project-lightbox__head-actions">
+            <span id="lightboxCacheStats" class="muted cache-stats" title=""></span>
+            <button id="lightboxExportBtn" class="primary-btn" type="button">
+              Export в папку
+            </button>
+            <button
+              id="closeLightboxBtn"
+              class="ghost-btn icon-btn"
+              type="button"
+              aria-label="Закрыть"
+            ></button>
+          </div>
+        </header>
+
+        <div class="project-lightbox__body">
+          <div class="project-lightbox__preview">
+            <div class="preview-stage">
+              <video id="lightboxVideo" class="preview-video" controls playsinline hidden></video>
+              <div id="lightboxNeedCache" class="preview-need-cache" hidden>
+                <p class="muted">
+                  Клип ещё не загружен локально. Скачайте его, чтобы смотреть и
+                  задавать границы обрезки.
+                </p>
+                <button id="lightboxDownloadBtn" class="primary-btn" type="button"></button>
+                <div id="lightboxDownloadProgress" class="cache-progress" hidden>
+                  <div class="progress">
+                    <div id="lightboxDownloadProgressBar" class="progress-bar"></div>
+                  </div>
+                  <p id="lightboxDownloadProgressLabel" class="muted cache-progress__label">
+                    0%
+                  </p>
+                </div>
+              </div>
+            </div>
+            <p id="lightboxDownloadStatus" class="muted"></p>
+            <div id="lightboxCacheActions" class="preview-actions" hidden>
+              <button
+                id="lightboxRemoveCacheBtn"
+                class="ghost-btn danger-btn"
+                type="button"
+              ></button>
+            </div>
+          </div>
+
+          <aside class="project-lightbox__side editor-card">
+            <div id="lightboxClipEmpty" class="preview-empty muted">
+              Выберите клип на линейке ниже
+            </div>
+            <div id="lightboxClipInfo" class="clip-panel" hidden>
+              <header class="clip-panel__head">
+                <h3 id="lightboxClipName">…</h3>
+                <p id="lightboxClipMeta" class="muted"></p>
+                <p id="lightboxClipTrim" class="badge"></p>
+              </header>
+
+              <section class="clip-panel__section">
+                <p class="section-kicker">Отрезок</p>
+                <div class="trim-fields">
+                  <label>
+                    Старт, с
+                    <input id="trimStartInput" type="number" min="0" step="0.1" />
+                  </label>
+                  <label>
+                    Конец, с
+                    <input id="trimEndInput" type="number" min="0" step="0.1" />
+                  </label>
+                </div>
+                <div class="tool-grid">
+                  <button id="markStartBtn" class="ghost-btn" type="button"></button>
+                  <button id="markEndBtn" class="ghost-btn" type="button"></button>
+                  <button id="saveTrimBtn" class="primary-btn" type="button"></button>
+                  <button id="resetTrimBtn" class="ghost-btn" type="button"></button>
+                </div>
+              </section>
+
+              <section class="clip-panel__section">
+                <p class="section-kicker">В проекте</p>
+                <div class="tool-row">
+                  <button
+                    id="moveClipUpBtn"
+                    class="ghost-btn icon-btn"
+                    type="button"
+                    aria-label="Выше"
+                    title="Выше"
+                  ></button>
+                  <button
+                    id="moveClipDownBtn"
+                    class="ghost-btn icon-btn"
+                    type="button"
+                    aria-label="Ниже"
+                    title="Ниже"
+                  ></button>
+                  <button id="removeClipBtn" class="ghost-btn danger-btn" type="button"></button>
+                </div>
+              </section>
+            </div>
+          </aside>
+        </div>
+
+        <div class="project-lightbox__timeline">
+          <div class="panel-head">
+            <h3>Линейка</h3>
+            <span id="timelineSummary" class="muted"></span>
+          </div>
+          <div id="timelineTrack" class="timeline-track"></div>
+        </div>
+      </div>
+    </dialog>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

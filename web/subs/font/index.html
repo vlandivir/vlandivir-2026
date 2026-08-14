@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Выбор шрифтов для редактора субтитров ASS." />
+<title>Шрифты — Subs ASS</title>
+<link rel="stylesheet" href="/subs/fonts/fonts.css?v=20260712-1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/shared/site-theme.css?v=20260801-3" />
+<link rel="stylesheet" href="/shared/site-header.css?v=20260718-1" />
+<link rel="stylesheet" href="/subs/font/font.css?v=20260801-1" />
+<script src="/subs/fonts-shared.js?v=20260712-1"></script>
+<script src="/shared/site-header.js?v=20260801-1" defer></script>
+<script src="/subs/font/font.js?v=20260517-3" defer></script>
+</head>
+<body>
+<header data-site-header data-active="subs" data-lang-ru="/font" data-lang-en="/subs/en"></header>
+
+<main class="font-page">
+  <section class="font-page-intro">
+    <h1>Шрифты для субтитров</h1>
+    <p class="font-page-intro__lead">
+      Отметьте семейства, которые должны появляться в списке при создании стиля.
+      Снять галочку можно с любого шрифта, включая Montserrat и Bebas.
+    </p>
+    <div class="font-page-toolbar">
+      <label class="font-page-search">
+        <span class="visually-hidden">Поиск</span>
+        <input id="fontSearchInput" type="search" placeholder="Поиск по названию…" autocomplete="off" />
+      </label>
+      <p class="font-page-count" id="fontCountLabel" aria-live="polite"></p>
+    </div>
+    <p class="font-page-status" id="fontStatus" hidden></p>
+  </section>
+
+  <ul class="font-list" id="fontList" aria-label="Каталог шрифтов"></ul>
+</main>
+</body>
+</html>

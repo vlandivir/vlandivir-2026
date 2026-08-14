@@ -1,0 +1,24 @@
+---
+description: Do new work on a feature branch, never commit directly to main
+alwaysApply: true
+---
+
+# Feature branches, not main
+
+Every new task must be done on a dedicated git branch. Do **not** implement, commit, or push task work directly on `main`.
+
+## Start of a task
+
+1. Check the current branch (`git branch --show-current` / `git status`).
+2. If on `main` (or about to start fresh work), create and switch to a branch first, e.g. `git checkout -b short-topic-name`.
+3. Use a short descriptive name (`fix-trip-upload`, `add-map-nav`, …).
+
+## During the task
+
+- Keep all commits on that branch.
+- Do not merge to `main` unless the user explicitly asks.
+- Push the feature branch when the user asks to push (not `main` unless they say so).
+
+## Exceptions
+
+Only work on `main` if the user explicitly says to use `main` for that task.

@@ -1,0 +1,42 @@
+.archive-page {
+  width: min(100% - 40px, 920px);
+  margin: 0 auto;
+  padding: 28px 0 80px;
+  display: grid;
+  gap: 36px;
+}
+
+.archive-page__intro h1 {
+  margin-bottom: 0;
+}
+
+.archive-page__lead {
+  margin: 10px 0 0;
+  max-width: 58ch;
+  color: hsl(var(--shadcn-muted-foreground));
+}
+
+.archive-section h2 {
+  margin-bottom: 16px;
+}
+
+.archive-item {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.archive-item h3 {
+  margin-bottom: 0;
+}
+
+.archive-item__dates {
+  color: hsl(var(--shadcn-muted-foreground));
+  font-size: 14px;
+}
+
+.archive-item__id {
+  margin: 4px 0 0;
+  color: var(--blue);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}

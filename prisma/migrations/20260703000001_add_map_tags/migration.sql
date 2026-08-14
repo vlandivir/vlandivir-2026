@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "MapPoint" ADD COLUMN "tags" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+
+-- AlterTable
+ALTER TABLE "MapTrack" ADD COLUMN "tags" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

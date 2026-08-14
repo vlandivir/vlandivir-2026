@@ -1,0 +1,124 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Avoid hour-long hung runners when GitHub/Azure I/O flakes.
+    timeout-minutes: 25
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    # Kernel 6.17+ on Azure can set read_ahead_kb=4096 for rotational disks,
+    # flooding page cache during Docker builds so the runner loses contact with
+    # GitHub ("hosted runner lost communication with the server").
+    # See https://github.com/actions/runner-images/issues/13770
+    - name: Mitigate Azure disk readahead thrashing
+      run: |
+        for path in /sys/block/sd*/queue/read_ahead_kb /sys/block/nvme*/queue/read_ahead_kb; do
+          for dev in $path; do
+            [ -e "$dev" ] || continue
+            echo 128 | sudo tee "$dev" >/dev/null
+            echo "$dev=$(cat "$dev")"
+          done
+        done
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+
+    - name: Generate tag name
+      id: tag
+      run: echo "TAG_NAME=$(date +%Y%m%d%H%M)" >> $GITHUB_OUTPUT
+
+    - name: Login to DigitalOcean Container Registry
+      uses: docker/login-action@v4
+      with:
+        registry: registry.digitalocean.com
+        username: ${{ secrets.DO_REGISTRY_TOKEN }}
+        password: ${{ secrets.DO_REGISTRY_TOKEN }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: registry.digitalocean.com/vlandivir-main/vlandivir-2025:${{ steps.tag.outputs.TAG_NAME }}
+        build-args: |
+          TAG_NAME=${{ steps.tag.outputs.TAG_NAME }}
+          ENVIRONMENT=PROD
+          TELEGRAM_BOT_TOKEN=${{ secrets.VLANDIVIR_2025_BOT_TOKEN }}
+          POSTGRES_CONNECTION_STRING=${{ secrets.POSTGRES_CONNECTION_STRING }}
+          DO_SPACES_ACCESS_KEY=${{ secrets.DO_SPACES_ACCESS_KEY }}
+          DO_SPACES_SECRET_KEY=${{ secrets.DO_SPACES_SECRET_KEY }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          VLANDIVIR_2025_WEBHOOK_URL=${{ secrets.VLANDIVIR_2025_WEBHOOK_URL }}
+          NOTE_API_KEY=${{ secrets.NOTE_API_KEY }}
+          MAP_API_KEY=${{ secrets.MAP_API_KEY }}
+          MCP_API_KEY=${{ secrets.MCP_API_KEY }}
+          EMAIL_ACCOUNTS=${{ secrets.EMAIL_ACCOUNTS }}
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+          ALLOWED_GOOGLE_EMAILS=${{ secrets.ALLOWED_GOOGLE_EMAILS }}
+          TELEGRAM_OWNER_CHAT_ID=${{ secrets.TELEGRAM_OWNER_CHAT_ID }}
+          TELEGRAM_CHANNEL_IDS=${{ secrets.TELEGRAM_CHANNEL_IDS }}
+
+    - name: Clean up old Docker images
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DIGITAL_OCEAN_IP }}
+        username: root
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        command_timeout: 5m
+        script: |
+          echo "Cleaning up old vlandivir-2025 Docker images before deployment..."
+
+          # Remove old vlandivir-2025 images, keeping only the 3 most recent
+          docker images registry.digitalocean.com/vlandivir-main/vlandivir-2025 --format "table {{.Repository}}:{{.Tag}}\t{{.CreatedAt}}" | \
+            tail -n +2 | \
+            sort -k2 -r | \
+            tail -n +4 | \
+            awk '{print $1}' | \
+            xargs -r docker rmi || true
+
+          # Remove dangling images
+          docker image prune -f
+
+          # Remove unused images older than 24 hours
+          docker image prune -a --filter "until=24h" -f
+
+          # Show remaining images for verification
+          echo "Remaining vlandivir-2025 images:"
+          docker images registry.digitalocean.com/vlandivir-main/vlandivir-2025
+
+          # Show disk space before deployment
+          echo "Disk space before deployment:"
+          df -h /var/lib/docker
+
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DIGITAL_OCEAN_IP }}
+        username: root
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        command_timeout: 10m
+        script: |
+          docker pull registry.digitalocean.com/vlandivir-main/vlandivir-2025:${{ steps.tag.outputs.TAG_NAME }}
+          docker stop vlandivir-2025 || true
+          docker rm vlandivir-2025 || true
+          docker run -d -p 443:443 -e ENVIRONMENT=PROD \
+            -e YTDLP_COOKIES_FILE=/usr/src/app/.secret/cookies/instagram-cookies.txt \
+            --restart unless-stopped \
+            -v /etc/letsencrypt/live/vlandivir.com/fullchain.pem:/usr/src/app/.secret/fullchain.pem:ro \
+            -v /etc/letsencrypt/live/vlandivir.com/privkey.pem:/usr/src/app/.secret/privkey.pem:ro \
+            -v /root/secrets:/usr/src/app/.secret/cookies \
+            --name vlandivir-2025 \
+            registry.digitalocean.com/vlandivir-main/vlandivir-2025:${{ steps.tag.outputs.TAG_NAME }}

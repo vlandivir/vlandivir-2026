@@ -1,0 +1,21 @@
+---
+description: Where code lives in this experimental monorepo — read before searching
+alwaysApply: true
+---
+
+# Repo orientation
+
+Personal experimental server for https://vlandivir.com. Mixed stacks are expected. Do not unify Nest, vanilla `web/`, React `telegram-app/`, SwiftUI `mobile/`, or Tauri `desktop/` unless asked.
+
+**Map:** [docs/repo-map.md](docs/repo-map.md). Architecture: [docs/project-overview.md](docs/project-overview.md). Access: [docs/authorization.md](docs/authorization.md). Web CSS: [web-design-system.mdc](web-design-system.mdc).
+
+| Path | What |
+|---|---|
+| `src/` | NestJS: APIs, Telegram webhook, Prisma, scripts |
+| `web/<page>/` | Static pages; shared theme in `web/shared/` |
+| `telegram-app/` | Vite GTD + Mini App → served at `/gtd` and `/mini-app` |
+| `desktop/trip-montage/` | Tauri trip export |
+| `mobile/gtd-ios/`, `mobile/gps-tracker-ios/` | Xcode apps |
+| `prisma/` | Shared prod Postgres — never migrate reset |
+
+No nested git repos. Feature branches only, not `main`. New env vars: `.env` + Dockerfile + deploy workflow + GitHub secret.

@@ -1,0 +1,360 @@
+/* Layout-only styles; tokens and components come from /shared/site-theme.css */
+
+.diary-page {
+  padding-bottom: var(--v-space-6);
+}
+
+.diary-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--v-space-3);
+  margin: var(--v-space-4) 0 var(--v-space-3);
+}
+
+.page-title {
+  margin: 4px 0 0;
+  font-size: 26px;
+}
+
+#day-title {
+  margin-top: var(--v-space-2);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.muted {
+  color: var(--v-muted);
+}
+
+.diary-error {
+  margin-top: var(--v-space-3);
+  padding: var(--v-space-3);
+  border: 1px solid hsl(var(--destructive));
+  border-radius: calc(var(--radius) - 2px);
+  color: hsl(var(--destructive));
+}
+
+/* --- Calendar --- */
+
+.months {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--v-space-3);
+  margin-top: var(--v-space-3);
+}
+
+.month-card {
+  padding: var(--v-card-padding);
+}
+
+.month-name {
+  margin: 0 0 var(--v-space-2);
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.day-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--v-muted);
+}
+
+.day-cell.empty {
+  border: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.day-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  min-height: 30px;
+  border: 1px solid hsl(var(--shadcn-border));
+  border-radius: calc(var(--radius) - 3px);
+  background: hsl(var(--background));
+  color: var(--v-text);
+  font-size: 13px;
+  text-decoration: none;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.day-cell:hover {
+  border-color: hsl(var(--shadcn-ring));
+  background: hsl(var(--shadcn-muted));
+}
+
+.day-cell.has-notes {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  font-weight: 700;
+}
+
+/* --- Day view (notes by year) --- */
+
+.years {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-5);
+  margin-top: var(--v-space-3);
+  max-width: 720px;
+}
+
+.year-block {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.year-head {
+  margin: 0 0 var(--v-space-3);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--v-muted);
+}
+
+.note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-5);
+}
+
+.note-item {
+  padding: var(--v-panel-padding);
+  border: 1px solid hsl(var(--shadcn-border));
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+  box-shadow: var(--v-shadow);
+}
+
+.note-meta {
+  margin-bottom: var(--v-space-3);
+}
+
+.note-time,
+.note-date {
+  font-size: 13px;
+  color: var(--v-muted);
+}
+
+.note-editor {
+  display: block;
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--v-text);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.55;
+  resize: none;
+  overflow: hidden;
+}
+
+.note-editor:focus,
+.note-editor:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border-color: transparent;
+}
+
+.note-editor::placeholder {
+  color: var(--v-muted);
+}
+
+.note-media-host:not(:empty) {
+  margin-top: var(--v-space-4);
+}
+
+.note-media {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-4);
+}
+
+/* Full-width media with caption underneath (Day One / memory card). */
+.media-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-2);
+  min-width: 0;
+}
+
+.media-photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: calc(var(--radius) - 2px);
+  background: #000;
+}
+
+.media-caption {
+  min-width: 0;
+}
+
+.media-caption-summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  color: var(--v-muted);
+  user-select: none;
+}
+
+.media-caption-summary::-webkit-details-marker {
+  display: none;
+}
+
+.media-caption-summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: var(--v-space-1);
+  transition: transform 0.12s ease;
+}
+
+.media-caption[open] > .media-caption-summary::before {
+  transform: rotate(90deg);
+}
+
+.media-caption-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-2);
+  margin-top: var(--v-space-2);
+}
+
+.desc-editor {
+  width: 100%;
+  min-height: 88px;
+  padding: var(--v-space-2) var(--v-space-3);
+  border: 1px solid hsl(var(--shadcn-input));
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--background));
+  color: var(--v-text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.desc-editor:focus {
+  outline: none;
+  border-color: hsl(var(--shadcn-ring));
+}
+
+.note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--v-space-2);
+}
+
+/* Unified bottom bar: save / delete / add video / telegram. */
+.note-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--v-space-2);
+  margin-top: var(--v-space-4);
+  padding-top: var(--v-space-3);
+  border-top: 1px solid hsl(var(--shadcn-border));
+}
+
+.video-upload {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--v-space-2);
+  margin-left: auto;
+}
+
+.video-upload-label {
+  cursor: pointer;
+}
+
+.video-upload-label.is-busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.video-upload-notify {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--v-space-1);
+  font-size: 13px;
+  color: var(--v-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.archive-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--v-space-3);
+  margin-top: var(--v-space-3);
+  max-width: 720px;
+}
+
+.archive-note-content {
+  margin: 0 0 var(--v-space-2);
+  white-space: pre-wrap;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.archive-media-desc {
+  margin: 0;
+  font-size: 13px;
+  color: var(--v-muted);
+  white-space: pre-wrap;
+}
+
+.note-status {
+  font-size: 13px;
+  color: var(--v-muted);
+}
+
+.note-status.saved {
+  color: hsl(var(--success));
+}
+
+.note-status.error {
+  color: hsl(var(--destructive));
+}
+
+@media (max-width: 600px) {
+  .diary-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .video-upload {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .note-toolbar .note-status {
+    width: 100%;
+  }
+}

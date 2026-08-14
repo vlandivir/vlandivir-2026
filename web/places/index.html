@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Карта Сербии и окресностей :)</title>
+  <meta name="description" content="Карта Сербии и окресностей :) — места с видео из Instagram" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="/shared/site-theme.css?v=20260801-3" />
+  <link rel="stylesheet" href="/shared/site-header.css?v=20260718-1" />
+  <link rel="stylesheet" href="/shared/app-dialog.css?v=20260805-1" />
+  <link rel="stylesheet" href="/places/styles.css?v=20260719-1" />
+  <script src="/shared/app-dialog.js?v=20260805-1"></script>
+  <script src="/shared/site-header.js?v=20260801-1" defer></script>
+</head>
+<body>
+  <header data-site-header data-active="places" data-lang-none data-lang-ru="/places" data-lang-en="/places"></header>
+  <div class="app">
+    <div class="map-pane">
+      <div id="map"></div>
+      <button id="drawer-open" class="map-fab" title="Открыть панель">📋</button>
+      <div id="edit-hint" class="edit-hint hidden">
+        Режим редактирования: двойной клик добавит точку, 🚴 — загрузит GPX-трек
+      </div>
+    </div>
+
+    <div id="drawer-overlay" class="drawer-overlay hidden"></div>
+
+    <aside id="side-panel" class="side-panel">
+      <div class="panel-top">
+        <div class="panel-head-row">
+          <a class="panel-brand" href="/">vlandivir</a>
+          <button id="drawer-close" class="ghost-btn icon-btn mobile-only" title="Закрыть">✕</button>
+        </div>
+        <h1 class="panel-title">Карта Сербии и окресностей :)</h1>
+        <div class="panel-controls">
+          <div class="search-box">
+            <input id="search-input" type="search" placeholder="Поиск места или ссылка Google Maps…" autocomplete="off" />
+            <div id="search-results" class="search-results hidden"></div>
+          </div>
+          <button id="gpx-upload" class="ghost-btn icon-btn hidden" title="Загрузить GPX-трек">🚴</button>
+          <button id="tag-editor-open" class="ghost-btn icon-btn hidden" title="Редактор тегов">🏷</button>
+          <button id="edit-toggle" class="ghost-btn icon-btn" title="Режим редактирования">✏️</button>
+        </div>
+      </div>
+
+      <div id="empty-state" class="empty-state editor-card">
+        Выберите точку или трек на карте — здесь появится описание и видео
+      </div>
+
+      <div id="feature-details" class="feature-details editor-card hidden"></div>
+
+      <section class="recent-section editor-card">
+        <div class="recent-header">Места</div>
+        <div class="list-filters">
+          <select id="filter-kind">
+            <option value="">Все типы</option>
+            <option value="point">📍 Точки</option>
+            <option value="track">🚴 Треки</option>
+          </select>
+          <select id="filter-author">
+            <option value="">Все авторы</option>
+          </select>
+          <select id="filter-tag">
+            <option value="">Все теги</option>
+          </select>
+        </div>
+        <div id="recent-list"></div>
+        <button id="list-more" class="ghost-btn list-more hidden">Показать ещё</button>
+      </section>
+
+      <input id="gpx-file-input" type="file" accept=".gpx,application/gpx+xml" class="hidden" />
+    </aside>
+  </div>
+
+  <div id="modal-backdrop" class="modal-backdrop hidden">
+    <div id="point-form-modal" class="modal editor-card">
+      <h2 id="form-title">Новая точка</h2>
+      <form id="point-form">
+        <label>Название
+          <input id="form-name" type="text" required maxlength="200" />
+        </label>
+        <label>Описание
+          <textarea id="form-description" rows="3" maxlength="2000"></textarea>
+        </label>
+        <label>Ссылка на Instagram reel
+          <input id="form-instagram" type="url" placeholder="https://www.instagram.com/reel/…" />
+        </label>
+        <div class="form-tags-label">Теги</div>
+        <div id="form-tags" class="form-tags"></div>
+        <div id="form-track-tools" class="form-track-tools hidden">
+          <button type="button" id="form-replace-gpx" class="ghost-btn">🚴 Заменить GPX-файл</button>
+        </div>
+        <div id="form-trim-row" class="form-trim hidden">
+          <label>Обрезать от начала, м
+            <input id="form-trim-start" type="number" min="0" step="50" value="500" />
+          </label>
+          <label>Обрезать от конца, м
+            <input id="form-trim-end" type="number" min="0" step="50" value="500" />
+          </label>
+        </div>
+        <div class="form-coords" id="form-coords"></div>
+        <div class="form-actions">
+          <button type="button" id="form-cancel" class="ghost-btn">Отмена</button>
+          <button type="submit" class="primary-btn">Сохранить</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="tag-editor-modal" class="modal editor-card hidden">
+      <h2>Редактор тегов</h2>
+      <div id="tag-editor-list"></div>
+      <div class="tag-editor-row tag-editor-add">
+        <input id="new-tag-emoji" type="text" maxlength="4" placeholder="🙂" />
+        <input id="new-tag-name" type="text" maxlength="50" placeholder="новый тег" />
+        <button type="button" id="new-tag-add" class="primary-btn">➕</button>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="tag-editor-close" class="ghost-btn">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="/places/app.js?v=20260814-1"></script>
+</body>
+</html>

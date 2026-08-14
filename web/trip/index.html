@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" data-i18n-attr="content:metaDescription" content="Общий альбом поездки: загружайте фото и видео в оригинальном качестве по секретной ссылке." />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://fra1.digitaloceanspaces.com https://*.digitaloceanspaces.com; img-src 'self' https://fra1.digitaloceanspaces.com https://*.digitaloceanspaces.com data: blob:; media-src 'self' https://fra1.digitaloceanspaces.com https://*.digitaloceanspaces.com blob:; frame-src 'none'; base-uri 'none'; form-action 'self'" />
+  <title data-i18n="title">Фото поездки</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/shared/site-theme.css?v=20260801-3" />
+  <link rel="stylesheet" href="/shared/site-header.css?v=20260718-1" />
+  <link rel="stylesheet" href="/shared/app-dialog.css?v=20260805-1" />
+  <link rel="stylesheet" href="/trip/styles.css?v=20260806-4" />
+  <script src="/trip/i18n.js?v=20260806-3"></script>
+  <script src="/shared/i18n.js?v=20260721-1"></script>
+  <script src="/shared/app-dialog.js?v=20260805-1"></script>
+  <script src="/shared/site-header.js?v=20260801-1" defer></script>
+</head>
+<body>
+  <header data-site-header data-active="trip" data-lang-ru="/trip" data-lang-en="/trip/en"></header>
+
+  <main class="page-shell trip-page">
+    <section id="createView" class="tool-block trip-create" hidden>
+      <p class="eyebrow" data-i18n="createKicker">Общий альбом</p>
+      <h1 data-i18n="createTitle">Фото и видео поездки</h1>
+      <p class="trip-lead" data-i18n="createLead">Создайте страницу и отправьте ссылку друзьям — каждый сможет загрузить свои оригиналы.</p>
+      <form id="createForm" class="trip-form">
+        <label>
+          <span data-i18n="labelTripTitle">Название поездки</span>
+          <input id="tripTitleInput" type="text" maxlength="200" required autocomplete="off" data-i18n-attr="placeholder:placeholderTripTitle" placeholder="Например: Черногория 2026" />
+        </label>
+        <label>
+          <span data-i18n="labelYourName">Ваше имя</span>
+          <input id="createNameInput" type="text" maxlength="80" required autocomplete="name" data-i18n-attr="placeholder:placeholderName" placeholder="Как подписывать ваши загрузки" />
+        </label>
+        <button class="primary-btn" type="submit" data-i18n="createCta">Создать альбом</button>
+      </form>
+      <p id="createError" class="trip-error" hidden></p>
+
+      <section id="albumListSection" class="trip-album-list" hidden>
+        <h2 class="section-kicker" data-i18n="myAlbumsTitle">Мои альбомы</h2>
+        <p class="trip-album-list__lead" data-i18n="myAlbumsLead">Созданные вами и те, в которые вы заходили с этого устройства.</p>
+        <ul id="albumList" class="trip-album-list__items"></ul>
+      </section>
+    </section>
+
+    <section id="albumView" class="trip-album" hidden>
+      <header class="trip-album-head">
+        <div>
+          <p class="eyebrow" data-i18n="albumKicker">Альбом поездки</p>
+          <h1 id="albumTitle">…</h1>
+          <p class="trip-meta" id="albumMeta"></p>
+        </div>
+        <div class="trip-album-actions">
+          <button class="ghost-btn" type="button" id="copyLinkBtn" data-i18n="copyLink">Скопировать ссылку</button>
+          <button class="ghost-btn" type="button" id="editTitleBtn" hidden data-i18n="editTitle">Переименовать</button>
+          <button class="ghost-btn" type="button" id="changeNameBtn" data-i18n="changeName">Сменить имя</button>
+          <button class="ghost-btn" type="button" id="toggleDeletedBtn" hidden data-i18n="hideDeleted">Скрыть удалённые</button>
+          <button class="ghost-btn" type="button" id="montageToggleBtn" hidden data-i18n="montageToggle">Монтаж</button>
+          <label class="primary-btn trip-upload-label">
+            <span data-i18n="uploadCta">Загрузить фото и видео</span>
+            <!-- Do not use the HTML `hidden` attribute on file inputs: many
+                 mobile browsers then ignore label clicks and never open the picker. -->
+            <input id="fileInput" class="visually-hidden" type="file" accept="image/*,video/*" multiple />
+          </label>
+        </div>
+      </header>
+
+      <section id="montagePanel" class="trip-montage editor-card" hidden>
+        <div class="trip-montage__head">
+          <div>
+            <p class="section-kicker" data-i18n="montageKicker">CapCut</p>
+            <h2 class="trip-montage__title" data-i18n="montageTitle">Монтажные проекты</h2>
+          </div>
+          <button class="ghost-btn icon-btn" type="button" id="montageCloseBtn" data-i18n-attr="aria-label:montageCloseAria" aria-label="Закрыть">✕</button>
+        </div>
+        <form id="montageCreateForm" class="trip-montage__create">
+          <input id="montageNameInput" type="text" maxlength="120" autocomplete="off" data-i18n-attr="placeholder:montageNamePlaceholder" placeholder="Название проекта…" />
+          <button class="primary-btn" type="submit" data-i18n="montageCreate">Создать</button>
+        </form>
+        <div id="montageProjectsList" class="trip-montage__projects"></div>
+        <div id="montageDetail" class="trip-montage__detail" hidden></div>
+        <p class="trip-montage__hint" data-i18n="montageHint">
+          Создание проектов и выбор клипов — здесь. Обрезка, порядок и сборка папки для CapCut — в desktop-приложении Trip Montage.
+        </p>
+      </section>
+
+      <div id="uploadPanel" class="trip-upload-panel" hidden>
+        <div class="trip-upload-panel__head">
+          <strong id="uploadSummary" data-i18n="uploadSummaryIdle">Загрузка</strong>
+          <span id="uploadSummaryPct">0%</span>
+        </div>
+        <div class="trip-upload-item__bar trip-upload-panel__bar" aria-hidden="true">
+          <span id="uploadOverallBar"></span>
+        </div>
+        <div id="uploadQueue" class="trip-upload-queue"></div>
+        <button class="primary-btn" type="button" id="retryFailedBtn" hidden data-i18n="retryFailed">
+          Перезагрузить неудавшиеся
+        </button>
+      </div>
+      <p id="albumStatus" class="trip-status" hidden></p>
+      <div id="gallery" class="trip-gallery" aria-live="polite"></div>
+      <p id="emptyGallery" class="trip-empty" hidden data-i18n="emptyGallery">Пока пусто. Загрузите первые фото или видео из галереи телефона.</p>
+    </section>
+  </main>
+
+  <div id="nameModal" class="trip-modal" hidden>
+    <div class="trip-modal__card editor-card" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
+      <h2 id="nameModalTitle" data-i18n="nameModalTitle">Как вас зовут?</h2>
+      <p data-i18n="nameModalLead">Имя будет видно рядом с вашими загрузками.</p>
+      <form id="nameForm" class="trip-form">
+        <label>
+          <span data-i18n="labelYourName">Ваше имя</span>
+          <input id="nameInput" type="text" maxlength="80" required autocomplete="name" />
+        </label>
+        <button class="primary-btn" type="submit" data-i18n="nameModalSave">Сохранить</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="lightbox" class="trip-lightbox" hidden>
+    <button type="button" class="trip-lightbox__close" id="lightboxClose" data-i18n-attr="aria-label:lightboxCloseAria" aria-label="Закрыть">×</button>
+    <button type="button" class="trip-lightbox__nav trip-lightbox__nav--prev" id="lightboxPrev" data-i18n-attr="aria-label:lightboxPrevAria" aria-label="Предыдущее">‹</button>
+    <button type="button" class="trip-lightbox__nav trip-lightbox__nav--next" id="lightboxNext" data-i18n-attr="aria-label:lightboxNextAria" aria-label="Следующее">›</button>
+    <div class="trip-lightbox__layout">
+      <div class="trip-lightbox__media" id="lightboxBody"></div>
+      <aside class="trip-lightbox__side" id="lightboxSide" aria-labelledby="lightboxMetaTitle">
+        <div class="trip-lightbox__side-head">
+          <h2 id="lightboxMetaTitle" class="trip-lightbox__side-title" data-i18n="lightboxMetaTitle">Информация</h2>
+          <span class="trip-lightbox__counter" id="lightboxCounter"></span>
+        </div>
+        <dl class="trip-lightbox__fields" id="lightboxFields"></dl>
+        <div class="trip-lightbox__exif" id="lightboxExif" hidden>
+          <h3 class="trip-lightbox__exif-title" data-i18n="lightboxExifTitle">EXIF / метаданные файла</h3>
+          <dl class="trip-lightbox__fields trip-lightbox__fields--exif" id="lightboxExifFields"></dl>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="/trip/registry.js?v=20260801-1"></script>
+  <script src="/trip/app.js?v=20260806-4"></script>
+</body>
+</html>

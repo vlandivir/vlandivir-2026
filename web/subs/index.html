@@ -1,0 +1,1375 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      data-i18n-attr="content:metaDescription"
+      content="Subs ASS: проект для создания субтитров к видео в формате Advanced SubStation Alpha."
+    />
+    <title>Subs ASS</title>
+    <link rel="stylesheet" href="/subs/fonts/fonts.css?v=20260712-1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/shared/site-theme.css?v=20260801-3" />
+    <link rel="stylesheet" href="/shared/site-header.css?v=20260718-1" />
+    <link rel="stylesheet" href="/shared/app-dialog.css?v=20260805-1" />
+    <link rel="stylesheet" href="/shared/color-picker.css?v=20260801-1" />
+    <link rel="stylesheet" href="/shared/video-upload-block.css?v=20260801-1" />
+    <link rel="stylesheet" href="/subs/styles.css?v=20260801-1" />
+    <script src="/subs/i18n.js?v=20260723-1" defer></script>
+    <script src="/shared/i18n.js?v=20260721-1" defer></script>
+    <script src="/files/registry.js?v=20260527-1"></script>
+    <script src="/subs/fonts-shared.js?v=20260712-1"></script>
+    <script src="/shared/app-dialog.js?v=20260805-1"></script>
+    <script src="/shared/site-header.js?v=20260801-1" defer></script>
+    <script src="/shared/color-picker.js?v=20260715-1" defer></script>
+    <script src="/shared/video-upload-block.js?v=20260603-1" defer></script>
+    <script src="/subs/app.js?v=20260805-1" defer></script>
+  </head>
+  <body class="subs-page">
+    <header
+      data-site-header
+      data-active="subs"
+      data-lang-ru="/subs/"
+      data-lang-en="/subs/en"
+    ></header>
+
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div class="hero-copy">
+          <h1 id="page-title" data-i18n="heroTitle">Субтитры для видео в формате ASS</h1>
+        </div>
+      </section>
+
+      <details
+        class="workflow-step"
+        data-subs-workflow-section="upload"
+        open
+        aria-labelledby="subs-step1-title"
+      >
+        <summary class="workflow-step-head">
+          <span class="workflow-step-badge" aria-hidden="true">1</span>
+          <div>
+            <h2 class="workflow-step-title" id="subs-step1-title" data-i18n="step1Title">
+              Загрузите или откройте видео
+            </h2>
+            <p class="workflow-step-text" data-i18n="step1Text">
+              Загрузите вертикальное видео 1080×1920 px в хранилище или
+              продолжите с уже сохранённой страницы видео.
+            </p>
+          </div>
+        </summary>
+        <section
+          data-video-upload-block
+          data-label="Загрузка видео"
+          data-form-id="uploadForm"
+          data-input-id="videoInput"
+          data-meta-id="fileMeta"
+          data-picker-title="Выбрать видео"
+          data-button-id="uploadButton"
+          data-button-label="Загрузить"
+          data-button-disabled="true"
+          data-progress-id="uploadProgress"
+          data-progress-bar-id="uploadProgressBar"
+          data-status-id="uploadStatus"
+          data-i18n-attr="data-label:uploadLabel; data-picker-title:uploadPickerTitle; data-button-label:uploadButtonLabel"
+        ></section>
+      </details>
+
+      <section class="subtitle-editor" aria-label="Редактор субтитров">
+        <details
+          class="workflow-step"
+          data-subs-workflow-section="audio"
+          open
+          aria-labelledby="subs-step2-title"
+        >
+          <summary class="workflow-step-head">
+            <span class="workflow-step-badge" aria-hidden="true">2</span>
+            <div>
+              <h2 class="workflow-step-title" id="subs-step2-title" data-i18n="step2Title">
+                Выделите звук и реплики
+              </h2>
+              <p class="workflow-step-text" data-i18n="step2Text">
+                Выделите audio, распознайте речь или добавьте реплики вручную.
+              </p>
+            </div>
+          </summary>
+          <details
+            class="audio-panel editor-section"
+            id="audioPanel"
+            data-section="audio"
+            open
+            hidden
+            aria-labelledby="audio-title"
+          >
+            <summary class="audio-panel__summary editor-section__summary">
+              <div>
+                <p class="eyebrow" data-i18n="soundEyebrow">Звук</p>
+                <h3 class="editor-section__title" id="audio-title">Audio</h3>
+              </div>
+            </summary>
+            <div class="audio-panel__body editor-section__body">
+              <button
+                class="secondary-link audio-extract-button"
+                id="extractAudioButton"
+                type="button"
+                data-i18n="extractAudio"
+              >
+                Выделить audio
+              </button>
+              <p class="audio-status" id="audioStatus">
+                Audio ещё не выделено.
+              </p>
+              <div class="audio-waveform" id="audioWaveformWrap" hidden>
+                <canvas
+                  id="audioWaveformCanvas"
+                  width="720"
+                  height="150"
+                  aria-label="Waveform"
+                ></canvas>
+              </div>
+              <audio
+                class="audio-player"
+                id="audioPlayer"
+                controls
+                hidden
+              ></audio>
+              <div class="transcription-panel" id="transcriptionPanel" hidden>
+                <div class="transcription-controls">
+                  <label class="editor-field transcription-language">
+                    <span data-i18n="recognitionLanguage">Язык распознавания</span>
+                    <select id="transcriptionLanguageInput">
+                      <option value="auto">Auto</option>
+                      <option value="ru">Русский</option>
+                      <option value="sr">Сербский</option>
+                      <option value="en">English</option>
+                    </select>
+                  </label>
+                  <button
+                    class="secondary-link transcription-button"
+                    id="transcribeAudioButton"
+                    type="button"
+                    data-i18n="recognizeSpeech"
+                  >
+                    Распознать речь
+                  </button>
+                </div>
+                <div
+                  class="transcription-translation"
+                  id="transcriptionTranslationPanel"
+                  hidden
+                >
+                  <label
+                    class="editor-field transcription-translation-language"
+                  >
+                    <span data-i18n="translationLanguage">Язык перевода</span>
+                    <select id="translationLanguageInput">
+                      <option value="en">English</option>
+                      <option value="ru">Русский</option>
+                      <option value="sr">Сербский</option>
+                      <option value="es">Español</option>
+                      <option value="de">Deutsch</option>
+                      <option value="fr">Français</option>
+                    </select>
+                  </label>
+                  <button
+                    class="secondary-link transcription-translate-button"
+                    id="translateTranscriptionButton"
+                    type="button"
+                  >
+                    Перевести текст
+                  </button>
+                </div>
+                <p class="transcription-status" id="transcriptionStatus">
+                  Распознавание ещё не запускалось.
+                </p>
+                <div
+                  class="transcription-outputs"
+                  id="transcriptionOutputsGrid"
+                  hidden
+                >
+                  <div class="transcription-outputs__col">
+                    <p class="transcription-outputs__label" data-i18n="wordsLabel">Слова</p>
+                    <textarea
+                      class="transcription-output"
+                      id="transcriptionOutput"
+                      spellcheck="false"
+                      hidden
+                    ></textarea>
+                  </div>
+                  <div class="transcription-outputs__col">
+                    <p class="transcription-outputs__label" data-i18n="sentencesLabel">Предложения</p>
+                    <textarea
+                      class="transcription-output"
+                      id="transcriptionSentencesOutput"
+                      spellcheck="false"
+                    ></textarea>
+                    <button
+                      class="secondary-link transcription-timings-button"
+                      id="setSentenceTimingsButton"
+                      type="button"
+                      data-i18n="setTimings"
+                    >
+                      Расставить тайминги
+                    </button>
+                  </div>
+                </div>
+                <button
+                  class="secondary-link transcription-save-button"
+                  id="saveTranscriptionButton"
+                  type="button"
+                  hidden
+                  data-i18n="saveText"
+                >
+                  Сохранить текст
+                </button>
+                <div
+                  class="transcription-to-cues"
+                  id="transcriptionToCuesPanel"
+                  hidden
+                >
+                  <label class="editor-field transcription-cue-style">
+                    <span data-i18n="cueStyleForCues">Стиль для реплик</span>
+                    <select id="transcriptionCueStyleInput"></select>
+                  </label>
+                  <button
+                    class="primary-link transcription-cues-button"
+                    id="createCuesFromTranscriptionButton"
+                    type="button"
+                    data-i18n="convertToCues"
+                  >
+                    Преобразовать в реплики
+                  </button>
+                </div>
+              </div>
+            </div>
+          </details>
+        </details>
+
+        <details
+          class="workflow-step"
+          data-subs-workflow-section="tune"
+          open
+          aria-labelledby="subs-step3-title"
+        >
+          <summary class="workflow-step-head">
+            <span class="workflow-step-badge" aria-hidden="true">3</span>
+            <div>
+              <h2 class="workflow-step-title" id="subs-step3-title" data-i18n="step3Title">
+                Настройте субтитры
+              </h2>
+              <p class="workflow-step-text" data-i18n="step3Text">
+                Соберите реплики на вертикальном таймлайне и проверяйте их на
+                видео справа.
+              </p>
+            </div>
+          </summary>
+          <details class="editor-section" data-section="positions">
+            <summary class="editor-section__summary">
+              <h2 class="editor-section__title" data-i18n="secPositions">Позиции</h2>
+            </summary>
+            <div class="editor-section__body editor-grid">
+              <form class="editor-card editor-form" id="positionForm">
+                <h3 data-i18n="posFormTitle">Позиция</h3>
+                <label class="editor-field">
+                  <span data-i18n="fldName">Название</span>
+                  <input
+                    id="positionNameInput"
+                    type="text"
+                    maxlength="40"
+                    placeholder="Например: Нижний центр"
+                    data-i18n-attr="placeholder:positionNamePlaceholder"
+                    required
+                  />
+                </label>
+                <div class="editor-field-grid editor-field-grid--position">
+                  <label class="editor-field">
+                    <span>X, px</span>
+                    <input
+                      id="positionXInput"
+                      type="number"
+                      min="0"
+                      max="1080"
+                      step="1"
+                      value="540"
+                      required
+                    />
+                  </label>
+                  <label class="editor-field">
+                    <span>Y, px</span>
+                    <input
+                      id="positionYInput"
+                      type="number"
+                      min="0"
+                      max="1920"
+                      step="1"
+                      value="1700"
+                      required
+                    />
+                  </label>
+                  <div class="editor-field">
+                    <span>Align</span>
+                    <input
+                      id="positionAlignmentInput"
+                      type="hidden"
+                      value="2"
+                    />
+                    <div class="align-control" aria-label="ASS align">
+                      <button type="button" data-align-cell="7">7</button>
+                      <button type="button" data-align-cell="8">8</button>
+                      <button type="button" data-align-cell="9">9</button>
+                      <button type="button" data-align-cell="4">4</button>
+                      <button type="button" data-align-cell="5">5</button>
+                      <button type="button" data-align-cell="6">6</button>
+                      <button type="button" data-align-cell="1">1</button>
+                      <button type="button" data-align-cell="2">2</button>
+                      <button type="button" data-align-cell="3">3</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="editor-actions">
+                  <button
+                    class="primary-link editor-submit"
+                    id="positionSubmitButton"
+                    type="submit"
+                    data-i18n="addPosition"
+                  >
+                    Добавить позицию
+                  </button>
+                  <button
+                    class="secondary-link editor-new"
+                    id="newPositionButton"
+                    type="button"
+                    hidden
+                    data-i18n="newItem"
+                  >
+                    Новая позиция
+                  </button>
+                  <button
+                    class="secondary-link editor-cancel"
+                    id="cancelPositionEditButton"
+                    type="button"
+                    hidden
+                    data-i18n="cancel"
+                  >
+                    Отменить
+                  </button>
+                </div>
+              </form>
+
+              <div class="editor-card">
+                <h3 data-i18n="secPositions">Позиции</h3>
+                <div class="position-list" id="positionList"></div>
+                <p class="empty-state" id="positionsEmptyState" data-i18n="emptyPositions">
+                  Пока нет позиций.
+                </p>
+              </div>
+            </div>
+          </details>
+
+          <details class="editor-section" data-section="styles">
+            <summary class="editor-section__summary">
+              <h2 class="editor-section__title" data-i18n="secStyles">Стили</h2>
+            </summary>
+            <div class="editor-section__body editor-grid">
+              <form class="editor-card editor-form" id="styleForm">
+                <h3 data-i18n="styleFormTitle">Стиль субтитров</h3>
+                <div class="style-live-preview" id="styleLivePreview">
+                  <p class="style-live-preview__text" id="styleLivePreviewText">
+                    Preview Превью Događaj
+                  </p>
+                  <p class="style-live-preview__meta" id="styleLivePreviewMeta">
+                    Montserrat · Regular · 72px
+                  </p>
+                  <div
+                    class="style-live-preview__colors"
+                    id="styleLivePreviewColors"
+                  ></div>
+                </div>
+                <label class="editor-field">
+                  <span data-i18n="fldName">Название</span>
+                  <input
+                    id="styleNameInput"
+                    type="text"
+                    maxlength="40"
+                    placeholder="Например: Default"
+                    data-i18n-attr="placeholder:styleNamePlaceholder"
+                    required
+                  />
+                </label>
+                <div class="editor-field-grid editor-field-grid--style-type">
+                  <label class="editor-field editor-field--font">
+                    <span class="editor-field__label-row">
+                      <span data-i18n="fldFont">Шрифт</span>
+                      <a class="font-picker-link" href="/font" data-i18n="allFonts">Все шрифты…</a>
+                    </span>
+                    <select id="styleFontInput"></select>
+                  </label>
+                  <label class="editor-field">
+                    <span data-i18n="fldAssSize">Размер ASS</span>
+                    <input
+                      id="styleFontSizeInput"
+                      type="number"
+                      min="12"
+                      max="220"
+                      step="1"
+                      value="72"
+                    />
+                  </label>
+                  <label class="editor-field">
+                    <span data-i18n="fldWeight">Начертание</span>
+                    <select id="styleFontVariantInput">
+                      <option value="regular" selected>Regular</option>
+                      <option value="bold">Bold</option>
+                      <option value="italic">Italic</option>
+                    </select>
+                  </label>
+                </div>
+                <label class="editor-field">
+                  <span data-i18n="fldLineSpacing">Межстрочный интервал, ±px</span>
+                  <input
+                    id="styleLineSpacingInput"
+                    type="number"
+                    step="1"
+                    value="0"
+                    placeholder="0"
+                  />
+                </label>
+                <div class="style-stretch-controls">
+                  <label class="editor-field">
+                    <span data-i18n="fldMarginLeft">Поле слева, ASS</span>
+                    <input
+                      id="styleMarginLeftInput"
+                      type="number"
+                      min="0"
+                      max="520"
+                      step="1"
+                      placeholder="—"
+                    />
+                  </label>
+                  <label class="editor-field">
+                    <span data-i18n="fldMarginRight">Поле справа, ASS</span>
+                    <input
+                      id="styleMarginRightInput"
+                      type="number"
+                      min="0"
+                      max="520"
+                      step="1"
+                      placeholder="—"
+                    />
+                  </label>
+                  <label class="editor-checkbox">
+                    <input id="styleStretchToWidthInput" type="checkbox" disabled />
+                    <span data-i18n="stretchToContainer">Растянуть по контейнеру</span>
+                  </label>
+                </div>
+                <div class="color-field-list">
+                  <label class="editor-field">
+                    <span>PrimaryColour</span>
+                    <input
+                      id="stylePrimaryColorInput"
+                      type="hidden"
+                      value="rgba(255, 255, 255, 1)"
+                    />
+                    <div
+                      class="color-picker"
+                      data-color-picker="stylePrimaryColorInput"
+                      data-allow-none="false"
+                    ></div>
+                  </label>
+                  <label class="editor-field">
+                    <span>SecondaryColour</span>
+                    <input
+                      id="styleSecondaryColorInput"
+                      type="hidden"
+                      value="rgba(0, 0, 0, 1)"
+                    />
+                    <div
+                      class="color-picker"
+                      data-color-picker="styleSecondaryColorInput"
+                      data-allow-none="true"
+                    ></div>
+                  </label>
+                  <label class="editor-field">
+                    <span>OutlineColour</span>
+                    <input
+                      id="styleOutlineColorInput"
+                      type="hidden"
+                      value="none"
+                    />
+                    <div
+                      class="color-picker"
+                      data-color-picker="styleOutlineColorInput"
+                      data-allow-none="true"
+                    ></div>
+                  </label>
+                  <label class="editor-field">
+                    <span>BackColour</span>
+                    <input
+                      id="styleBackColorInput"
+                      type="hidden"
+                      value="none"
+                    />
+                    <div
+                      class="color-picker"
+                      data-color-picker="styleBackColorInput"
+                      data-allow-none="true"
+                    ></div>
+                  </label>
+                </div>
+                <div class="style-badge-controls">
+                  <p class="style-badge-controls__title" data-i18n="badgeTitle">Плашка под текстом</p>
+                  <label class="editor-field">
+                    <span data-i18n="badgeColor">Цвет плашки, поддерживает rgba</span>
+                    <input
+                      id="styleBadgeColorInput"
+                      type="hidden"
+                      value="none"
+                    />
+                    <div
+                      class="color-picker"
+                      data-color-picker="styleBadgeColorInput"
+                      data-allow-none="true"
+                    ></div>
+                  </label>
+                  <div class="editor-field-grid editor-field-grid--badge">
+                    <label class="editor-field">
+                      <span data-i18n="badgePadX">Отступ X, ASS</span>
+                      <input
+                        id="styleBadgePaddingXInput"
+                        type="number"
+                        min="0"
+                        max="240"
+                        step="1"
+                        value="24"
+                      />
+                    </label>
+                    <label class="editor-field">
+                      <span data-i18n="badgePadY">Отступ Y, ASS</span>
+                      <input
+                        id="styleBadgePaddingYInput"
+                        type="number"
+                        min="0"
+                        max="240"
+                        step="1"
+                        value="12"
+                      />
+                    </label>
+                    <label class="editor-field">
+                      <span data-i18n="badgeRadius">Скругление, ASS</span>
+                      <input
+                        id="styleBadgeRadiusInput"
+                        type="number"
+                        min="0"
+                        max="240"
+                        step="1"
+                        value="20"
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div class="style-badge-controls">
+                  <p class="style-badge-controls__title" data-i18n="boxTitle">
+                    Подложка строки (BorderStyle=3)
+                  </p>
+                  <p class="style-badge-controls__hint" data-i18n="boxHint">
+                    Нативная плашка libass: обтягивает каждую строку без
+                    скругления и заменяет обводку этого стиля.
+                  </p>
+                  <label class="editor-field">
+                    <span data-i18n="boxColor">Цвет подложки, поддерживает rgba</span>
+                    <input id="styleBoxColorInput" type="hidden" value="none" />
+                    <div
+                      class="color-picker"
+                      data-color-picker="styleBoxColorInput"
+                      data-allow-none="true"
+                    ></div>
+                  </label>
+                  <label class="editor-field">
+                    <span data-i18n="boxPadding">Отступ (Outline), ASS</span>
+                    <input
+                      id="styleBoxPaddingInput"
+                      type="number"
+                      min="0"
+                      max="240"
+                      step="1"
+                      value="8"
+                    />
+                  </label>
+                </div>
+                <label class="editor-field">
+                  <span data-i18n="basePosition">Базовое положение</span>
+                  <select id="stylePositionInput"></select>
+                </label>
+                <div class="editor-actions">
+                  <button
+                    class="primary-link editor-submit"
+                    id="styleSubmitButton"
+                    type="submit"
+                    data-i18n="addStyle"
+                  >
+                    Добавить стиль
+                  </button>
+                  <button
+                    class="secondary-link editor-new"
+                    id="newStyleButton"
+                    type="button"
+                    hidden
+                    data-i18n="newStyle"
+                  >
+                    Новый стиль
+                  </button>
+                  <button
+                    class="secondary-link editor-cancel"
+                    id="cancelStyleEditButton"
+                    type="button"
+                    hidden
+                    data-i18n="cancel"
+                  >
+                    Отменить
+                  </button>
+                </div>
+              </form>
+
+              <div class="editor-card">
+                <h3 data-i18n="secStyles">Стили</h3>
+                <div class="style-list" id="styleList"></div>
+                <p class="empty-state" id="stylesEmptyState" data-i18n="emptyStyles">
+                  Пока нет стилей.
+                </p>
+                <details class="ass-style-import">
+                  <summary
+                    class="ass-style-import__summary"
+                    data-i18n="assImportTitle"
+                  >
+                    Добавить стиль из описания ASS
+                  </summary>
+                  <p class="ass-style-import__hint" data-i18n="assImportHint">
+                    Вставьте строки «Style: …» из ASS-файла — по одной на
+                    каждый стиль.
+                  </p>
+                  <textarea
+                    class="ass-style-import__input"
+                    id="styleAssImportInput"
+                    rows="4"
+                    spellcheck="false"
+                    placeholder="Style: Default,Ubuntu Condensed,48,&amp;H00FFFFFF,&amp;HFF000000,&amp;H99000000,&amp;HFF000000,-1,0,0,0,100,100,0,0,3,4,0,24,24,120,1,1"
+                    data-i18n-attr="placeholder:assImportPlaceholder"
+                  ></textarea>
+                  <div class="ass-style-import__actions">
+                    <button
+                      class="secondary-link ass-style-import__button"
+                      id="importStyleAssButton"
+                      type="button"
+                      data-i18n="assImportButton"
+                    >
+                      Добавить из ASS
+                    </button>
+                    <p
+                      class="ass-style-import__status"
+                      id="styleAssImportStatus"
+                      role="status"
+                    ></p>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </details>
+
+          <div class="video-bound-panel" id="videoBoundPanel" hidden>
+            <details class="editor-section" data-section="cues">
+              <summary class="editor-section__summary">
+                <h2 class="editor-section__title" data-i18n="secCues">Реплики</h2>
+              </summary>
+              <div class="editor-section__body editor-grid video-bound-grid">
+                <form
+                  class="editor-card editor-form cue-form"
+                  id="cueForm"
+                  hidden
+                >
+                  <div class="cue-form__head">
+                    <h3 data-i18n="cueFormTitle">Реплика</h3>
+                    <button
+                      class="icon-button cue-form__close"
+                      id="closeCueEditorButton"
+                      type="button"
+                      title="Закрыть редактор"
+                      aria-label="Закрыть редактор реплики"
+                      data-i18n-attr="title:closeEditor; aria-label:closeEditorAria"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <details class="ass-cheatsheet cue-form__cheatsheet">
+                    <summary class="ass-cheatsheet__summary" data-i18n="cheatSummary">
+                      Шпаргалка: теги в тексте реплики
+                    </summary>
+                    <p class="ass-cheatsheet__lead">
+                      Команды пишутся в фигурных скобках и действуют на фрагмент
+                      текста после них. Перенос строки — <code>\N</code>.
+                    </p>
+                    <div class="ass-cheatsheet__grid">
+                      <article>
+                        <h4 data-i18n="cheatH4Size">Размер и начертание</h4>
+                        <ul>
+                          <li><code>{\fs80}</code> — размер ASS 80</li>
+                          <li>
+                            <code>{\b1}</code> / <code>{\i1}</code> — жирный /
+                            курсив
+                          </li>
+                          <li>
+                            <code>{\b0}</code> — вернуть обычное начертание
+                          </li>
+                        </ul>
+                      </article>
+                      <article>
+                        <h4 data-i18n="cheatH4Color">Цвет в реплике</h4>
+                        <ul>
+                          <li>
+                            <code>{\c&amp;H00FFFFFF&amp;}</code> — основной цвет
+                            (формат BGR)
+                          </li>
+                          <li>
+                            <code>{\1c&amp;H0000FF&amp;}</code> — только
+                            заливка, <code>{\3c…}</code> — обводка
+                          </li>
+                          <li>
+                            Белый <code>#FFFFFF</code> →
+                            <code>&amp;H00FFFFFF&amp;</code>, красный
+                            <code>#FF0000</code> →
+                            <code>&amp;H000000FF&amp;</code>
+                          </li>
+                          <li>
+                            <code>{\1a&amp;H80&amp;}</code> — прозрачность
+                            заливки ~50%; <code>&amp;H00</code> непрозрачно,
+                            <code>&amp;HFF</code> невидимо
+                          </li>
+                        </ul>
+                      </article>
+                      <article>
+                        <h4 data-i18n="cheatH4Karaoke">Караоке</h4>
+                        <ul>
+                          <li>
+                            <code>{\k50}</code> — подсветка слога ~0.5 с (50
+                            сотых секунды)
+                          </li>
+                          <li>
+                            <code>{\kf50}</code> — плавное заполнение слога
+                          </li>
+                          <li>
+                            Пример: <code>{\k40}При{\k40}вет, {\k60}мир!</code>
+                          </li>
+                          <li>
+                            Для караоке задайте
+                            <strong>SecondaryColour</strong> в стиле — это цвет
+                            «незаполненной» части.
+                          </li>
+                        </ul>
+                      </article>
+                      <article>
+                        <h4 data-i18n="cheatH4Move">Сдвиг позиции</h4>
+                        <ul>
+                          <li>
+                            В форме реплики: <strong>ΔX</strong>,
+                            <strong>ΔY</strong>, <strong>старт</strong> и
+                            <strong>длительность</strong> (мс).
+                          </li>
+                          <li>
+                            Старт — позиция стиля, финиш — смещение на ΔX/ΔY.
+                          </li>
+                          <li>
+                            В ASS: <code>{\move(x1,y1,x2,y2,200,700)}</code> —
+                            сдвиг с 200 до 700 мс.
+                          </li>
+                          <li>
+                            Без времени смещения ΔX/ΔY применяются сразу к этой
+                            реплике как <code>{\pos}</code>.
+                          </li>
+                        </ul>
+                      </article>
+                      <article>
+                        <h4 data-i18n="cheatH4Example">Пример целиком</h4>
+                        <pre
+                          class="ass-cheatsheet__sample"
+                        ><code>{\fs90\c&amp;H00FFFF&amp;}{\k45}Бе{\k45}лый {\k60}текст</code></pre>
+                      </article>
+                    </div>
+                  </details>
+
+                  <label class="editor-field cue-text-field">
+                    <span data-i18n="fldText">Текст</span>
+                    <textarea
+                      id="cueTextInput"
+                      rows="4"
+                      placeholder="Текст или теги ASS, например: {\fs80\c&H00FFFF&}{\k40}При{\k40}вет"
+                      data-i18n-attr="placeholder:cueTextPlaceholder"
+                      required
+                    ></textarea>
+                  </label>
+                  <div class="editor-field-grid">
+                    <label class="editor-field">
+                      <span data-i18n="cueStart">Появление</span>
+                      <input
+                        id="cueStartInput"
+                        type="text"
+                        inputmode="decimal"
+                        placeholder="3.2"
+                        required
+                      />
+                    </label>
+                    <label class="editor-field">
+                      <span data-i18n="cueEnd">Исчезновение</span>
+                      <input
+                        id="cueEndInput"
+                        type="text"
+                        inputmode="decimal"
+                        placeholder="5.6"
+                        required
+                      />
+                    </label>
+                  </div>
+                  <label class="editor-field">
+                    <span data-i18n="fldStyle">Стиль</span>
+                    <select id="cueStyleInput" required></select>
+                  </label>
+                  <p class="cue-form__hint" data-i18n="cueHint">
+                    Пустые поля и «Из стиля» — значение берётся из стиля
+                    реплики.
+                  </p>
+                  <div class="editor-field-grid editor-field-grid--style-type">
+                    <label class="editor-field">
+                      <span data-i18n="fldFont">Шрифт</span>
+                      <select id="cueFontInput" data-default-label="Из стиля">
+                        <option value="">Из стиля</option>
+                      </select>
+                    </label>
+                    <label class="editor-field">
+                      <span data-i18n="fldAssSize">Размер ASS</span>
+                      <input
+                        id="cueFontSizeInput"
+                        type="number"
+                        min="12"
+                        max="260"
+                        step="1"
+                        placeholder="Из стиля"
+                      />
+                    </label>
+                    <label class="editor-field">
+                      <span data-i18n="fldWeight">Начертание</span>
+                      <select id="cueFontVariantInput">
+                        <option value="" data-i18n="fromStyle">Из стиля</option>
+                        <option value="regular">Regular</option>
+                        <option value="bold">Bold</option>
+                        <option value="italic">Italic</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label class="editor-field">
+                    <span data-i18n="fldLineSpacing">Межстрочный интервал, ±px</span>
+                    <input
+                      id="cueLineSpacingInput"
+                      type="number"
+                      step="1"
+                      placeholder="Из стиля"
+                    />
+                  </label>
+                  <div class="style-stretch-controls">
+                    <label class="editor-field">
+                      <span data-i18n="fldMarginLeft">Поле слева, ASS</span>
+                      <input
+                        id="cueMarginLeftInput"
+                        type="number"
+                        min="0"
+                        max="520"
+                        step="1"
+                        placeholder="Из стиля"
+                      />
+                    </label>
+                    <label class="editor-field">
+                      <span data-i18n="fldMarginRight">Поле справа, ASS</span>
+                      <input
+                        id="cueMarginRightInput"
+                        type="number"
+                        min="0"
+                        max="520"
+                        step="1"
+                        placeholder="Из стиля"
+                      />
+                    </label>
+                    <label class="editor-field">
+                      <span data-i18n="stretchToContainer">Растянуть по контейнеру</span>
+                      <select id="cueStretchToWidthInput">
+                        <option value="" data-i18n="fromStyle">Из стиля</option>
+                        <option value="on" data-i18n="stretchYes">Да</option>
+                        <option value="off" data-i18n="stretchNo">Нет</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="color-field-list">
+                    <label class="editor-field">
+                      <span>PrimaryColour</span>
+                      <input id="cueColorInput" type="hidden" value="" />
+                      <div
+                        class="color-picker"
+                        data-color-picker="cueColorInput"
+                        data-allow-none="false"
+                        data-inherit="true"
+                      ></div>
+                    </label>
+                    <label class="editor-field">
+                      <span>SecondaryColour</span>
+                      <input
+                        id="cueSecondaryColorInput"
+                        type="hidden"
+                        value=""
+                      />
+                      <div
+                        class="color-picker"
+                        data-color-picker="cueSecondaryColorInput"
+                        data-allow-none="true"
+                        data-inherit="true"
+                      ></div>
+                    </label>
+                    <label class="editor-field">
+                      <span>OutlineColour</span>
+                      <input id="cueOutlineColorInput" type="hidden" value="" />
+                      <div
+                        class="color-picker"
+                        data-color-picker="cueOutlineColorInput"
+                        data-allow-none="true"
+                        data-inherit="true"
+                      ></div>
+                    </label>
+                    <label class="editor-field">
+                      <span>BackColour</span>
+                      <input id="cueBackColorInput" type="hidden" value="" />
+                      <div
+                        class="color-picker"
+                        data-color-picker="cueBackColorInput"
+                        data-allow-none="true"
+                        data-inherit="true"
+                      ></div>
+                    </label>
+                  </div>
+                  <div class="style-badge-controls">
+                    <p class="style-badge-controls__title" data-i18n="badgeTitle">Плашка под текстом</p>
+                    <label class="editor-field">
+                      <span data-i18n="badgeColor">Цвет плашки, поддерживает rgba</span>
+                      <input id="cueBadgeColorInput" type="hidden" value="" />
+                      <div
+                        class="color-picker"
+                        data-color-picker="cueBadgeColorInput"
+                        data-allow-none="true"
+                        data-inherit="true"
+                      ></div>
+                    </label>
+                    <div class="editor-field-grid editor-field-grid--badge">
+                      <label class="editor-field">
+                        <span data-i18n="badgePadX">Отступ X, ASS</span>
+                        <input
+                          id="cueBadgePaddingXInput"
+                          type="number"
+                          min="0"
+                          max="240"
+                          step="1"
+                          placeholder="Из стиля"
+                        />
+                      </label>
+                      <label class="editor-field">
+                        <span data-i18n="badgePadY">Отступ Y, ASS</span>
+                        <input
+                          id="cueBadgePaddingYInput"
+                          type="number"
+                          min="0"
+                          max="240"
+                          step="1"
+                          placeholder="Из стиля"
+                        />
+                      </label>
+                      <label class="editor-field">
+                        <span data-i18n="badgeRadius">Скругление, ASS</span>
+                        <input
+                          id="cueBadgeRadiusInput"
+                          type="number"
+                          min="0"
+                          max="240"
+                          step="1"
+                          placeholder="Из стиля"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <div class="style-badge-controls">
+                  <p class="style-badge-controls__title" data-i18n="boxTitle">
+                    Подложка строки (BorderStyle=3)
+                  </p>
+                  <label class="editor-field">
+                    <span data-i18n="boxColor">Цвет подложки, поддерживает rgba</span>
+                      <input id="cueBoxColorInput" type="hidden" value="" />
+                      <div
+                        class="color-picker"
+                        data-color-picker="cueBoxColorInput"
+                        data-allow-none="true"
+                        data-inherit="true"
+                      ></div>
+                    </label>
+                    <label class="editor-field">
+                      <span data-i18n="boxPadding">Отступ (Outline), ASS</span>
+                      <input
+                        id="cueBoxPaddingInput"
+                        type="number"
+                        min="0"
+                        max="240"
+                        step="1"
+                        placeholder="Из стиля"
+                      />
+                    </label>
+                  </div>
+                  <label class="editor-field">
+                    <span data-i18n="basePosition">Базовое положение</span>
+                    <select id="cuePositionInput"></select>
+                  </label>
+                  <div class="cue-motion">
+                    <p class="cue-motion__title">
+                      <span data-i18n="cueMotionTitle">Сдвиг позиции</span> <code>{\move}</code>
+                    </p>
+                    <div class="editor-field-grid editor-field-grid--motion">
+                      <label class="editor-field">
+                        <span data-i18n="motionDx">ΔX, px</span>
+                        <input id="cueMotionDxInput" type="number" step="1" />
+                      </label>
+                      <label class="editor-field">
+                        <span data-i18n="motionDy">ΔY, px</span>
+                        <input id="cueMotionDyInput" type="number" step="1" />
+                      </label>
+                      <label class="editor-field">
+                        <span data-i18n="motionStart">Старт, мс</span>
+                        <input
+                          id="cueMotionStartMsInput"
+                          type="number"
+                          min="0"
+                          step="1"
+                        />
+                      </label>
+                      <label class="editor-field">
+                        <span data-i18n="motionDuration">Длительность, мс</span>
+                        <input
+                          id="cueMotionMsInput"
+                          type="number"
+                          min="0"
+                          step="1"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <div class="editor-actions">
+                    <button
+                      class="primary-link editor-submit"
+                      id="cueSubmitButton"
+                      type="submit"
+                      data-i18n="addCue"
+                    >
+                      Добавить реплику
+                    </button>
+                    <button
+                      class="secondary-link editor-new"
+                      id="newCueButton"
+                      type="button"
+                      hidden
+                      data-i18n="newCue"
+                    >
+                      Новая реплика
+                    </button>
+                    <button
+                      class="secondary-link editor-cancel"
+                      id="cancelCueEditButton"
+                      type="button"
+                      hidden
+                      data-i18n="cancel"
+                    >
+                      Отменить
+                    </button>
+                    <button
+                      class="secondary-link editor-delete"
+                      id="deleteCueButton"
+                      type="button"
+                      hidden
+                    >
+                      Удалить реплику
+                    </button>
+                    <button
+                      class="secondary-link editor-delete editor-delete-all"
+                      id="deleteAllCuesButton"
+                      type="button"
+                      disabled
+                      data-i18n="deleteAllCues"
+                    >
+                      Удалить все реплики
+                    </button>
+                  </div>
+                </form>
+
+                <div class="editor-card cue-list-card" id="cueTimelineCard">
+                  <h3>Горизонтальный таймлайн</h3>
+                  <div class="cue-list" id="cueList"></div>
+                  <p class="empty-state" id="cuesEmptyState" data-i18n="emptyCues">
+                    Пока нет реплик.
+                  </p>
+                </div>
+              </div>
+            </details>
+          </div>
+        </details>
+
+        <details
+          class="workflow-step"
+          data-subs-workflow-section="export"
+          open
+          aria-labelledby="subs-step4-title"
+        >
+          <summary class="workflow-step-head">
+            <span class="workflow-step-badge" aria-hidden="true">4</span>
+            <div>
+              <h2 class="workflow-step-title" id="subs-step4-title" data-i18n="step4Title">
+                Проверьте и экспортируйте
+              </h2>
+              <p class="workflow-step-text" data-i18n="step4Text">
+                Скачайте ASS-файл или готовое видео с субтитрами.
+              </p>
+            </div>
+          </summary>
+          <div class="export-workbench">
+            <details class="editor-section" data-section="preview">
+              <summary class="editor-section__summary">
+                <h2 class="editor-section__title" data-i18n="secAssFile">ASS-файл</h2>
+              </summary>
+              <div class="editor-section__body">
+                <div class="ass-workbench">
+                  <div class="editor-card ass-output-card">
+                    <div class="ass-card-head">
+                      <h3 data-i18n="assCardTitle">ASS файл</h3>
+                      <span id="previewMeta"
+                        >Превью поверх загруженного видео</span
+                      >
+                      <button
+                        class="secondary-link refresh-preview-button"
+                        id="refreshPreviewButton"
+                        type="button"
+                        data-i18n="refreshPreview"
+                      >
+                        Обновить превью
+                      </button>
+                      <button
+                        class="secondary-link reset-ass-button"
+                        id="resetAssButton"
+                        type="button"
+                        disabled
+                        data-i18n="resetAss"
+                      >
+                        Сбросить ASS
+                      </button>
+                      <button
+                        class="secondary-link download-ass-button"
+                        id="downloadAssButton"
+                        type="button"
+                        disabled
+                        data-i18n="downloadAss"
+                      >
+                        Скачать .ass
+                      </button>
+                    </div>
+                    <div class="ass-output-body">
+                      <textarea
+                        class="ass-output"
+                        id="assOutput"
+                        spellcheck="false"
+                      ></textarea>
+                    </div>
+                  </div>
+                  <section
+                    class="current-video editor-card"
+                    id="currentVideoSection"
+                    hidden
+                    aria-labelledby="current-video-title"
+                  >
+                    <div class="current-video__head">
+                      <div>
+                        <p class="eyebrow" data-i18n="videoEyebrow">Видео</p>
+                        <h3 id="current-video-title">Preview</h3>
+                      </div>
+                      <div class="current-video__tools">
+                        <a
+                          class="current-video__meta"
+                          id="currentVideoMeta"
+                          href="#"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        ></a>
+                        <label class="safe-zone-toggle">
+                          <input id="safeZoneOverlayToggle" type="checkbox" />
+                          <span>Safe zone</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="video-preview-frame">
+                      <div class="video-stage" id="videoStage">
+                        <video
+                          id="currentVideo"
+                          crossorigin="anonymous"
+                          playsinline
+                          preload="metadata"
+                        ></video>
+                        <p
+                          class="video-subtitle-overlay"
+                          id="videoSubtitleOverlay"
+                          hidden
+                        ></p>
+                        <img
+                          class="reels-safe-zone-overlay"
+                          id="reelsSafeZoneOverlay"
+                          src="/subs/reels-safe-zone-overlay.png"
+                          alt=""
+                          width="1080"
+                          height="1920"
+                          hidden
+                        />
+                      </div>
+                      <div class="video-controls" aria-label="Управление видео">
+                        <button
+                          class="video-control-button"
+                          id="videoPlayButton"
+                          type="button"
+                          aria-label="Воспроизвести"
+                        ></button>
+                        <input
+                          class="video-control-range"
+                          id="videoSeekInput"
+                          type="range"
+                          min="0"
+                          max="0"
+                          step="0.01"
+                          value="0"
+                          aria-label="Позиция видео"
+                        />
+                        <span class="video-control-time" id="videoTimeLabel"
+                          >0:00 / 0:00</span
+                        >
+                        <button
+                          class="video-control-button"
+                          id="videoMuteButton"
+                          type="button"
+                          aria-label="Выключить звук"
+                        ></button>
+                      </div>
+                      <div class="video-eyedropper" aria-label="Пипетка цвета">
+                        <button
+                          class="secondary-link video-eyedropper__button"
+                          id="videoColorPickerButton"
+                          type="button"
+                          aria-pressed="false"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="m2 22 1-1h3l9-9" />
+                            <path d="M3 21v-3l9-9" />
+                            <path d="m15 6 3-3a2.1 2.1 0 0 1 3 3l-3 3" />
+                            <path d="m6 15 3 3" />
+                            <path d="m14 7 3 3" />
+                          </svg>
+                          <span>Пипетка</span>
+                        </button>
+                        <div
+                          class="video-eyedropper__result"
+                          id="videoColorPickerResult"
+                          hidden
+                        >
+                          <span
+                            class="video-eyedropper__swatch"
+                            id="videoColorSwatch"
+                            aria-hidden="true"
+                          ></span>
+                          <input
+                            class="video-eyedropper__input"
+                            id="videoColorInput"
+                            type="text"
+                            value=""
+                            placeholder="rgba(255, 255, 255, 1)"
+                            aria-label="Код цвета"
+                            readonly
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </details>
+
+            <details class="editor-section" data-section="render">
+              <summary class="editor-section__summary">
+                <h2 class="editor-section__title" data-i18n="secReadyVideo">Готовое видео</h2>
+              </summary>
+              <div class="editor-section__body">
+                <section class="editor-card render-video-card">
+                  <h3 data-i18n="overlayTitle">Наложить субтитры</h3>
+                  <p class="render-video-card__text" data-i18n="ffmpegText">
+                    Локально это можно сделать такой командой:
+                  </p>
+                  <pre
+                    class="ffmpeg-command"
+                  ><code id="ffmpegCommandExample">ffmpeg -i input.mp4 -vf "subtitles=subtitles.ass:fontsdir=./web/subs/fonts" -c:v libx264 -crf 18 -preset veryfast -c:a copy output.mp4</code></pre>
+                  <div class="render-video-actions">
+                    <button
+                      class="primary-link"
+                      id="renderSubtitledVideoButton"
+                      type="button"
+                      disabled
+                      data-i18n="overlayTitle"
+                    >
+                      Наложить субтитры
+                    </button>
+                    <span
+                      class="render-video-spinner"
+                      id="renderSubtitledVideoSpinner"
+                      hidden
+                      aria-label="Наложение субтитров"
+                    ></span>
+                  </div>
+                  <div
+                    class="render-video-result"
+                    id="renderedVideoResult"
+                    hidden
+                  >
+                    <a
+                      class="render-video-link"
+                      id="renderedVideoLink"
+                      href="#"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >Видео</a
+                    >
+                    <a
+                      class="render-video-download-link"
+                      id="renderedVideoDownloadLink"
+                      href="#"
+                      download="subtitled-video.mp4"
+                      >Download</a
+                    >
+                    <p
+                      class="render-video-status"
+                      id="renderSubtitledVideoStatus"
+                    >
+                      Добавьте видео и реплики.
+                    </p>
+                  </div>
+                </section>
+              </div>
+            </details>
+          </div>
+        </details>
+      </section>
+    </main>
+  </body>
+</html>

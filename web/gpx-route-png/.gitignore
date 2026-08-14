@@ -1,0 +1,2 @@
+# Local full-res camera exports; commit processed assets (e.g. step2-demo-bg.jpg) only.
+images/*.JPG
