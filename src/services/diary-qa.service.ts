@@ -4,9 +4,9 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { DiarySearchService } from './diary-search.service';
 
-// Enough for ~15 notes without blowing up the prompt
-const MAX_CONTEXT_CHARS = 16000;
-const MAX_NOTE_CHARS = 1500;
+// Enough for ~8 long video notes without blowing up the prompt
+const MAX_CONTEXT_CHARS = 32000;
+const MAX_NOTE_CHARS = 6000;
 const QA_TIMEOUT_MS = 90 * 1000;
 
 @Injectable()
