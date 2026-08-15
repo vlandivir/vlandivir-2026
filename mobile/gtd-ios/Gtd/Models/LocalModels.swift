@@ -57,6 +57,7 @@ final class LocalTask {
     var createdAt: Date
     var updatedAt: Date
     var attachmentCount: Int
+    var attachmentsJSON: Data?
 
     init(
         id: String,
@@ -70,7 +71,8 @@ final class LocalTask {
         canceledAt: Date? = nil,
         createdAt: Date = .now,
         updatedAt: Date = .now,
-        attachmentCount: Int = 0
+        attachmentCount: Int = 0,
+        attachmentsJSON: Data? = nil
     ) {
         self.id = id
         self.projectId = projectId
@@ -84,6 +86,7 @@ final class LocalTask {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.attachmentCount = attachmentCount
+        self.attachmentsJSON = attachmentsJSON
     }
 
     static func fromDTO(_ dto: GtdTaskDTO) -> LocalTask {
@@ -99,7 +102,8 @@ final class LocalTask {
             canceledAt: ISO8601.parse(dto.canceledAt),
             createdAt: ISO8601.parse(dto.createdAt) ?? .now,
             updatedAt: ISO8601.parse(dto.updatedAt) ?? .now,
-            attachmentCount: dto.attachments?.count ?? 0
+            attachmentCount: dto.attachments?.count ?? 0,
+            attachmentsJSON: Self.encodeAttachments(dto.attachments)
         )
     }
 
@@ -114,7 +118,10 @@ final class LocalTask {
         canceledAt = ISO8601.parse(dto.canceledAt)
         if let created = ISO8601.parse(dto.createdAt) { createdAt = created }
         if let updated = ISO8601.parse(dto.updatedAt) { updatedAt = updated }
-        attachmentCount = dto.attachments?.count ?? attachmentCount
+        if let attachments = dto.attachments {
+            attachmentCount = attachments.count
+            attachmentsJSON = Self.encodeAttachments(attachments)
+        }
     }
 
     func asDTO(project: LocalProject? = nil) -> GtdTaskDTO {
@@ -142,8 +149,18 @@ final class LocalTask {
                     updatedAt: ISO8601.format($0.updatedAt)
                 )
             },
-            attachments: nil
+            attachments: Self.decodeAttachments(attachmentsJSON)
         )
+    }
+
+    private static func encodeAttachments(_ attachments: [GtdAttachmentDTO]?) -> Data? {
+        guard let attachments else { return nil }
+        return try? JSONEncoder().encode(attachments)
+    }
+
+    private static func decodeAttachments(_ data: Data?) -> [GtdAttachmentDTO]? {
+        guard let data else { return nil }
+        return try? JSONDecoder().decode([GtdAttachmentDTO].self, from: data)
     }
 }
 

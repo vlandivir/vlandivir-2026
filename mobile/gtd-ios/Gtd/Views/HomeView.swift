@@ -124,17 +124,6 @@ struct HomeView: View {
             } else if let task = store.currentTask {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Text("\(store.counts.available) available · \(store.counts.active) active")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            if task.attachmentCountHint > 0 {
-                                Label("\(task.attachmentCountHint)", systemImage: "paperclip")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
                         Text(task.content)
                             .font(.title2.weight(.semibold))
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -148,6 +137,10 @@ struct HomeView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
+                        TaskAttachmentsView(
+                            attachments: task.attachments ?? [],
+                            api: store.api
+                        )
                         Button("Edit") { showEdit = true }
                             .buttonStyle(.bordered)
                     }
@@ -202,8 +195,4 @@ struct HomeView: View {
         }
         .buttonStyle(.plain)
     }
-}
-
-private extension GtdTaskDTO {
-    var attachmentCountHint: Int { attachments?.count ?? 0 }
 }
