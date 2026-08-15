@@ -63,6 +63,8 @@ struct GtdAttachmentDTO: Codable, Equatable, Identifiable {
     var mimeType: String
     var size: Int
     var createdAt: String?
+
+    var isImage: Bool { mimeType.lowercased().hasPrefix("image/") }
 }
 
 struct GtdTaskDTO: Codable, Equatable, Identifiable {
@@ -129,6 +131,27 @@ struct TaskDetailsResponse: Codable {
         var id: String
         var type: String
         var createdAt: String
+
+        var title: String {
+            switch type {
+            case "CREATED": return "Created"
+            case "UPDATED": return "Edited"
+            case "PROJECT_CHANGED": return "Project changed"
+            case "SNOOZED": return "Snoozed"
+            case "ROTATED": return "Rotated"
+            case "COMPLETED": return "Completed"
+            case "CANCELED": return "Canceled"
+            case "ATTACHMENT_ADDED": return "Attachment added"
+            default: return type
+            }
+        }
+
+        var formattedDate: String {
+            if let date = ISO8601.parse(createdAt) {
+                return date.formatted(date: .abbreviated, time: .shortened)
+            }
+            return String(createdAt.prefix(16)).replacingOccurrences(of: "T", with: " ")
+        }
     }
 
     struct Stats: Codable {

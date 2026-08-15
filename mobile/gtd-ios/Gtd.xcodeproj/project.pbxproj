@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0DDBDE3B13FB42E48EDB4CFE /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DC23EC3E1A4E55BDABB49F /* HomeView.swift */; };
+		8F3D6A1C9B254E70A2C4D8E1 /* AttachmentViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A91C2E8B7D14F6A9E3B5C10 /* AttachmentViews.swift */; };
 		375E01A78FFC41628F49EE1C /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCBB606EC34047B99E9E7C41 /* APIModels.swift */; };
 		3CD99D9095C34AB0AF76F0FD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 33BA3E6364674ADEA1DA98BA /* Assets.xcassets */; };
 		3DDB12425DF0402C9D25A0D5 /* TaskEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05BBA5FB1E0E467CB6490E0F /* TaskEditorView.swift */; };
@@ -26,6 +27,7 @@
 
 /* Begin PBXFileReference section */
 		05BBA5FB1E0E467CB6490E0F /* TaskEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorView.swift; sourceTree = "<group>"; };
+		4A91C2E8B7D14F6A9E3B5C10 /* AttachmentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViews.swift; sourceTree = "<group>"; };
 		0C6349EFDEDD442B965C5118 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		17DC23EC3E1A4E55BDABB49F /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		33BA3E6364674ADEA1DA98BA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -67,6 +69,7 @@
 			isa = PBXGroup;
 			children = (
 				C2F914A3372E44A6A687C104 /* ArchiveView.swift */,
+				4A91C2E8B7D14F6A9E3B5C10 /* AttachmentViews.swift */,
 				17DC23EC3E1A4E55BDABB49F /* HomeView.swift */,
 				6DAAF8BF860045D78F020856 /* LoginView.swift */,
 				F6FEFCB59C76441D9A4C5472 /* ProjectsView.swift */,
@@ -186,6 +189,7 @@
 				375E01A78FFC41628F49EE1C /* APIModels.swift in Sources */,
 				F5BDFBDC2A144693AEDCC9DE /* LocalModels.swift in Sources */,
 				7A4E07A9BF6F484B8AFDE789 /* ArchiveView.swift in Sources */,
+				8F3D6A1C9B254E70A2C4D8E1 /* AttachmentViews.swift in Sources */,
 				0DDBDE3B13FB42E48EDB4CFE /* HomeView.swift in Sources */,
 				516AC7F2DAF341668481FEF8 /* LoginView.swift in Sources */,
 				7DB92BC8DD1A4D558C7CC33A /* ProjectsView.swift in Sources */,
