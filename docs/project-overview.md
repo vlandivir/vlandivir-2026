@@ -24,7 +24,7 @@ Root module: [src/app.module.ts](../src/app.module.ts) — ConfigModule (global)
 | Controller | Prefix | Purpose |
 |---|---|---|
 | [app.controller.ts](../src/app.controller.ts) | `/`, `/en`, `/health`, `/gpx-route-png`, `/subs`, `/files`… | Serves static pages / SPA index routes, health check |
-| [notes-api.controller.ts](../src/notes-api.controller.ts) | `/notes-api` | Create a diary note with an image (auth: `x-note-api-key`). Uploads to Spaces, describes image via LLM, notifies via Telegram |
+| [notes-api.controller.ts](../src/notes-api.controller.ts) | `/notes-api` | Create a diary note from text, optionally with an image (auth: `x-note-api-key`). Uploads images to Spaces, describes them via LLM, notifies via Telegram |
 | [notifications-api.controller.ts](../src/notifications-api.controller.ts) | `/notifications-api` | Send a Telegram message to the primary chat (auth: `x-notification-api-key`) |
 | [map-api.controller.ts](../src/map-api.controller.ts) | `/map-api` | CRUD for map points, tracks and the tag dictionary; Instagram-meta refresh (24h cache in JSONB, covers copied to Spaces); Google Maps short-link resolver; public semantic search (`GET /search`, reuses reel embeddings, returns only features with an attached reel — [map-search.service.ts](../src/services/map-search.service.ts)). Reads are public, writes need `x-map-api-key` |
 | [map-pages.controller.ts](../src/map-pages.controller.ts) | `/places/point/:id`, `/places/track/:id` | Server-side Open Graph tags for shareable map links (injected into `web/places/index.html`) |

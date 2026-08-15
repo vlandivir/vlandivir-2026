@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { mkdtemp, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
@@ -29,6 +29,7 @@ describe('NotesApiController', () => {
   };
   let telegramBotService: {
     sendApiNotePhoto: jest.Mock;
+    sendApiNoteText: jest.Mock;
   };
   let debugLogService: {
     info: jest.Mock;
@@ -61,6 +62,7 @@ describe('NotesApiController', () => {
     };
     telegramBotService = {
       sendApiNotePhoto: jest.fn(),
+      sendApiNoteText: jest.fn(),
     };
     debugLogService = {
       info: jest.fn(),
@@ -143,6 +145,51 @@ describe('NotesApiController', () => {
       'Note created',
       expect.objectContaining({ noteId: 10 }),
     );
+  });
+
+  it('creates a text-only note when no image is uploaded', async () => {
+    prisma.note.create.mockResolvedValue({
+      id: 11,
+      content: 'hello note',
+      noteDate: new Date('2026-05-21T10:00:00.000Z'),
+    });
+
+    const result = await controller.createNote('secret', {
+      text: ' hello note ',
+      date: '2026-05-21T10:00:00.000Z',
+    });
+
+    expect(storageService.uploadFile).not.toHaveBeenCalled();
+    expect(llmService.describeImage).not.toHaveBeenCalled();
+    expect(prisma.note.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          content: 'hello note',
+          chatId: getDiaryChatIdNumber(),
+        }),
+      }),
+    );
+    expect(telegramBotService.sendApiNoteText).toHaveBeenCalledWith(
+      getDiaryChatIdNumber(),
+      'hello note',
+      new Date('2026-05-21T10:00:00.000Z'),
+    );
+    expect(result).toEqual({
+      id: 11,
+      chatId: getDiaryChatIdNumber(),
+      text: 'hello note',
+      date: '2026-05-21T10:00:00.000Z',
+      telegramSent: true,
+    });
+  });
+
+  it('rejects text-only notes without text', async () => {
+    await expect(
+      controller.createNote('secret', {
+        text: '   ',
+        date: '2026-05-21T10:00:00.000Z',
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('rejects requests with a wrong API key', async () => {

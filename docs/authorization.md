@@ -85,7 +85,7 @@ redirect `/reels`, `/reels/<secret>/<id>` → 301 на `/reels/<id>` (дальш
 
 | Что | Маршруты | Авторизация |
 |---|---|---|
-| Заметки из скриптов | `POST /notes-api/notes` | `x-note-api-key` = `NOTE_API_KEY` |
+| Заметки из скриптов | `POST /notes-api/notes` | `x-note-api-key` = `NOTE_API_KEY`; картинка опциональна, text-only тоже принимается |
 | Уведомления | `POST /notifications-api/messages` | `x-notification-api-key` = `NOTE_API_KEY` |
 | MCP-сервер | `POST /mcp` | публичные инструменты (карта) — без ключа; приватные (дневник, рилсы) — `Authorization: Bearer <MCP_API_KEY>` (+ `X-Chat-Id` для дневника) |
 | Telegram Mini App profile | `GET /mini-app-api/*` | подпись `initData` токеном бота |

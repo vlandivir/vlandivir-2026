@@ -222,6 +222,19 @@ export class TelegramBotService {
     );
   }
 
+  async sendApiNoteText(
+    chatId: number,
+    text: string,
+    noteDate: Date,
+  ): Promise<void> {
+    const message = [
+      `Заметка от ${format(noteDate, 'd MMMM yyyy', { locale: ru })}`,
+      '',
+      text,
+    ].join('\n');
+    await this.bot.telegram.sendMessage(chatId, message);
+  }
+
   private async prepareApiNotePhotoForTelegram(
     imageBuffer: Buffer,
     originalName: string,

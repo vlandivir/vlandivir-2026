@@ -89,18 +89,90 @@ export class NotesApiController {
         requestId,
       });
 
-      if (!image) {
-        throw new BadRequestException('Image is required');
-      }
-
       const text = this.parseText(body.text);
       const noteDate = this.parseDate(body.date);
+
+      if (!image && text.length === 0) {
+        throw new BadRequestException(
+          'Text is required when no image is uploaded',
+        );
+      }
       this.debugLogService.info('notes-api.createNote', 'Request parsed', {
         requestId,
         chatId: getDiaryChatIdNumber(),
         noteDate: noteDate.toISOString(),
         textLength: text.length,
       });
+
+      if (!image) {
+        this.debugLogService.info(
+          'notes-api.createNote',
+          'Creating text-only note',
+          {
+            requestId,
+            chatId: getDiaryChatIdNumber(),
+          },
+        );
+        const note = await this.prisma.note.create({
+          data: {
+            content: text,
+            noteDate,
+            chatId: getDiaryChatIdNumber(),
+            rawMessage: {
+              source: 'notes-api',
+              text,
+              date: body.date,
+            } satisfies Prisma.InputJsonValue,
+          },
+        });
+        this.debugLogService.info('notes-api.createNote', 'Note created', {
+          requestId,
+          noteId: note.id,
+          imageCount: 0,
+        });
+
+        let telegramSent = false;
+        try {
+          this.debugLogService.info(
+            'notes-api.createNote',
+            'Sending Telegram notification',
+            {
+              requestId,
+              chatId: getDiaryChatIdNumber(),
+            },
+          );
+          await this.telegramBotService.sendApiNoteText(
+            getDiaryChatIdNumber(),
+            text,
+            noteDate,
+          );
+          telegramSent = true;
+          this.debugLogService.info(
+            'notes-api.createNote',
+            'Telegram notification sent',
+            {
+              requestId,
+            },
+          );
+        } catch (error) {
+          this.debugLogService.error(
+            'notes-api.createNote',
+            'Telegram notification failed after note creation',
+            {
+              requestId,
+              ...this.serializeError(error),
+            },
+          );
+        }
+
+        return {
+          id: note.id,
+          chatId: getDiaryChatIdNumber(),
+          text: note.content,
+          date: note.noteDate.toISOString(),
+          telegramSent,
+        };
+      }
 
       this.debugLogService.info('notes-api.createNote', 'Reading image file', {
         requestId,
