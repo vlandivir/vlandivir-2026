@@ -523,6 +523,63 @@ export class StorageService implements OnModuleInit {
     return `${this.endpoint}/${this.bucket}/${key}`;
   }
 
+  publicUrl(key: string): string {
+    return this.getPublicUrl(key);
+  }
+
+  async headByKey(
+    key: string,
+  ): Promise<{ size: number; contentType?: string } | null> {
+    try {
+      const response = await this.s3.send(
+        new HeadObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+        }),
+      );
+      return {
+        size: response.ContentLength ?? 0,
+        contentType: response.ContentType,
+      };
+    } catch (error) {
+      if (this.isMissingObjectError(error)) return null;
+      throw error;
+    }
+  }
+
+  async getJsonByKey<T>(key: string): Promise<T | null> {
+    try {
+      const response = await this.s3.getObject({
+        Bucket: this.bucket,
+        Key: key,
+      });
+      if (!response.Body) return null;
+      const buffer = await this.readStreamToBuffer(
+        response.Body as NodeJS.ReadableStream,
+      );
+      return JSON.parse(buffer.toString('utf8')) as T;
+    } catch (error) {
+      if (this.isMissingObjectError(error)) return null;
+      throw error;
+    }
+  }
+
+  async putPublicJson(key: string, value: unknown): Promise<string> {
+    return this.uploadFileWithKey(
+      Buffer.from(JSON.stringify(value), 'utf8'),
+      'application/json',
+      key,
+    );
+  }
+
+  async putPrivateJson(key: string, value: unknown): Promise<void> {
+    await this.uploadPrivateFileWithKey(
+      Buffer.from(JSON.stringify(value), 'utf8'),
+      'application/json',
+      key,
+    );
+  }
+
   getTripProjectClipKey(
     tripId: string,
     projectId: number,

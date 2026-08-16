@@ -15,6 +15,8 @@ describe('SubsController', () => {
     downloadFile: jest.Mock;
     getSubsVideoUrl: jest.Mock;
     uploadSubsVideoStream: jest.Mock;
+    uploadFileWithKey: jest.Mock;
+    publicUrl: jest.Mock;
   };
   let configService: {
     get: jest.Mock;
@@ -34,6 +36,10 @@ describe('SubsController', () => {
         .mockReturnValue(
           'https://fra1.digitaloceanspaces.com/vlandivir-2025/subs/videos/hash/source',
         ),
+      uploadFileWithKey: jest.fn().mockResolvedValue('https://example.com/file'),
+      publicUrl: jest.fn(
+        (key) => `https://fra1.digitaloceanspaces.com/vlandivir-2025/${key}`,
+      ),
       uploadSubsVideoStream: jest
         .fn()
         .mockImplementation(async (stream: Readable) => {
@@ -55,6 +61,23 @@ describe('SubsController', () => {
       storageService as unknown as StorageService,
       configService as unknown as ConfigService,
       telegramBotService as unknown as TelegramBotService,
+      {
+        artifactFromUpload: jest.fn((input) => input),
+        createManifest: jest.fn().mockResolvedValue({
+          kind: 'subs',
+          hash: 'aea4b8455e75d098f37454f9',
+          title: 'ride.mp4',
+          pageUrl: '/subs/aea4b8455e75d098f37454f9',
+          artifacts: [],
+        }),
+        recordPageForRequest: jest.fn().mockResolvedValue(undefined),
+        toUserPage: jest.fn((manifest) => manifest),
+        getManifest: jest.fn().mockResolvedValue(null),
+        upsertArtifact: jest.fn(),
+        artifactKey: jest.fn(
+          (_kind, hash, id) => `subs/videos/${hash}/${id}`,
+        ),
+      } as never,
     );
     jest
       .spyOn(

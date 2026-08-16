@@ -18,16 +18,18 @@
     <link rel="stylesheet" href="/shared/app-dialog.css?v=20260805-1" />
     <link rel="stylesheet" href="/shared/color-picker.css?v=20260801-1" />
     <link rel="stylesheet" href="/shared/video-upload-block.css?v=20260801-1" />
-    <link rel="stylesheet" href="/subs/styles.css?v=20260801-1" />
-    <script src="/subs/i18n.js?v=20260723-1" defer></script>
+    <link rel="stylesheet" href="/shared/tool-artifacts.css?v=20260816-1" />
+    <link rel="stylesheet" href="/subs/styles.css?v=20260816-1" />
+    <script src="/subs/i18n.js?v=20260816-1" defer></script>
     <script src="/shared/i18n.js?v=20260721-1" defer></script>
-    <script src="/files/registry.js?v=20260527-1"></script>
+    <script src="/files/registry.js?v=20260816-2"></script>
+    <script src="/shared/tool-pages.js?v=20260816-2"></script>
     <script src="/subs/fonts-shared.js?v=20260712-1"></script>
     <script src="/shared/app-dialog.js?v=20260805-1"></script>
     <script src="/shared/site-header.js?v=20260801-1" defer></script>
     <script src="/shared/color-picker.js?v=20260715-1" defer></script>
     <script src="/shared/video-upload-block.js?v=20260603-1" defer></script>
-    <script src="/subs/app.js?v=20260805-1" defer></script>
+    <script src="/subs/app.js?v=20260816-1" defer></script>
   </head>
   <body class="subs-page">
     <header
@@ -77,6 +79,13 @@
           data-status-id="uploadStatus"
           data-i18n-attr="data-label:uploadLabel; data-picker-title:uploadPickerTitle; data-button-label:uploadButtonLabel"
         ></section>
+        <section class="artifact-panel" id="artifactsPanel" hidden>
+          <h3 class="artifact-panel__title" data-i18n="artifactsTitle">Файлы проекта</h3>
+          <p class="artifact-panel__lead" data-i18n="artifactsLead">
+            Все сохранённые на сервере файлы этой страницы — их можно скачать.
+          </p>
+          <div id="artifactsList"></div>
+        </section>
       </details>
 
       <section class="subtitle-editor" aria-label="Редактор субтитров">

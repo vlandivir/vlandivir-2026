@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta http-equiv="Referrer-Policy" content="no-referrer" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://api.fontshare.com https://fonts.googleapis.com; font-src https://api.fontshare.com https://cdn.fontshare.com https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:;" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://api.fontshare.com https://fonts.googleapis.com; font-src https://api.fontshare.com https://cdn.fontshare.com https://fonts.gstatic.com; connect-src 'self' https://fra1.digitaloceanspaces.com; img-src 'self' data: blob: https://fra1.digitaloceanspaces.com; media-src 'self' blob: https://fra1.digitaloceanspaces.com;" />
 <title data-i18n="title">Как сделать анимацию велотрека</title>
 <meta name="description" data-i18n-attr="content:metaDescription" content="Шаг 1: PNG 1080×1920 из GPX в браузере. Шаг 2: анимация прохождения трека и прозрачный PNG. Шаг 3: финальное видео с треком." />
 <link rel="preconnect" href="https://api.fontshare.com" />
@@ -18,7 +18,8 @@
 <link rel="stylesheet" href="/shared/site-header.css?v=20260718-1" />
 <link rel="stylesheet" href="/shared/color-picker.css?v=20260801-1" />
 <link rel="stylesheet" href="/shared/video-upload-block.css?v=20260801-1" />
-<link rel="stylesheet" href="/gpx-route-png/styles.css?v=20260801-1" />
+<link rel="stylesheet" href="/shared/tool-artifacts.css?v=20260816-1" />
+<link rel="stylesheet" href="/gpx-route-png/styles.css?v=20260816-1" />
 </head>
 <body>
 <div class="grid-bg" aria-hidden="true"></div>
@@ -35,7 +36,7 @@
       <span class="workflow-step-badge" aria-hidden="true">1</span>
       <div>
         <h2 class="workflow-step-title" id="step1-title" data-i18n="step1Title">Генерация картинки</h2>
-        <p class="workflow-step-text" data-i18n="step1Text">Загрузите GPX — получите PNG&nbsp;1080×1920 с линией маршрута, точками и подписями. Обработка только в браузере, без сервера.</p>
+        <p class="workflow-step-text" data-i18n="step1Text">Загрузите GPX — получите PNG&nbsp;1080×1920 с линией маршрута. Исходник и результаты сохраняются на сервере.</p>
       </div>
     </summary>
     <div class="workbench">
@@ -151,6 +152,13 @@
       </aside>
     </div>
     </div>
+    <section class="artifact-panel" id="artifactsPanel" hidden>
+      <h3 class="artifact-panel__title" data-i18n="artifactsTitle">Файлы проекта</h3>
+      <p class="artifact-panel__lead" data-i18n="artifactsLead">
+        Все сохранённые на сервере файлы этой страницы — их можно скачать.
+      </p>
+      <div id="artifactsList"></div>
+    </section>
   </details>
 
   <details class="workflow-step" data-gpx-section="animation" open aria-labelledby="step2-title">
@@ -272,12 +280,13 @@
 
 </main>
 
-<script src="/gpx-route-png/i18n.js?v=20260721-1"></script>
+<script src="/gpx-route-png/i18n.js?v=20260816-1"></script>
 <script src="/shared/i18n.js?v=20260721-1"></script>
 <script src="/shared/color-picker.js?v=20260605-1"></script>
 <script src="/shared/site-header.js?v=20260801-1"></script>
-<script src="/files/registry.js?v=20260527-1"></script>
+<script src="/files/registry.js?v=20260816-2"></script>
+<script src="/shared/tool-pages.js?v=20260816-2"></script>
 <script src="/shared/video-upload-block.js?v=20260603-1"></script>
-<script src="/gpx-route-png/app.js?v=20260703-1"></script>
+<script src="/gpx-route-png/app.js?v=20260816-1"></script>
 </body>
 </html>

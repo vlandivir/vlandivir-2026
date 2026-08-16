@@ -19,7 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { endOfDay, startOfDay } from 'date-fns';
 import { readFile, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
-import { GoogleSessionGuard } from './auth/google-session.guard';
+import { AdminSessionGuard } from './auth/admin-session.guard';
 import { getDiaryChatId, getDiaryChatIdNumber } from './diary.constants';
 import { PrismaService } from './prisma/prisma.service';
 import { LlmService, DESCRIBE_FAILURE_SENTINELS } from './services/llm.service';
@@ -48,7 +48,7 @@ type UploadedVideo = {
 
 // Owner-only diary API (page: /diary). Session only, like the email
 // dashboard — there is no machine-key use case here.
-@UseGuards(GoogleSessionGuard)
+@UseGuards(AdminSessionGuard)
 @Controller('diary-api')
 export class DiaryApiController {
   constructor(
