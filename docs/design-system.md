@@ -4,6 +4,10 @@ The visual foundation for every page is `web/shared/site-theme.css`. Static
 pages load it before `site-header.css` and their own layout stylesheet. The GTD
 React app mirrors the same semantic contract in `telegram-app/src/theme.ts`.
 
+Direction: a personal cartographic workshop. Cool map-paper surfaces, contour
+teal for actions, Source Serif 4 for titles, Source Sans 3 for UI. Do not
+revert to Inter or the default shadcn zinc palette.
+
 ## Themes
 
 The public site follows `prefers-color-scheme`; there is no manual override.
@@ -31,6 +35,8 @@ Use only these sources in new UI:
 | Destructive action | `--destructive`, `--destructive-foreground` |
 | Successful action | `--success`, `--success-foreground` |
 | Spacing/radius/shadow | `--v-space-*`, `--radius`, `--v-shadow` |
+| Body type | `var(--font-sans)` — Source Sans 3 |
+| Titles/brand | `var(--font-display)` — Source Serif 4 |
 
 Token names contain HSL components, so consume them through `hsl(var(--token))`.
 Do not restore legacy aliases such as `--ink`, `--paper`, `--green`, or

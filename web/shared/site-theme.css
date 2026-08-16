@@ -1,30 +1,33 @@
 :root {
   color-scheme: light;
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --shadcn-muted: 210 40% 96.1%;
-  --shadcn-muted-foreground: 215.4 16.3% 46.9%;
-  --shadcn-accent: 210 40% 96.1%;
-  --shadcn-accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --success: 142.1 70.6% 35.3%;
+  --background: 168 18% 94%;
+  --foreground: 195 25% 13%;
+  --card: 160 23% 98%;
+  --card-foreground: 195 25% 13%;
+  --popover: 160 23% 98%;
+  --popover-foreground: 195 25% 13%;
+  --primary: 175 62% 27%;
+  --primary-foreground: 168 40% 97%;
+  --secondary: 168 18% 91%;
+  --secondary-foreground: 195 25% 13%;
+  --shadcn-muted: 168 16% 90%;
+  --shadcn-muted-foreground: 189 14% 36%;
+  --shadcn-accent: 168 16% 88%;
+  --shadcn-accent-foreground: 195 25% 13%;
+  --destructive: 10 59% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 145 44% 33%;
   --success-foreground: 0 0% 100%;
-  --shadcn-border: 216.8 14.8% 59%;
-  --shadcn-input: 216.8 14.8% 59%;
-  --shadcn-ring: 222.2 84% 4.9%;
-  --shadcn-card-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadcn-border: 186 12% 62%;
+  --shadcn-input: 186 12% 62%;
+  --shadcn-ring: 175 62% 27%;
+  --shadcn-card-shadow:
+    0 1px 2px hsl(195 25% 13% / 0.06),
+    0 10px 28px hsl(175 40% 20% / 0.07);
   --shadcn-popover-shadow:
-    0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --radius: 0.5rem;
+    0 12px 32px hsl(195 25% 13% / 0.14),
+    0 4px 10px hsl(175 40% 20% / 0.08);
+  --radius: 0.4rem;
   --v-bg: hsl(var(--background));
   --v-surface: hsl(var(--card));
   --v-surface-soft: hsl(var(--shadcn-muted));
@@ -33,7 +36,7 @@
   --v-line: hsl(var(--shadcn-border));
   --v-accent: hsl(var(--primary));
   --v-accent-strong: hsl(var(--primary));
-  --v-warm: hsl(var(--destructive));
+  --v-warm: hsl(var(--primary));
   --v-shadow: var(--shadcn-card-shadow);
   /* Spacing rules: page 32/64, sections 48 apart, panels 32 inside, cards 16 inside, groups 16 apart, controls 8 apart. */
   --v-space-1: 4px;
@@ -55,8 +58,10 @@
   --v-group-gap: var(--v-space-4);
   --v-control-gap: var(--v-space-2);
   --font-sans:
-    Inter, Satoshi, Montserrat, system-ui, -apple-system, BlinkMacSystemFont,
-    'Segoe UI', sans-serif;
+    'Source Sans 3', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+  --font-display:
+    'Source Serif 4', 'Source Serif Pro', Georgia, 'Times New Roman', serif;
   --font-mono:
     'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Monaco, Consolas,
     monospace;
@@ -84,31 +89,33 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 47.4% 8.5%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 47.4% 8.5%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --shadcn-muted: 217.2 32.6% 17.5%;
-    --shadcn-muted-foreground: 215 20.2% 70%;
-    --shadcn-accent: 217.2 32.6% 20.5%;
-    --shadcn-accent-foreground: 210 40% 98%;
-    --destructive: 0 72.2% 50.6%;
-    --destructive-foreground: 210 40% 98%;
-    --success: 142.1 69.2% 40%;
-    --success-foreground: 144.9 80.4% 10%;
-    --shadcn-border: 216.7 17.3% 40.8%;
-    --shadcn-input: 216.7 17.3% 40.8%;
-    --shadcn-ring: 212.7 26.8% 83.9%;
-    --shadcn-card-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.32);
+    --background: 188 31% 8%;
+    --foreground: 174 23% 91%;
+    --card: 187 29% 12%;
+    --card-foreground: 174 23% 91%;
+    --popover: 187 29% 12%;
+    --popover-foreground: 174 23% 91%;
+    --primary: 173 49% 44%;
+    --primary-foreground: 172 68% 7%;
+    --secondary: 189 27% 15%;
+    --secondary-foreground: 174 23% 91%;
+    --shadcn-muted: 189 27% 15%;
+    --shadcn-muted-foreground: 188 13% 65%;
+    --shadcn-accent: 189 24% 18%;
+    --shadcn-accent-foreground: 174 23% 91%;
+    --destructive: 9 69% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 143 37% 46%;
+    --success-foreground: 144 80% 8%;
+    --shadcn-border: 188 16% 35%;
+    --shadcn-input: 188 16% 35%;
+    --shadcn-ring: 173 49% 44%;
+    --shadcn-card-shadow:
+      0 1px 2px hsl(188 40% 2% / 0.4),
+      0 12px 28px hsl(188 40% 2% / 0.45);
     --shadcn-popover-shadow:
-      0 12px 28px -8px rgb(0 0 0 / 0.68),
-      0 4px 10px -4px rgb(0 0 0 / 0.48);
+      0 12px 32px hsl(188 40% 2% / 0.7),
+      0 4px 10px hsl(188 40% 2% / 0.45);
   }
 }
 
@@ -129,11 +136,7 @@ body {
   font-family: var(--font-sans);
   letter-spacing: 0;
   line-height: 1.5;
-  background: linear-gradient(
-    180deg,
-    hsl(var(--background)),
-    hsl(var(--shadcn-muted))
-  );
+  background-color: hsl(var(--background));
   -webkit-font-smoothing: antialiased;
 }
 
@@ -163,11 +166,19 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    hsl(var(--background) / 0.92),
-    hsl(var(--shadcn-muted) / 0.82)
-  );
+  background-image:
+    radial-gradient(
+      ellipse 90% 70% at 8% -10%,
+      hsl(var(--primary) / 0.08),
+      transparent 52%
+    ),
+    repeating-radial-gradient(
+      circle at -18% 110%,
+      hsl(var(--primary) / 0.07) 0,
+      hsl(var(--primary) / 0.07) 1.2px,
+      transparent 1.4px,
+      transparent 72px
+    );
 }
 
 .grid-bg {
@@ -201,16 +212,19 @@ h1,
 h2,
 h3 {
   color: var(--v-text);
-  letter-spacing: 0;
+  font-family: var(--font-display);
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 
 h1 {
   font-size: clamp(36px, 5.4vw, 64px);
-  line-height: 1;
+  line-height: 1.05;
 }
 
 h2 {
   font-size: clamp(26px, 3.8vw, 42px);
+  line-height: 1.12;
 }
 
 p,
@@ -467,8 +481,17 @@ main > .hero:first-child h1,
 
 .editor-section__title {
   margin: 0;
+  font-family: var(--font-display);
   font-size: clamp(22px, 3vw, 28px);
+  font-weight: 650;
+  letter-spacing: -0.02em;
   line-height: 1.1;
+}
+
+.panel-brand {
+  font-family: var(--font-display);
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 
 .editor-section__body {
@@ -696,15 +719,17 @@ button:disabled,
   background: hsl(var(--destructive) / 0.1);
 }
 
-.v-site-header__nav a,
+.v-site-header__tool,
+.v-site-header__who {
+  color: hsl(var(--shadcn-muted-foreground));
+}
+
 .v-site-header__lang a {
   border-radius: var(--radius);
   color: hsl(var(--shadcn-muted-foreground));
 }
 
-.v-site-header__nav a:hover,
 .v-site-header__lang a:hover,
-.v-site-header__nav a[aria-current='page'],
 .v-site-header__lang a[aria-current='page'] {
   background: hsl(var(--secondary));
   color: hsl(var(--secondary-foreground));
