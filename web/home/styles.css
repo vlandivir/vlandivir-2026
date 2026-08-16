@@ -1,31 +1,5 @@
 /* Layout-only styles; tokens and components come from /shared/site-theme.css */
 
-.hero {
-  max-width: 38rem;
-  margin-bottom: var(--v-section-gap);
-  padding: 0 0 var(--v-space-6);
-  border: 0;
-  border-bottom: 1px solid hsl(var(--shadcn-border));
-}
-
-.eyebrow {
-  margin: 0 0 var(--v-space-3);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.hero h1 {
-  margin: 0 0 var(--v-space-4);
-}
-
-.lead {
-  margin: 0;
-  font-size: 1.25rem;
-  line-height: 1.45;
-}
-
 .tool-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -65,10 +39,6 @@
 }
 
 @media (max-width: 900px) {
-  .lead {
-    font-size: 1.125rem;
-  }
-
   .tool-grid {
     grid-template-columns: 1fr;
   }
