@@ -28,6 +28,8 @@ import {
   type SubsTranscriptCue,
   type SubsTranscriptWord,
 } from './services/storage.service';
+import { ToolPagesService } from './services/tool-pages.service';
+import type { ToolPageManifest } from './services/tool-pages.types';
 import { getDiaryChatIdNumber } from './diary.constants';
 import { TelegramBotService } from './telegram-bot/telegram-bot.service';
 
@@ -41,6 +43,7 @@ type UploadedVideo = {
   size: number;
   createdAt: string;
   audio?: SubsAudioManifest;
+  artifacts?: ToolPageManifest['artifacts'];
 };
 
 type ExtractedAudio = {
@@ -146,6 +149,7 @@ export class SubsController {
     private readonly storageService: StorageService,
     private readonly configService: ConfigService,
     private readonly telegramBotService: TelegramBotService,
+    private readonly toolPages: ToolPagesService,
   ) {}
 
   @Post('videos')
@@ -187,6 +191,26 @@ export class SubsController {
         hash,
       );
       const absolutePageUrl = this.getAbsolutePageUrl(req, hash);
+      const createdAt = new Date().toISOString();
+      const sourceArtifact = this.toolPages.artifactFromUpload({
+        id: 'source',
+        name: file.originalname || `${hash}.mp4`,
+        url: videoUrl,
+        mimeType: file.mimetype,
+        size: file.size,
+        createdAt,
+      });
+      const manifest = await this.toolPages.createManifest({
+        kind: 'subs',
+        hash,
+        title: file.originalname || hash,
+        pageUrl: `/subs/${hash}`,
+        artifact: sourceArtifact,
+      });
+      await this.toolPages.recordPageForRequest(
+        req,
+        this.toolPages.toUserPage(manifest),
+      );
       await this.notifySubsVideoUploaded({
         hash,
         videoUrl,
@@ -204,7 +228,8 @@ export class SubsController {
         originalName: file.originalname,
         mimeType: file.mimetype,
         size: file.size,
-        createdAt: new Date().toISOString(),
+        createdAt,
+        artifacts: manifest.artifacts,
       };
     } finally {
       await unlink(file.path).catch(() => undefined);
@@ -215,12 +240,21 @@ export class SubsController {
   async getVideo(@Param('hash') hash: string, @Req() req: Request) {
     this.assertHash(hash);
     const audio = await this.storageService.getSubsAudioManifest(hash);
+    const manifest = await this.toolPages.getManifest('subs', hash);
+    if (manifest) {
+      await this.toolPages.recordPageForRequest(
+        req,
+        this.toolPages.toUserPage(manifest),
+      );
+    }
 
     return {
       hash,
       pageUrl: `/subs/${hash}`,
       absolutePageUrl: this.getAbsolutePageUrl(req, hash),
       videoUrl: this.storageService.getSubsVideoUrl(hash),
+      originalName: manifest?.title,
+      artifacts: manifest?.artifacts || [],
       ...(audio ? { audio } : {}),
     };
   }
@@ -270,6 +304,26 @@ export class SubsController {
       };
 
       await this.storageService.uploadSubsAudioManifest(hash, manifest);
+      await this.rememberSubsFiles(hash, [
+        this.toolPages.artifactFromUpload({
+          id: 'audio',
+          name: `${hash}-audio.mp3`,
+          url: audioUrl,
+          mimeType: 'audio/mpeg',
+          size: audioStat.size,
+          createdAt: manifest.createdAt,
+        }),
+        this.toolPages.artifactFromUpload({
+          id: 'waveform',
+          name: `${hash}-waveform.json`,
+          url: this.storageService.publicUrl(
+            this.toolPages.artifactKey('subs', hash, 'waveform'),
+          ),
+          mimeType: 'application/json',
+          size: Buffer.byteLength(JSON.stringify(manifest), 'utf8'),
+          createdAt: manifest.createdAt,
+        }),
+      ]);
       return manifest;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -335,6 +389,19 @@ export class SubsController {
       language,
       transcript,
     );
+    const transcriptUrl = this.storageService.publicUrl(
+      this.toolPages.artifactKey('subs', hash, `transcript-${language}`),
+    );
+    await this.rememberSubsFiles(hash, [
+      this.toolPages.artifactFromUpload({
+        id: `transcript-${language}`,
+        name: `${hash}-transcript-${language}.json`,
+        url: transcriptUrl,
+        mimeType: 'application/json',
+        size: Buffer.byteLength(JSON.stringify(transcript), 'utf8'),
+        createdAt: transcript.createdAt,
+      }),
+    ]);
     return transcript;
   }
 
@@ -385,7 +452,7 @@ export class SubsController {
       text: translatedLineTexts[index],
     }));
 
-    return {
+    const translation = {
       hash,
       sourceLanguage,
       targetLanguage,
@@ -396,6 +463,26 @@ export class SubsController {
       lines: translatedLines,
       createdAt: new Date().toISOString(),
     };
+    const translationUrl = await this.storageService.uploadFileWithKey(
+      Buffer.from(JSON.stringify(translation), 'utf8'),
+      'application/json',
+      this.toolPages.artifactKey(
+        'subs',
+        hash,
+        `translation-${targetLanguage}`,
+      ),
+    );
+    await this.rememberSubsFiles(hash, [
+      this.toolPages.artifactFromUpload({
+        id: `translation-${targetLanguage}`,
+        name: `${hash}-translation-${targetLanguage}.json`,
+        url: translationUrl,
+        mimeType: 'application/json',
+        size: Buffer.byteLength(JSON.stringify(translation), 'utf8'),
+        createdAt: translation.createdAt,
+      }),
+    ]);
+    return translation;
   }
 
   @Post('videos/:hash/render')
@@ -438,19 +525,44 @@ export class SubsController {
       ]);
 
       const outputStat = await stat(outputPath);
+      const assBuffer = Buffer.from(ass, 'utf8');
+      const assUrl = await this.storageService.uploadFileWithKey(
+        assBuffer,
+        'text/plain; charset=utf-8',
+        this.toolPages.artifactKey('subs', hash, 'ass'),
+      );
       const renderedUrl =
         await this.storageService.uploadSubsRenderedVideoStream(
           createReadStream(outputPath),
           'video/mp4',
           hash,
         );
+      const createdAt = new Date().toISOString();
+      await this.rememberSubsFiles(hash, [
+        this.toolPages.artifactFromUpload({
+          id: 'ass',
+          name: 'subtitles.ass',
+          url: assUrl,
+          mimeType: 'text/plain',
+          size: assBuffer.length,
+          createdAt,
+        }),
+        this.toolPages.artifactFromUpload({
+          id: 'render',
+          name: `${hash}-subtitled.mp4`,
+          url: renderedUrl,
+          mimeType: 'video/mp4',
+          size: outputStat.size,
+          createdAt,
+        }),
+      ]);
 
       return {
         hash,
         videoUrl: renderedUrl,
         mimeType: 'video/mp4',
         size: outputStat.size,
-        createdAt: new Date().toISOString(),
+        createdAt,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -463,6 +575,37 @@ export class SubsController {
         unlink(outputPath).catch(() => undefined),
       ]);
     }
+  }
+
+  @Post('videos/:hash/ass')
+  async saveAss(
+    @Param('hash') hash: string,
+    @Body() body: RenderSubtitledVideoRequest,
+    @Req() req: Request,
+  ) {
+    this.assertHash(hash);
+    const ass = (body?.ass || '').trim();
+    if (!ass) throw new BadRequestException('ASS content is required');
+    const assBuffer = Buffer.from(ass, 'utf8');
+    const assUrl = await this.storageService.uploadFileWithKey(
+      assBuffer,
+      'text/plain; charset=utf-8',
+      this.toolPages.artifactKey('subs', hash, 'ass'),
+    );
+    const manifest = await this.rememberSubsFiles(hash, [
+      this.toolPages.artifactFromUpload({
+        id: 'ass',
+        name: 'subtitles.ass',
+        url: assUrl,
+        mimeType: 'text/plain',
+        size: assBuffer.length,
+      }),
+    ]);
+    await this.toolPages.recordPageForRequest(
+      req,
+      this.toolPages.toUserPage(manifest),
+    );
+    return { hash, artifacts: manifest.artifacts };
   }
 
   @Get('videos/:hash/render/download')
@@ -502,6 +645,27 @@ export class SubsController {
   @Header('Content-Disposition', 'attachment; filename="subs-source-video"')
   async downloadSourceVideo(@Param('hash') hash: string, @Res() res: Response) {
     await this.sendSourceVideo(hash, res);
+  }
+
+  private async rememberSubsFiles(
+    hash: string,
+    artifacts: ToolPageManifest['artifacts'],
+  ): Promise<ToolPageManifest> {
+    let manifest =
+      (await this.toolPages.getManifest('subs', hash)) ||
+      (await this.toolPages.createManifest({
+        kind: 'subs',
+        hash,
+        title: hash,
+        pageUrl: `/subs/${hash}`,
+      }));
+    for (const artifact of artifacts) {
+      manifest = await this.toolPages.upsertArtifact('subs', hash, artifact, {
+        title: manifest.title,
+        pageUrl: manifest.pageUrl,
+      });
+    }
+    return manifest;
   }
 
   private async sendSourceVideo(

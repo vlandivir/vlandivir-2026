@@ -1,36 +1,34 @@
 window.PAGE_I18N = {
   ru: {
     metaDescription:
-      'Локальный список файлов, созданных или сохраненных через страницы Subs и GPX.',
+      'Страницы Subs и GPX, где можно скачать все сохранённые файлы проекта.',
     title: 'Ваши файлы',
     pageTitle: 'Ваши файлы',
     pageLead:
-      'Файлы, о которых браузер узнал через страницы Subs и GPX на этом устройстве.',
+      'Страницы проектов Subs и GPX. На каждой странице можно скачать все сохранённые файлы.',
     refresh: 'Обновить',
     summaryAria: 'Сводка',
-    labelFiles: 'файлов',
-    labelKnownSize: 'известный размер',
-    labelSources: 'источников',
-    searchLabel: 'Поиск по файлам и комментариям',
-    searchPlaceholder: 'Название, ссылка, описание или комментарий',
+    labelFiles: 'страниц',
+    labelSources: 'синхронизация',
+    searchLabel: 'Поиск по страницам',
+    searchPlaceholder: 'Название или hash',
     emptyState:
-      'Пока нет файлов. Загрузите видео на /subs или скачайте результат на /gpx-route-png.',
+      'Пока нет страниц. Загрузите видео на /subs или GPX на /gpx-route-png.',
   },
   en: {
     metaDescription:
-      'A local list of files created or saved through the Subs and GPX pages.',
+      'Subs and GPX project pages where you can download every saved file.',
     title: 'Your files',
     pageTitle: 'Your files',
     pageLead:
-      'Files this browser learned about through the Subs and GPX pages on this device.',
+      'Subs and GPX project pages. Open a page to download every saved file.',
     refresh: 'Refresh',
     summaryAria: 'Summary',
-    labelFiles: 'files',
-    labelKnownSize: 'known size',
-    labelSources: 'sources',
-    searchLabel: 'Search files and comments',
-    searchPlaceholder: 'Name, link, description, or comment',
+    labelFiles: 'pages',
+    labelSources: 'sync',
+    searchLabel: 'Search pages',
+    searchPlaceholder: 'Name or hash',
     emptyState:
-      'No files yet. Upload a video on /subs or download a result from /gpx-route-png.',
+      'No pages yet. Upload a video on /subs or a GPX file on /gpx-route-png.',
   },
 };

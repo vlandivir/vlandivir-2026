@@ -16,6 +16,10 @@ window.PAGE_I18N = {
     uploadPickerTitle: 'Выбрать видео',
     uploadButtonLabel: 'Загрузить',
 
+    artifactsTitle: 'Файлы проекта',
+    artifactsLead:
+      'Все сохранённые на сервере файлы этой страницы — их можно скачать.',
+
     step2Title: 'Выделите звук и реплики',
     step2Text: 'Выделите audio, распознайте речь или добавьте реплики вручную.',
     soundEyebrow: 'Звук',
@@ -127,6 +131,9 @@ window.PAGE_I18N = {
     uploadLabel: 'Video upload',
     uploadPickerTitle: 'Choose video',
     uploadButtonLabel: 'Upload',
+
+    artifactsTitle: 'Project files',
+    artifactsLead: 'Every file saved on the server for this page — download any of them.',
 
     step2Title: 'Extract audio and cues',
     step2Text: 'Extract audio, recognize speech, or add cues manually.',

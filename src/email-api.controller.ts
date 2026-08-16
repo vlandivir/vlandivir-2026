@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleSessionGuard } from './auth/google-session.guard';
+import { AdminSessionGuard } from './auth/admin-session.guard';
 import { PrismaService } from './prisma/prisma.service';
 import { EmailIngestService } from './services/email-ingest.service';
 import {
@@ -49,7 +49,7 @@ const ALLOWED_ACTIONS: EmailAction[] = [
 
 // Read-only dashboard API for the email pipeline (page: /email). Session
 // only — unlike map/reels there is no machine-key use case here yet.
-@UseGuards(GoogleSessionGuard)
+@UseGuards(AdminSessionGuard)
 @Controller('email-api')
 export class EmailApiController {
   private readonly accountEmails: Map<string, string>;

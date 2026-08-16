@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';
 import * as jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 export type SessionUser = {
   email: string;
@@ -111,9 +111,10 @@ export class AuthService {
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
 
-  // Exchanges the authorization code, verifies the id_token signature and
-  // returns the user when their email is on the allowlist.
-  async handleCallback(code: string): Promise<SessionUser | 'forbidden'> {
+  // Exchanges the authorization code, verifies the id_token signature, and
+  // returns any Google account with a verified email. Admin vs regular user
+  // is decided later via ALLOWED_GOOGLE_EMAILS.
+  async handleCallback(code: string): Promise<SessionUser> {
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -144,11 +145,6 @@ export class AuthService {
     const email = payload?.email?.toLowerCase();
     if (!email || !payload?.email_verified) {
       throw new Error('id_token has no verified email');
-    }
-
-    if (!this.allowedEmails.has(email)) {
-      this.logger.warn(`Google login rejected for ${email} (not allowlisted)`);
-      return 'forbidden';
     }
 
     return { email, name: payload.name };
@@ -201,9 +197,27 @@ export class AuthService {
     return this.allowedEmails.has(email.trim().toLowerCase());
   }
 
+  isAdminUser(user: SessionUser | null | undefined): boolean {
+    return Boolean(user && this.isAllowedEmail(user.email));
+  }
+
   isAdminSession(request: Request): boolean {
-    const session = this.getSessionFromRequest(request);
-    return Boolean(session && this.isAllowedEmail(session.email));
+    return this.isAdminUser(this.getSessionFromRequest(request));
+  }
+
+  /** For HTML page routes that are not behind AdminSessionGuard. */
+  assertAdminPage(request: Request, response: Response): boolean {
+    const user = this.getSessionFromRequest(request);
+    if (this.isAdminUser(user)) return true;
+    if (!user && this.enabled) {
+      const redirect = encodeURIComponent(
+        this.safeRedirectPath(request.originalUrl),
+      );
+      response.redirect(`/auth/google?redirect=${redirect}`);
+      return false;
+    }
+    response.status(403).type('text/plain').send('Admin access required');
+    return false;
   }
 
   sessionCookie(token: string): string {

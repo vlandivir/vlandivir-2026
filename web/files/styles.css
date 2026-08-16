@@ -17,7 +17,7 @@ h1 {
 
 .summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1px;
   margin-bottom: var(--v-space-5);
 }
@@ -57,9 +57,13 @@ h1 {
 
 .file-card {
   display: grid;
-  grid-template-columns: clamp(160px, 11vw, 190px) minmax(0, 1fr) 124px;
+  grid-template-columns: minmax(0, 1fr) 124px;
   align-items: start;
   gap: 18px;
+}
+
+.file-card--page {
+  grid-template-columns: minmax(0, 1fr) 124px;
 }
 
 .file-card__preview {

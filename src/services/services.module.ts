@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { DateParserService } from './date-parser.service';
 import { StorageService } from './storage.service';
 import { LlmService } from './llm.service';
@@ -17,8 +18,10 @@ import { EmailExecutorService } from './email-executor.service';
 import { EmailClassifierService } from './email-classifier.service';
 import { EmailRulesRunnerService } from './email-rules-runner.service';
 import { TripThumbsService } from './trip-thumbs.service';
+import { ToolPagesService } from './tool-pages.service';
 
 @Module({
+  imports: [AuthModule],
   providers: [
     DateParserService,
     StorageService,
@@ -38,6 +41,7 @@ import { TripThumbsService } from './trip-thumbs.service';
     EmailClassifierService,
     EmailRulesRunnerService,
     TripThumbsService,
+    ToolPagesService,
   ],
   exports: [
     DateParserService,
@@ -58,6 +62,7 @@ import { TripThumbsService } from './trip-thumbs.service';
     EmailClassifierService,
     EmailRulesRunnerService,
     TripThumbsService,
+    ToolPagesService,
   ],
 })
 export class ServicesModule {}
