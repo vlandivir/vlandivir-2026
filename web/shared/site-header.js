@@ -4,37 +4,32 @@
   const COPY = {
     ru: {
       brand: 'vlandivir',
-      navLabel: 'Навигация',
       langLabel: 'Выбор языка',
-      home: 'Главная',
-      places: 'Карта',
-      subs: 'Subs',
-      gpx: 'GPX',
-      files: 'Ваши файлы',
-      gtd: 'GTD',
-      instagram: 'Instagram',
       instagramLabel: 'Открыть Instagram @vlandivir',
       login: 'Войти',
       logout: 'Выйти',
     },
     en: {
       brand: 'vlandivir',
-      navLabel: 'Navigation',
       langLabel: 'Language',
-      home: 'Home',
-      places: 'Map',
-      subs: 'Subs',
-      gpx: 'GPX',
-      files: 'Files',
-      gtd: 'GTD',
-      instagram: 'Instagram',
       instagramLabel: 'Open Instagram @vlandivir',
-      login: 'Sign in',
-      logout: 'Sign out',
+      login: 'Log in',
+      logout: 'Log out',
     },
   };
 
-  // Google session info, fetched once and shared by every header on the page
+  const TOOL_LABELS = {
+    places: { ru: 'Карта', en: 'Map' },
+    subs: { ru: 'Субтитры', en: 'Subs' },
+    gpx: { ru: 'GPX', en: 'GPX' },
+    files: { ru: 'Файлы', en: 'Files' },
+    trip: { ru: 'Поездка', en: 'Trip' },
+    diary: { ru: 'Дневник', en: 'Diary' },
+    email: { ru: 'Почта', en: 'Mail' },
+    reels: { ru: 'Reels', en: 'Reels' },
+    gtd: { ru: 'GTD', en: 'GTD' },
+  };
+
   let mePromise = null;
   function fetchMe() {
     if (!mePromise) {
@@ -51,35 +46,19 @@
       : 'ru';
   }
 
-  function pagePaths(lang) {
-    return {
-      home: lang === 'en' ? '/en' : '/',
-      places: '/places/',
-      subs: lang === 'en' ? '/subs/en' : '/subs/',
-      gpx: lang === 'en' ? '/gpx-route-png/en' : '/gpx-route-png/',
-      files: lang === 'en' ? '/files/en' : '/files/',
-      gtd: '/gtd',
-    };
-  }
-
-  function makeLink({ href, text, active, external }) {
+  function makeLink({ href, text, active }) {
     const link = document.createElement('a');
     link.href = href;
     link.textContent = text;
     if (active) link.setAttribute('aria-current', 'page');
-    if (external) {
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.className = 'v-site-header__external';
-    }
     return link;
   }
 
   function renderHeader(mount) {
     const lang = currentLanguage();
     const copy = COPY[lang];
-    const paths = pagePaths(lang);
     const active = mount.dataset.active || '';
+    const homeHref = lang === 'en' ? '/en' : '/';
 
     mount.className = 'v-site-header';
 
@@ -95,92 +74,68 @@
     instagram.innerHTML =
       '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="18" height="18" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"></rect><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"></circle><circle cx="17.5" cy="6.5" r="1.5" fill="currentColor"></circle></svg>';
 
-    const brand = makeLink({
-      href: paths.home,
-      text: '',
-    });
+    const brand = makeLink({ href: homeHref, text: '' });
     brand.className = 'v-site-header__brand';
     brand.setAttribute('aria-label', copy.brand);
-
     const name = document.createElement('span');
     name.className = 'v-site-header__name';
     name.textContent = copy.brand;
     brand.append(name);
     left.append(instagram, brand);
 
+    const toolLabel = TOOL_LABELS[active]?.[lang];
+    if (toolLabel) {
+      const tool = document.createElement('span');
+      tool.className = 'v-site-header__tool';
+      tool.textContent = toolLabel;
+      left.append(tool);
+    }
+
     const right = document.createElement('div');
     right.className = 'v-site-header__right';
-
-    const nav = document.createElement('nav');
-    nav.className = 'v-site-header__nav';
-    nav.setAttribute('aria-label', copy.navLabel);
-    nav.append(
-      makeLink({
-        href: paths.places,
-        text: copy.places,
-        active: active === 'places',
-      }),
-      makeLink({
-        href: paths.subs,
-        text: copy.subs,
-        active: active === 'subs',
-      }),
-      makeLink({ href: paths.gpx, text: copy.gpx, active: active === 'gpx' }),
-      makeLink({
-        href: paths.files,
-        text: copy.files,
-        active: active === 'files',
-      }),
-    );
-
-    const langNav = document.createElement('nav');
-    langNav.className = 'v-site-header__lang';
-    langNav.setAttribute('aria-label', copy.langLabel);
-    langNav.append(
-      makeLink({
-        href: mount.dataset.langRu || '/',
-        text: 'RU',
-        active: lang === 'ru',
-      }),
-      makeLink({
-        href: mount.dataset.langEn || '/en',
-        text: 'EN',
-        active: lang === 'en',
-      }),
-    );
-
-    right.append(nav);
-    // App-like single-language pages set data-lang-none to hide the switcher
-    if (!('langNone' in mount.dataset)) right.append(langNav);
 
     const account = document.createElement('div');
     account.className = 'v-site-header__account';
     right.append(account);
+
+    if (!('langNone' in mount.dataset)) {
+      const langNav = document.createElement('nav');
+      langNav.className = 'v-site-header__lang';
+      langNav.setAttribute('aria-label', copy.langLabel);
+      langNav.append(
+        makeLink({
+          href: mount.dataset.langRu || '/',
+          text: 'RU',
+          active: lang === 'ru',
+        }),
+        makeLink({
+          href: mount.dataset.langEn || '/en',
+          text: 'EN',
+          active: lang === 'en',
+        }),
+      );
+      right.append(langNav);
+    }
+
     void fetchMe().then((me) => {
       if (me && me.authenticated) {
-        nav.append(
-          makeLink({
-            href: paths.gtd,
-            text: copy.gtd,
-            active: active === 'gtd',
-          }),
-        );
-        const email = document.createElement('span');
-        email.className = 'v-site-header__email';
-        email.textContent = me.email;
-        email.title = me.name || me.email;
+        const who = document.createElement('span');
+        who.className = 'v-site-header__who';
+        who.textContent = me.name || me.email;
+        who.title = me.email || me.name || '';
         const logout = makeLink({ href: '/auth/logout', text: copy.logout });
-        account.append(email, logout);
+        logout.className = 'mini-btn';
+        account.append(who, logout);
       } else {
         const redirect = encodeURIComponent(
           location.pathname + location.search,
         );
-        account.append(
-          makeLink({
-            href: `/auth/google?redirect=${redirect}`,
-            text: copy.login,
-          }),
-        );
+        const login = makeLink({
+          href: `/auth/google?redirect=${redirect}`,
+          text: copy.login,
+        });
+        login.className = 'mini-btn';
+        account.append(login);
       }
     });
 

@@ -16,7 +16,7 @@ Canonical rules live in [AGENTS.md](../../AGENTS.md) → **Design system (web pa
 
 ## Do
 
-- Colors/spacing/type only via theme tokens (`hsl(var(--primary))`, `var(--v-muted)`, `--v-space-*`, `var(--font-sans)`, …)
+- Colors/spacing/type only via theme tokens (`hsl(var(--primary))`, `var(--v-muted)`, `--v-space-*`, `var(--font-sans)`, `var(--font-display)`, …)
 - Reuse theme classes: `.primary-btn`, `.ghost-btn`, `.mini-btn`, `.tool-link`, `.editor-card`, `.tool-block`, `.eyebrow`, `.badge`, `.page-shell` / `.shell`
 - Shared header on content pages; never override `.v-site-header` width
 - New pages: link order `site-theme.css → page styles`; bump `?v=` on CSS changes
