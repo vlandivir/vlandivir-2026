@@ -10,7 +10,7 @@ window.PAGE_I18N = {
     h1: 'Как сделать анимацию велотрека',
     step1Title: 'Генерация картинки',
     step1Text:
-      'Загрузите GPX — получите PNG\u00A01080×1920 с линией маршрута, точками и подписями. Обработка только в браузере, без сервера.',
+      'Загрузите GPX — получите PNG\u00A01080×1920 с линией маршрута. Исходник и результаты сохраняются на сервере.',
     dropZoneAria: 'Зона загрузки GPX-файла',
     dropTitle: 'Перетащите GPX сюда',
     dropOr: 'или',
@@ -20,6 +20,9 @@ window.PAGE_I18N = {
     dropHint: 'Поддерживается .gpx — trkpt, rtept, wpt',
     previewAria: 'Предпросмотр постера трека',
     downloadPng: 'Скачать PNG\u00A01080×1920',
+    artifactsTitle: 'Файлы проекта',
+    artifactsLead:
+      'Все сохранённые на сервере файлы этой страницы — их можно скачать.',
     panelTitle: 'Статистика трека',
     statSourceLabel: 'Источник точек',
     statOriginalLabel: 'Точек в исходнике',
@@ -87,7 +90,7 @@ window.PAGE_I18N = {
     h1: 'How to Make a Bike Track Animation',
     step1Title: 'Generate the image',
     step1Text:
-      'Upload a GPX file and get a 1080×1920 PNG with the route line, points, and labels. Everything is processed locally in your browser.',
+      'Upload a GPX file and get a 1080×1920 PNG with the route line, points, and labels. The source and results are saved on the server.',
     dropZoneAria: 'GPX file upload area',
     dropTitle: 'Drop GPX here',
     dropOr: 'or',
@@ -97,6 +100,8 @@ window.PAGE_I18N = {
     dropHint: 'Supports .gpx: trkpt, rtept, wpt',
     previewAria: 'Track poster preview',
     downloadPng: 'Download PNG\u00A01080×1920',
+    artifactsTitle: 'Project files',
+    artifactsLead: 'Every file saved on the server for this page — download any of them.',
     panelTitle: 'Track stats',
     statSourceLabel: 'Point source',
     statOriginalLabel: 'Original points',

@@ -125,7 +125,18 @@ actor APIClient {
         try await get("gtd-api/tasks/\(id)")
     }
 
+    func downloadAttachment(id: String) async throws -> Data {
+        if let cached = attachmentCache[id] {
+            return cached
+        }
+        let data = try await rawData("gtd-api/attachments/\(id)", method: "GET")
+        attachmentCache[id] = data
+        return data
+    }
+
     // MARK: - HTTP
+
+    private var attachmentCache: [String: Data] = [:]
 
     private func get<T: Decodable>(_ path: String, query: [URLQueryItem] = []) async throws -> T {
         try await send(path, method: "GET", query: query, json: nil)
@@ -137,6 +148,20 @@ actor APIClient {
         query: [URLQueryItem] = [],
         json: [String: Any]?
     ) async throws -> T {
+        let data = try await rawData(path, method: method, query: query, json: json)
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            throw APIError.decoding(error)
+        }
+    }
+
+    private func rawData(
+        _ path: String,
+        method: String,
+        query: [URLQueryItem] = [],
+        json: [String: Any]? = nil
+    ) async throws -> Data {
         var components = URLComponents(
             url: baseURL.appendingPathComponent(path),
             resolvingAgainstBaseURL: false
@@ -177,12 +202,6 @@ actor APIClient {
             let body = String(data: data, encoding: .utf8) ?? ""
             throw APIError.http(http.statusCode, body)
         }
-
-        do {
-            let decoder = JSONDecoder()
-            return try decoder.decode(T.self, from: data)
-        } catch {
-            throw APIError.decoding(error)
-        }
+        return data
     }
 }

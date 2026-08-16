@@ -115,16 +115,6 @@ export class AuthController {
     }
 
     const result = await this.authService.handleCallback(code);
-    if (result === 'forbidden') {
-      response.setHeader('Set-Cookie', [
-        this.authService.clearedStateCookie(),
-        this.authService.clearedSessionCookie(),
-      ]);
-      response
-        .status(403)
-        .send('This Google account is not allowed to access this site.');
-      return;
-    }
 
     const token = this.authService.issueSessionToken(result);
     response.setHeader('Set-Cookie', [
@@ -147,7 +137,11 @@ export class AuthController {
       response.status(401).json({ authenticated: false });
       return;
     }
-    response.json({ authenticated: true, ...user });
+    response.json({
+      authenticated: true,
+      ...user,
+      isAdmin: this.authService.isAllowedEmail(user.email),
+    });
   }
 
   private ensureEnabled() {

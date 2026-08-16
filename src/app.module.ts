@@ -23,6 +23,8 @@ import { McpController } from './mcp/mcp.controller';
 import { McpToolsService } from './mcp/mcp-tools.service';
 import { GtdModule } from './gtd/gtd.module';
 import { MapSearchThrottleGuard } from './common/rate-limit.guard';
+import { GpxApiController } from './gpx-api.controller';
+import { UserPagesController } from './user-pages.controller';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { MapSearchThrottleGuard } from './common/rate-limit.guard';
     DiaryApiController,
     DiaryPagesController,
     TripApiController,
+    GpxApiController,
+    UserPagesController,
     McpController,
   ],
   providers: [AppService, McpToolsService, MapSearchThrottleGuard],

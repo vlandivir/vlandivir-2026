@@ -82,6 +82,16 @@
         rust: 'Ржавчина',
       },
       resetSettings: 'Сбросить настройки',
+      artifactsDownload: 'Скачать',
+      artifactLabels: {
+        source: 'Исходный GPX',
+        poster: 'Постер PNG',
+        'track-alpha': 'Прозрачный PNG',
+        animation: 'Анимация WebM',
+        frames: 'Кадры ZIP',
+        'source-video': 'Исходное видео',
+        'final-video': 'Финальное видео',
+      },
       locale: 'ru-RU',
     },
     en: {
@@ -158,6 +168,16 @@
         rust: 'Rust',
       },
       resetSettings: 'Reset settings to defaults',
+      artifactsDownload: 'Download',
+      artifactLabels: {
+        source: 'Source GPX',
+        poster: 'Poster PNG',
+        'track-alpha': 'Transparent PNG',
+        animation: 'Animation WebM',
+        frames: 'Frames ZIP',
+        'source-video': 'Source video',
+        'final-video': 'Final video',
+      },
       locale: 'en-US',
     },
   };
@@ -174,6 +194,8 @@
   const canvas = document.getElementById('previewCanvas');
   const ctx = canvas.getContext('2d');
   const downloadBtn = document.getElementById('downloadBtn');
+  const artifactsPanel = document.getElementById('artifactsPanel');
+  const artifactsList = document.getElementById('artifactsList');
   const resetBtn = document.getElementById('resetBtn');
   const resetSettingsBtn = document.getElementById('resetSettingsBtn');
   const titleInput = document.getElementById('titleInput');
@@ -697,7 +719,15 @@
       : `/gpx-route-png/${encoded}`;
   }
 
-  const PAGE_SOURCE_VIDEO_FILE_ID = videoFileIdFromPath() || sourceFileIdFromQuery() || '';
+  function projectHashFromPath() {
+    const id = videoFileIdFromPath();
+    return /^[a-f0-9]{24}$/.test(id) ? id : '';
+  }
+
+  let currentProjectHash = projectHashFromPath();
+  const PAGE_SOURCE_VIDEO_FILE_ID = currentProjectHash
+    ? sourceFileIdFromQuery() || ''
+    : videoFileIdFromPath() || sourceFileIdFromQuery() || '';
   const IS_VIDEO_CONTEXT = Boolean(PAGE_SOURCE_VIDEO_FILE_ID);
   const SETTINGS_STORAGE_KEY = IS_VIDEO_CONTEXT
     ? `gpx-route-png/video/${PAGE_SOURCE_VIDEO_FILE_ID}/v1`
@@ -1201,6 +1231,122 @@
         ? `${currentState.fileName || 'GPX'} · ${currentState.original || 0} точек · ${formatKm((currentState.distance || 0) / 1000)} км`
         : undefined,
     });
+    const artifactId = GPX_ORIGIN_TO_ARTIFACT[origin];
+    if (artifactId && blob) void uploadGpxArtifact(artifactId, blob, filename);
+  }
+
+  const GPX_ORIGIN_TO_ARTIFACT = {
+    'gpx-poster': 'poster',
+    'gpx-track-alpha': 'track-alpha',
+    'gpx-animation': 'animation',
+    'gpx-frames': 'frames',
+    'gpx-source-video': 'source-video',
+    'gpx-final-video': 'final-video',
+  };
+
+  function renderGpxArtifacts(artifacts) {
+    if (!artifactsPanel || !artifactsList) return;
+    const items = Array.isArray(artifacts) ? artifacts : [];
+    artifactsPanel.hidden = items.length === 0;
+    window.ToolPages?.renderArtifacts(artifactsList, items, {
+      download: copy.artifactsDownload,
+      labels: copy.artifactLabels,
+    });
+  }
+
+  function gpxPagePath(hash) {
+    return LANG === 'en' ? `/gpx-route-png/en/${hash}` : `/gpx-route-png/${hash}`;
+  }
+
+  async function rememberGpxPage(manifest) {
+    if (!manifest?.hash) return;
+    await window.ToolPages?.rememberPage({
+      kind: 'gpx',
+      hash: manifest.hash,
+      title: manifest.title || currentState?.fileName || manifest.hash,
+      pageUrl: gpxPagePath(manifest.hash),
+    });
+  }
+
+  async function uploadGpxArtifact(id, blob, filename) {
+    if (!currentProjectHash || !blob) return null;
+    const form = new FormData();
+    const file =
+      blob instanceof File
+        ? blob
+        : new File([blob], filename || id, { type: blob.type || 'application/octet-stream' });
+    form.append('file', file, filename || file.name);
+    form.append('id', id);
+    form.append('name', filename || file.name);
+    const response = await fetch(
+      `/gpx-api/projects/${currentProjectHash}/artifacts`,
+      { method: 'POST', body: form },
+    );
+    if (!response.ok) {
+      console.warn('Failed to upload GPX artifact', id, response.status);
+      return null;
+    }
+    const manifest = await response.json();
+    renderGpxArtifacts(manifest.artifacts);
+    await rememberGpxPage(manifest);
+    return manifest;
+  }
+
+  async function ensureGpxProject(file) {
+    if (currentProjectHash) {
+      await uploadGpxArtifact('source', file, file.name);
+      return;
+    }
+    const form = new FormData();
+    form.append('gpx', file);
+    const response = await fetch('/gpx-api/projects', { method: 'POST', body: form });
+    if (!response.ok) {
+      throw new Error(copy.genericFileError);
+    }
+    const manifest = await response.json();
+    currentProjectHash = manifest.hash;
+    window.history.replaceState(null, '', gpxPagePath(manifest.hash));
+    renderGpxArtifacts(manifest.artifacts);
+    await rememberGpxPage(manifest);
+  }
+
+  async function loadGpxProject(hash) {
+    const response = await fetch(`/gpx-api/projects/${hash}`);
+    if (!response.ok) return false;
+    const manifest = await response.json();
+    currentProjectHash = manifest.hash;
+    renderGpxArtifacts(manifest.artifacts);
+    await rememberGpxPage(manifest);
+    const source = (manifest.artifacts || []).find((item) => item.id === 'source');
+    if (source?.url) {
+      const gpxResponse = await fetch(source.url);
+      if (gpxResponse.ok) {
+        const blob = await gpxResponse.blob();
+        const file = new File([blob], source.name || 'track.gpx', {
+          type: 'application/gpx+xml',
+        });
+        await handleFile(file, { scrollToResults: false, skipUpload: true });
+      }
+    }
+    const sourceVideo = (manifest.artifacts || []).find(
+      (item) => item.id === 'source-video',
+    );
+    if (sourceVideo?.url) {
+      try {
+        const videoResponse = await fetch(sourceVideo.url);
+        if (videoResponse.ok) {
+          const blob = await videoResponse.blob();
+          sourceVideoFile = new File([blob], sourceVideo.name || 'source-video', {
+            type: blob.type || 'video/mp4',
+          });
+          updateFinalVideoControls();
+          updateStep3Controls();
+        }
+      } catch (error) {
+        console.warn('Failed to load GPX source video', error);
+      }
+    }
+    return true;
   }
 
   function formatBytes(bytes) {
@@ -1288,6 +1434,7 @@
   function rememberGpxSourceVideo(file) {
     if (!file) return Promise.resolve(null);
     const id = `gpx:source-video:${file.name}:${file.size}:${file.lastModified || 0}`;
+    if (currentProjectHash) void uploadGpxArtifact('source-video', file, file.name || 'source-video');
     return rememberUserFile({
       id,
       sourceApp: 'gpx-route-png',
@@ -2626,7 +2773,7 @@
   }
 
   async function handleFile(file, opts = {}) {
-    const { scrollToResults = true, suppressError = false, preserveWaypoints = false } = opts;
+    const { scrollToResults = true, suppressError = false, preserveWaypoints = false, skipUpload = false } = opts;
     clearError();
     if (!file) return;
     if (!file.name.toLowerCase().endsWith('.gpx') && file.type !== 'application/gpx+xml' && file.type !== 'text/xml' && file.type !== 'application/xml') {
@@ -2684,6 +2831,23 @@
       results.hidden = false;
       updateSampleButtonVisibility();
       schedulePersistSettings();
+      if (!skipUpload) {
+        try {
+          await ensureGpxProject(file);
+          const posterBlob = await new Promise((resolve) =>
+            canvas.toBlob((blob) => resolve(blob), 'image/png'),
+          );
+          if (posterBlob) {
+            await uploadGpxArtifact(
+              'poster',
+              posterBlob,
+              `${safeTrackBaseName()}-track.png`,
+            );
+          }
+        } catch (error) {
+          console.warn('Failed to save GPX project', error);
+        }
+      }
       if (scrollToResults) {
         results.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
@@ -2712,7 +2876,7 @@
       }
       const blob = await response.blob();
       const file = new File([blob], 'sample.gpx', { type: 'application/gpx+xml' });
-      await handleFile(file, { scrollToResults, suppressError, preserveWaypoints });
+      await handleFile(file, { scrollToResults, suppressError, preserveWaypoints, skipUpload: quiet });
       if (applyDemoContent && currentState) {
         settingsPersistSuspended = true;
         titleInput.value = 'Evening Mountain Bike Ride';
@@ -3026,13 +3190,14 @@
   updateSampleButtonVisibility();
   renderStep2AnimPreview(1);
   renderFinalVideoOverlayPreview(1);
-  if (IS_VIDEO_CONTEXT) {
+  if (currentProjectHash) {
+    void loadGpxProject(currentProjectHash);
+  } else if (IS_VIDEO_CONTEXT) {
     void loadSourceVideoFromFiles().then((loadedFromQuery) => {
       if (!loadedFromQuery) return restoreStoredSourceVideo();
       return null;
     });
-  }
-  if (!IS_VIDEO_CONTEXT) {
+  } else {
     void loadSampleTrack({
       quiet: true,
       applyDemoContent: true,

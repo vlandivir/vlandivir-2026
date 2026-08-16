@@ -9,9 +9,10 @@ import { timingSafeEqual } from 'crypto';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 
-// Protected map/reels endpoints (mutations and reels reads): a logged-in
-// Google session (browser) OR a machine API key in x-map-api-key /
-// x-reels-api-key (scripts, integrations). No URL-based secrets.
+  // Protected map/reels endpoints (mutations and reels reads): an admin
+  // Google session (browser) OR a machine API key in x-map-api-key /
+  // x-reels-api-key (scripts, integrations). Regular signed-in users cannot
+  // edit the map.
 @Injectable()
 export class EditAccessGuard implements CanActivate {
   constructor(
@@ -22,7 +23,7 @@ export class EditAccessGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
 
-    if (this.authService.getSessionFromRequest(request)) return true;
+    if (this.authService.isAdminSession(request)) return true;
 
     const received =
       this.header(request, 'x-map-api-key') ||

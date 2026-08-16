@@ -458,9 +458,9 @@ export class MapApiController {
   }
 
   // Editor check for endpoints that are public without editor privileges:
-  // Google session or the machine API key.
+  // admin Google session or the machine API key.
   private canEdit(request: Request): boolean {
-    if (this.authService.getSessionFromRequest(request)) return true;
+    if (this.authService.isAdminSession(request)) return true;
     const received = request.headers['x-map-api-key'];
     const expected =
       this.configService.get<string>('MAP_API_KEY') ||

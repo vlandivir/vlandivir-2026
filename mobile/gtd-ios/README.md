@@ -10,7 +10,7 @@ Native SwiftUI client for the same GTD workspace as [https://vlandivir.com/gtd](
 - Create & edit tasks, manage projects, browse archive
 - Offline: SwiftData cache of ACTIVE tasks + projects; mutation outbox; SyncEngine pushes then pulls (`GET /gtd-api/tasks`, `GET /gtd-api/projects`)
 
-Attachments download/upload are online-only for now (metadata may be present after sync).
+Task images are fetched from `/gtd-api/attachments/:id` with the Google JWT (online). Attachment metadata is cached in SwiftData so the current task still knows which photos to load after a local refresh. Upload stays on the web / Telegram app for now.
 
 ## Requirements
 

@@ -59,6 +59,14 @@ const TEXT = IS_EN
       uploading: 'Uploading',
       preparingUpload: 'Preparing upload...',
       uploadFailed: 'Failed to upload video',
+      artifactsDownload: 'Download',
+      artifactLabels: {
+        source: 'Original video',
+        audio: 'Audio',
+        waveform: 'Waveform',
+        ass: 'ASS subtitles',
+        render: 'Video with subtitles',
+      },
       importingSourceVideo: 'Importing video from files...',
       importSourceVideoFailed: 'Failed to import video from files.',
       sourceVideoNotFound: 'Video was not found in files.',
@@ -180,6 +188,14 @@ const TEXT = IS_EN
       uploading: 'Загрузка',
       preparingUpload: 'Подготовка загрузки...',
       uploadFailed: 'Не удалось загрузить видео',
+      artifactsDownload: 'Скачать',
+      artifactLabels: {
+        source: 'Исходное видео',
+        audio: 'Аудио',
+        waveform: 'Waveform',
+        ass: 'ASS субтитры',
+        render: 'Видео с субтитрами',
+      },
       importingSourceVideo: 'Импортирую видео из файлов...',
       importSourceVideoFailed: 'Не удалось импортировать видео из файлов.',
       sourceVideoNotFound: 'Видео не найдено в файлах.',
@@ -662,6 +678,8 @@ const renderedVideoDownloadLink = document.querySelector(
 const renderSubtitledVideoStatus = document.querySelector(
   '#renderSubtitledVideoStatus',
 );
+const artifactsPanel = document.querySelector('#artifactsPanel');
+const artifactsList = document.querySelector('#artifactsList');
 
 let cachedStyles = [];
 let cachedCues = [];
@@ -1231,6 +1249,57 @@ function rememberUserFile(file) {
     console.warn('Failed to remember user file', error);
     return null;
   });
+}
+
+function artifactLabel(artifact) {
+  if (artifact?.id?.startsWith('transcript-')) {
+    return IS_EN
+      ? `Transcript (${artifact.id.slice('transcript-'.length)})`
+      : `Транскрипт (${artifact.id.slice('transcript-'.length)})`;
+  }
+  if (artifact?.id?.startsWith('translation-')) {
+    return IS_EN
+      ? `Translation (${artifact.id.slice('translation-'.length)})`
+      : `Перевод (${artifact.id.slice('translation-'.length)})`;
+  }
+  return TEXT.artifactLabels[artifact?.id] || artifact?.name || artifact?.id;
+}
+
+function renderSubsArtifacts(artifacts) {
+  if (!artifactsList || !artifactsPanel) return;
+  const items = Array.isArray(artifacts) ? artifacts : [];
+  artifactsPanel.hidden = items.length === 0;
+  window.ToolPages?.renderArtifacts(artifactsList, items, {
+    download: TEXT.artifactsDownload,
+    labels: Object.fromEntries(
+      items.map((artifact) => [artifact.id, artifactLabel(artifact)]),
+    ),
+  });
+}
+
+function rememberSubsPage(video) {
+  if (!video?.hash) return Promise.resolve(null);
+  return window.ToolPages?.rememberPage({
+    kind: 'subs',
+    hash: video.hash,
+    title: video.originalName || video.title || video.hash,
+    pageUrl: getSubsPagePath(video.hash),
+  });
+}
+
+async function refreshSubsArtifacts() {
+  if (!currentVideoHash) {
+    renderSubsArtifacts([]);
+    return;
+  }
+  try {
+    const response = await fetch(`/subs-api/videos/${currentVideoHash}`);
+    if (!response.ok) return;
+    const video = await response.json();
+    renderSubsArtifacts(video.artifacts);
+  } catch (error) {
+    console.warn('Failed to refresh artifacts', error);
+  }
 }
 
 function describeSubsVideo(video) {
@@ -4382,6 +4451,8 @@ async function uploadAndOpenVideoFile(file, options = {}) {
     };
     await saveVideo(localizedUpload);
     await rememberSubsSourceVideo(localizedUpload);
+    renderSubsArtifacts(localizedUpload.artifacts);
+    await rememberSubsPage(localizedUpload);
     await refreshList();
     uploadStatus.textContent = `${TEXT.done}: ${localizedUpload.absolutePageUrl}`;
     window.history.replaceState(null, '', localizedUpload.pageUrl);
@@ -4422,6 +4493,7 @@ async function extractAudio() {
     };
     const updated = await SF.patchVideoByHash(currentVideoHash, patch);
     await rememberSubsAudioFile(currentVideoHash, payload);
+    await refreshSubsArtifacts();
     renderAudioPanel(updated || { ...patch, hash: currentVideoHash });
     await refreshList();
   } catch (error) {
@@ -4466,6 +4538,7 @@ async function transcribeAudio() {
       updatedAt: new Date().toISOString(),
     });
     renderTranscription(updated || { ...existing, transcripts });
+    await refreshSubsArtifacts();
     await refreshList();
   } catch (error) {
     transcriptionStatus.textContent =
@@ -4567,6 +4640,7 @@ async function translateTranscription() {
     transcriptionTranslationPanel.hidden = false;
     transcriptionToCuesPanel.hidden = false;
     transcriptionStatus.textContent = `${TEXT.translated} · ${targetLanguage}`;
+    await refreshSubsArtifacts();
     await refreshList();
   } catch (error) {
     transcriptionStatus.textContent =
@@ -4680,6 +4754,7 @@ async function renderSubtitledVideo() {
       updatedAt: new Date().toISOString(),
     });
     await rememberSubsRenderedFile(renderedVideo);
+    await refreshSubsArtifacts();
     showRenderedVideoLinks(renderedVideo);
   } catch (error) {
     renderSubtitledVideoStatus.textContent =
@@ -4722,6 +4797,7 @@ async function applyVideoContext(hash) {
     currentVideo.src = '';
     clearPickedVideoColor();
     setCurrentVideoMetaLink(null, '');
+    renderSubsArtifacts([]);
     await destroyJassubRenderer();
     if (previousHash) {
       resetCueForm();
@@ -4759,6 +4835,8 @@ async function loadCurrentVideo() {
   }
 
   const video = await response.json();
+  renderSubsArtifacts(video.artifacts);
+  await rememberSubsPage({ ...video, hash });
   const localizedVideo = {
     ...video,
     pageUrl: getSubsPagePath(hash),
@@ -5310,6 +5388,15 @@ downloadAssButton.addEventListener('click', () => {
       ? `ASS-файл субтитров для видео ${currentVideoHash}.`
       : 'ASS-файл субтитров, созданный на странице Subs.',
   });
+  if (currentVideoHash && assOutput.value.trim()) {
+    void fetch(`/subs-api/videos/${currentVideoHash}/ass`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ass: assOutput.value }),
+    })
+      .then(() => refreshSubsArtifacts())
+      .catch((error) => console.warn('Failed to save ASS', error));
+  }
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
