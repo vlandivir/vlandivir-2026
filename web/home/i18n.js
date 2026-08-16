@@ -2,11 +2,7 @@ window.PAGE_I18N = {
   ru: {
     title: 'vlandivir',
     metaDescription:
-      'Вайбкодинг: удобные инструменты под себя — субтитры, GPX, карта, альбом поездки.',
-    heroKicker: 'Вайбкодинг',
-    heroTitle: 'Удобные инструменты под себя',
-    heroLead:
-      'Не втискиваться в чужой продукт, а быстро собрать свой под конкретную задачу. Ниже — те, что уже работают.',
+      'vlandivir: субтитры, GPX, карта, альбом поездки и другие инструменты.',
     toolsTitle: 'Инструменты',
     subsTitle: 'Субтитры',
     subsText: 'Стиль, превью и экспорт ASS или готового вертикального видео.',
@@ -31,11 +27,7 @@ window.PAGE_I18N = {
   en: {
     title: 'vlandivir',
     metaDescription:
-      'Vibe coding: small tools built around you — subtitles, GPX, a map, a trip album.',
-    heroKicker: 'Vibe coding',
-    heroTitle: 'Tools built around you',
-    heroLead:
-      'Skip squeezing into someone else’s product. Sketch a small tool for the job you actually have. These are the ones already in use.',
+      'vlandivir: subtitles, GPX, a map, a trip album, and other tools.',
     toolsTitle: 'Tools',
     subsTitle: 'Subtitles',
     subsText: 'Style, preview, and export ASS or a finished vertical video.',
