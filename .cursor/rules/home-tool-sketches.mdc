@@ -1,0 +1,15 @@
+---
+description: Home tool sketches — same girl, new composition each time
+globs: web/home/**
+alwaysApply: false
+---
+
+# Home tool sketches
+
+When adding or replacing pictures on the home tool cards, follow [`.cursor/skills/home-tool-sketches/SKILL.md`](../skills/home-tool-sketches/SKILL.md).
+
+- Same chibi girl, pencil on cream paper, monochrome.
+- **New composition every time** (camera, pose, scale). Do not reuse the kneeling-over-a-book pose as a card.
+- Files: `web/home/sketches/sketch-{id}.webp` (800px WebP).
+- Pass the skill's `style-reference.webp` into image generation.
+- After shipping a sketch, add its composition to the table in the skill.

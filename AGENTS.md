@@ -25,7 +25,8 @@ All public pages under `web/` share one visual language, defined by `web/shared/
 - Success: `hsl(var(--success))` with `hsl(var(--success-foreground))` for completed/positive actions.
 - Spacing scale `--v-space-1` (4px) … `--v-space-8` (64px); page/panel/card paddings `--v-section-padding` / `--v-panel-padding` / `--v-card-padding`.
 - Radius `var(--radius)` (nested elements `calc(var(--radius) - 2px)`); shadows `var(--v-shadow)` (cards) and `var(--shadcn-popover-shadow)` (popovers/modals).
-- Fonts: `var(--font-sans)` (Source Sans 3) for UI, `var(--font-display)` (Source Serif 4) for titles/brand, `var(--font-mono)` for code. 
+- Fonts: `var(--font-sans)` (Source Sans 3) for UI, `var(--font-display)` (Source Serif 4) for titles/brand, `var(--font-mono)` for code.
+- Home tool sketches: same girl, new composition each time — [`.cursor/skills/home-tool-sketches/SKILL.md`](.cursor/skills/home-tool-sketches/SKILL.md). 
 - Legacy aliases (`--page`, `--paper`, `--ink`, `--line`, `--accent`, `--green`…) exist in the theme for old code; don't use them in new CSS and never redefine them in a page `:root`.
 
 **Allowed hardcoded colors (the only exceptions):** overlays above photos/video (`rgba(0,0,0,.5)`, white text on them), dark letterbox backdrops behind media (`#000`), brand gradients (Instagram button), colors that are literal data (subtitle/route color options the user picks, canvas-rendering colors in JS — those also may keep their own fonts, e.g. Montserrat/Satoshi in the GPX PNG generator output), and the dark video-editor workbench palette in subs (`--charcoal`/`--coral`/`--yellow`/`--blue`).
