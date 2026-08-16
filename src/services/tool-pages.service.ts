@@ -168,12 +168,24 @@ export class ToolPagesService {
   }
 
   async upsertUserPage(email: string, page: UserToolPage): Promise<UserToolPage[]> {
-    const pages = await this.listUserPages(email);
-    const next = pages.filter(
-      (item) => !(item.kind === page.kind && item.hash === page.hash),
+    return this.importUserPages(email, [page]);
+  }
+
+  async importUserPages(
+    email: string,
+    incoming: UserToolPage[],
+  ): Promise<UserToolPage[]> {
+    const existing = await this.listUserPages(email);
+    const byKey = new Map<string, UserToolPage>(
+      existing.map((page) => [`${page.kind}:${page.hash}`, page]),
     );
-    next.unshift(page);
-    const trimmed = next.slice(0, MAX_USER_PAGES);
+    for (const page of incoming) {
+      const key = `${page.kind}:${page.hash}`;
+      byKey.set(key, this.mergeUserPage(byKey.get(key), page));
+    }
+    const trimmed = [...byKey.values()]
+      .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
+      .slice(0, MAX_USER_PAGES);
     await this.storage.putPrivateJson(this.userPagesKey(email), {
       updatedAt: new Date().toISOString(),
       pages: trimmed,
@@ -190,6 +202,33 @@ export class ToolPagesService {
       createdAt: manifest.createdAt,
       updatedAt: manifest.updatedAt,
     };
+  }
+
+  private mergeUserPage(
+    prev: UserToolPage | undefined,
+    page: UserToolPage,
+  ): UserToolPage {
+    if (!prev) return page;
+    const incomingIsNewer =
+      String(page.updatedAt) >= String(prev.updatedAt);
+    const newer = incomingIsNewer ? page : prev;
+    const older = incomingIsNewer ? prev : page;
+    return {
+      kind: page.kind,
+      hash: page.hash,
+      title: newer.title || older.title,
+      pageUrl: newer.pageUrl || older.pageUrl,
+      createdAt: this.minIso(prev.createdAt, page.createdAt),
+      updatedAt: this.maxIso(prev.updatedAt, page.updatedAt),
+    };
+  }
+
+  private minIso(left: string, right: string): string {
+    return String(left) <= String(right) ? left : right;
+  }
+
+  private maxIso(left: string, right: string): string {
+    return String(left) >= String(right) ? left : right;
   }
 
   private prefix(kind: ToolKind): string {

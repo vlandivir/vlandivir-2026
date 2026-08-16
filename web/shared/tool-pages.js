@@ -17,7 +17,7 @@
 
   async function rememberPage(page) {
     if (!page?.kind || !HASH_RE.test(page.hash || '')) return null;
-    const record = {
+    let record = {
       id: pageId(page),
       kind: page.kind,
       hash: page.hash,
@@ -28,9 +28,11 @@
       comment: page.comment || '',
     };
     if (window.UserPagesRegistry?.upsert) {
-      await window.UserPagesRegistry.upsert(record).catch((error) => {
+      const saved = await window.UserPagesRegistry.upsert(record).catch((error) => {
         console.warn('Failed to remember tool page locally', error);
+        return null;
       });
+      if (saved) record = saved;
     }
     const session = await me();
     if (!session?.authenticated) return record;
@@ -43,6 +45,8 @@
           hash: record.hash,
           title: record.title,
           pageUrl: record.pageUrl,
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt,
         }),
       });
     } catch (error) {
@@ -51,62 +55,59 @@
     return record;
   }
 
+  function sortPages(pages) {
+    return [...pages].sort((a, b) =>
+      String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')),
+    );
+  }
+
+  function toListItem(page) {
+    if (!page?.kind || !HASH_RE.test(page.hash || '')) return null;
+    return { ...page, id: pageId(page) };
+  }
+
+  async function pushPagesToServer(pages) {
+    const payload = pages.map(toListItem).filter(Boolean).map((page) => ({
+      kind: page.kind,
+      hash: page.hash,
+      title: page.title,
+      pageUrl: page.pageUrl,
+      createdAt: page.createdAt,
+      updatedAt: page.updatedAt,
+    }));
+    if (!payload.length) return null;
+    const response = await fetch('/user-pages-api/pages/import', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pages: payload }),
+    });
+    if (!response.ok) throw new Error('Failed to import local pages');
+    const body = await response.json();
+    return Array.isArray(body.pages) ? body.pages : [];
+  }
+
+  async function fetchServerPages() {
+    const response = await fetch('/user-pages-api/pages');
+    if (!response.ok) throw new Error('Failed to load synced pages');
+    const payload = await response.json();
+    return Array.isArray(payload.pages) ? payload.pages : [];
+  }
+
   async function listPages() {
     const local = window.UserPagesRegistry?.list
       ? await window.UserPagesRegistry.list().catch(() => [])
       : [];
     const session = await me();
-    if (!session?.authenticated) {
-      return local.sort((a, b) =>
-        String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')),
-      );
-    }
+    if (!session?.authenticated) return sortPages(local);
 
-    let remote = [];
     try {
-      const response = await fetch('/user-pages-api/pages');
-      if (response.ok) {
-        const payload = await response.json();
-        remote = Array.isArray(payload.pages) ? payload.pages : [];
-      }
+      const imported = await pushPagesToServer(local);
+      const remote = imported || (await fetchServerPages());
+      return sortPages(remote.map(toListItem).filter(Boolean));
     } catch (error) {
       console.warn('Failed to load synced pages', error);
+      return sortPages(local);
     }
-
-    const byId = new Map();
-    for (const page of [...local, ...remote]) {
-      if (!page?.kind || !HASH_RE.test(page.hash || '')) continue;
-      const id = pageId(page);
-      const next = { ...page, id };
-      const prev = byId.get(id);
-      if (
-        !prev ||
-        String(next.updatedAt || '') > String(prev.updatedAt || '')
-      ) {
-        byId.set(id, next);
-      }
-    }
-
-    const merged = [...byId.values()].sort((a, b) =>
-      String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')),
-    );
-    if (window.UserPagesRegistry?.upsert) {
-      await Promise.all(
-        merged.map((page) =>
-          window.UserPagesRegistry.upsert(page).catch(() => null),
-        ),
-      );
-    }
-
-    const remoteIds = new Set(remote.map((page) => pageId(page)));
-    await Promise.all(
-      local
-        .filter((page) => page?.kind && HASH_RE.test(page.hash || ''))
-        .filter((page) => !remoteIds.has(pageId(page)))
-        .map((page) => rememberPage(page)),
-    );
-
-    return merged;
   }
 
   function renderArtifacts(root, artifacts, copy) {

@@ -10,7 +10,7 @@
 `SESSION_SECRET`. Тот же JWT принимается в заголовке `Authorization: Bearer <token>`
 (desktop Tauri app, iOS GTD app). Выход: `GET /auth/logout`. Проверка: `GET /auth/me`
 (поле `isAdmin: true|false`). Обычный пользователь получает: свой GTD workspace,
-синхронизацию списка страниц Subs/GPX (`/user-pages-api/pages`). Не получает
+синхронизацию списка страниц Subs/GPX (`/user-pages-api/pages`, import локального каталога). Не получает
 дневник, почту, рилсы, правку карты и админку поездок.
 
 **Админ / владелец.** Email из `ALLOWED_GOOGLE_EMAILS` (через запятую). Сейчас:
@@ -62,7 +62,7 @@ loopback `http://127.0.0.1|localhost` (для отладки).
 | Что | Маршруты | Где обозначено |
 |---|---|---|
 | GTD web app | `GET /gtd`, `GET /gtd/link` | `src/gtd/gtd-pages.controller.ts`; каждый Google-аккаунт получает своё workspace |
-| Список страниц Subs/GPX | `GET/POST /user-pages-api/pages` | `src/user-pages.controller.ts` (`GoogleSessionGuard`); JSON в Spaces `users/{sha256(email)}/pages.json` |
+| Список страниц Subs/GPX | `GET/POST /user-pages-api/pages`, `POST /user-pages-api/pages/import` | `src/user-pages.controller.ts` (`GoogleSessionGuard`); JSON в Spaces `users/{sha256(email)}/pages.json`. Без сессии список живёт в IndexedDB браузера; при входе локальные страницы копируются на сервер, UI показывает серверный список; после выхода — снова только локальный |
 
 ### Только админ (`AdminSessionGuard` / `isAdminSession`)
 

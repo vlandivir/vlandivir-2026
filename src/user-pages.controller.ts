@@ -18,6 +18,8 @@ type UpsertPageBody = {
   hash?: string;
   title?: string;
   pageUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 const KINDS = new Set<ToolKind>(['subs', 'gpx']);
@@ -41,6 +43,20 @@ export class UserPagesController {
     return { page, pages };
   }
 
+  @Post('pages/import')
+  async importPages(
+    @Req() request: Request,
+    @Body() body: { pages?: UpsertPageBody[] },
+  ) {
+    const user = this.user(request);
+    const raw = Array.isArray(body.pages) ? body.pages.slice(0, 200) : [];
+    const pages = await this.toolPages.importUserPages(
+      user.email,
+      raw.map((item) => this.parsePage(item)),
+    );
+    return { pages };
+  }
+
   private user(request: Request): SessionUser {
     return (request as Request & { user: SessionUser }).user;
   }
@@ -60,9 +76,16 @@ export class UserPagesController {
       hash,
       title,
       pageUrl,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: this.parseTimestamp(body.createdAt, now),
+      updatedAt: this.parseTimestamp(body.updatedAt, now),
     };
+  }
+
+  private parseTimestamp(raw: unknown, fallback: string): string {
+    if (typeof raw !== 'string' || !raw.trim()) return fallback;
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return fallback;
+    return date.toISOString();
   }
 
   private parsePageUrl(kind: ToolKind, hash: string, raw?: string): string {

@@ -134,15 +134,22 @@
     if (!page || typeof page !== 'object' || !page.id) return null;
     const db = await openDb();
     const now = new Date().toISOString();
-    const record = {
-      ...page,
-      createdAt: page.createdAt || now,
-      updatedAt: now,
-    };
     return new Promise((resolve, reject) => {
       const tx = db.transaction(PAGES_STORE, 'readwrite');
-      tx.objectStore(PAGES_STORE).put(record);
-      tx.oncomplete = () => resolve(record);
+      const store = tx.objectStore(PAGES_STORE);
+      const getReq = store.get(page.id);
+      let record;
+      getReq.onsuccess = () => {
+        const existing = getReq.result || null;
+        record = {
+          ...existing,
+          ...page,
+          createdAt: existing?.createdAt || page.createdAt || now,
+          updatedAt: page.updatedAt || now,
+        };
+        store.put(record);
+      };
+      tx.oncomplete = () => resolve(record || null);
       tx.onerror = () => reject(tx.error);
     });
   }

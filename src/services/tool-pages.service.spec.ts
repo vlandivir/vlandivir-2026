@@ -76,4 +76,47 @@ describe('ToolPagesService', () => {
     expect(pages[0].hash).toBe('bbbbbbbbbbbbbbbbbbbbbbbb');
     expect(storage.putPrivateJson).toHaveBeenCalled();
   });
+
+  it('imports local pages without overwriting an earlier createdAt', async () => {
+    storage.getJsonByKey.mockResolvedValue({
+      pages: [
+        {
+          kind: 'subs',
+          hash: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+          title: 'server title',
+          pageUrl: '/subs/aaaaaaaaaaaaaaaaaaaaaaaa',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-02T00:00:00.000Z',
+        },
+      ],
+    });
+
+    const pages = await service.importUserPages('friend@gmail.com', [
+      {
+        kind: 'subs',
+        hash: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+        title: 'local title',
+        pageUrl: '/subs/aaaaaaaaaaaaaaaaaaaaaaaa',
+        createdAt: '2026-03-01T00:00:00.000Z',
+        updatedAt: '2026-08-16T00:00:00.000Z',
+      },
+      {
+        kind: 'gpx',
+        hash: 'cccccccccccccccccccccccc',
+        title: 'from this browser',
+        pageUrl: '/gpx-route-png/cccccccccccccccccccccccc',
+        createdAt: '2026-04-01T00:00:00.000Z',
+        updatedAt: '2026-04-01T00:00:00.000Z',
+      },
+    ]);
+
+    expect(pages).toHaveLength(2);
+    expect(pages[0]).toMatchObject({
+      hash: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+      title: 'local title',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-08-16T00:00:00.000Z',
+    });
+    expect(pages[1].hash).toBe('cccccccccccccccccccccccc');
+  });
 });

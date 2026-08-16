@@ -5,7 +5,7 @@ window.PAGE_I18N = {
     title: 'Ваши файлы',
     pageTitle: 'Ваши файлы',
     pageLead:
-      'Страницы проектов Subs и GPX. На каждой странице можно скачать все сохранённые файлы.',
+      'Страницы Subs и GPX. Без входа список хранится в этом браузере; после входа копируется на сервер и показывается оттуда.',
     refresh: 'Обновить',
     summaryAria: 'Сводка',
     labelFiles: 'страниц',
@@ -21,7 +21,7 @@ window.PAGE_I18N = {
     title: 'Your files',
     pageTitle: 'Your files',
     pageLead:
-      'Subs and GPX project pages. Open a page to download every saved file.',
+      'Subs and GPX pages. Signed out, the list stays in this browser; after sign-in it is copied to the server and shown from there.',
     refresh: 'Refresh',
     summaryAria: 'Summary',
     labelFiles: 'pages',
