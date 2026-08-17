@@ -193,6 +193,19 @@ export class GtdApiController {
     res.send(result.buffer);
   }
 
+  @Get('mcp-token') mcpToken(@Req() req: GtdRequest) {
+    return this.gtd.mcpCredentials(
+      req.gtdAuth.workspaceId,
+      this.authService.baseUrl,
+    );
+  }
+  @Post('mcp-token/regenerate') regenerateMcpToken(@Req() req: GtdRequest) {
+    return this.gtd.rotateMcpToken(
+      req.gtdAuth.workspaceId,
+      this.authService.baseUrl,
+    );
+  }
+
   @Post('link/start') startLink(@Req() req: GtdRequest) {
     return this.gtd.startLink(req.gtdAuth, this.authService.baseUrl);
   }

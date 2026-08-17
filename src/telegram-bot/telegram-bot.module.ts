@@ -4,6 +4,7 @@ import { TelegramBotService } from './telegram-bot.service';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ServicesModule } from '../services/services.module';
+import { GtdModule } from '../gtd/gtd.module';
 import { DairyCommandsService } from './dairy-commands.service';
 import { FindCommandsService } from './find-commands.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,7 +14,7 @@ import { HistoryCommandsService } from './history-commands.service';
 import { CollageCommandsService } from './collage-commands.service';
 
 @Module({
-  imports: [ConfigModule, PrismaModule, ServicesModule],
+  imports: [ConfigModule, PrismaModule, ServicesModule, GtdModule],
   controllers: [TelegramBotController],
   providers: [
     TelegramBotService,

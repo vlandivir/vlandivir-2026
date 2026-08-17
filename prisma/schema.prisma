@@ -157,6 +157,7 @@ enum GtdTaskEventType {
 model GtdWorkspace {
   id         String         @id @default(cuid())
   nextOrder  BigInt         @default(0)
+  mcpToken   String         @unique
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
   identities GtdIdentity[]

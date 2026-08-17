@@ -19,7 +19,7 @@ import {
   LlmService,
 } from '../services/llm.service';
 import { StorageService } from '../services/storage.service';
-import type { GtdAuthContext } from './gtd-auth.service';
+import { newGtdMcpToken, type GtdAuthContext } from './gtd-auth.service';
 import { GtdSearchService } from './gtd-search.service';
 import {
   GTD_MAX_CONTEXT_CHARS,
@@ -624,6 +624,31 @@ export class GtdService {
     return {
       attachment,
       buffer: await this.storage.downloadByKey(attachment.storageKey),
+    };
+  }
+
+  async mcpCredentials(workspaceId: string, baseUrl: string) {
+    const workspace = await this.prisma.gtdWorkspace.findUnique({
+      where: { id: workspaceId },
+      select: { mcpToken: true },
+    });
+    if (!workspace) throw new NotFoundException('Workspace not found');
+    return this.mcpPayload(workspace.mcpToken, baseUrl);
+  }
+
+  async rotateMcpToken(workspaceId: string, baseUrl: string) {
+    const workspace = await this.prisma.gtdWorkspace.update({
+      where: { id: workspaceId },
+      data: { mcpToken: newGtdMcpToken() },
+      select: { mcpToken: true },
+    });
+    return this.mcpPayload(workspace.mcpToken, baseUrl);
+  }
+
+  private mcpPayload(token: string, baseUrl: string) {
+    return {
+      token,
+      url: `${baseUrl.replace(/\/$/, '')}/mcp`,
     };
   }
 

@@ -1752,7 +1752,66 @@ function SettingsModal({
   onLinked: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [mcpBusy, setMcpBusy] = useState(false);
+  const [mcp, setMcp] = useState<{ token: string; url: string } | null>(null);
   const toast = useToast();
+
+  useEffect(() => {
+    if (!disclosure.isOpen) return;
+    let cancelled = false;
+    api<{ token: string; url: string }>('/mcp-token')
+      .then((result) => {
+        if (!cancelled) setMcp(result);
+      })
+      .catch((reason) => {
+        if (!cancelled) {
+          toast({
+            status: 'error',
+            title: reason instanceof Error ? reason.message : String(reason),
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [disclosure.isOpen]);
+
+  const copyMcp = async () => {
+    if (!mcp?.token) return;
+    try {
+      await navigator.clipboard.writeText(mcp.token);
+      toast({ status: 'success', title: 'Ключ скопирован' });
+    } catch {
+      toast({ status: 'error', title: 'Не удалось скопировать' });
+    }
+  };
+
+  const rotateMcp = async () => {
+    if (
+      !window.confirm(
+        'Старый ключ перестанет работать у всех клиентов. Выпустить новый?',
+      )
+    ) {
+      return;
+    }
+    setMcpBusy(true);
+    try {
+      const result = await api<{ token: string; url: string }>(
+        '/mcp-token/regenerate',
+        { method: 'POST' },
+      );
+      setMcp(result);
+      toast({ status: 'success', title: 'Новый ключ выпущен' });
+    } catch (reason) {
+      toast({
+        status: 'error',
+        title: reason instanceof Error ? reason.message : String(reason),
+      });
+    } finally {
+      setMcpBusy(false);
+    }
+  };
+
   const link = async () => {
     setBusy(true);
     try {
@@ -1808,6 +1867,45 @@ function SettingsModal({
               Привязка опциональна. Без неё приложение продолжает работать
               самостоятельно.
             </Text>
+            <Divider />
+            <Box>
+              <Text fontWeight="semibold" mb={1}>
+                MCP-ключ
+              </Text>
+              <Text fontSize="sm" color="shadcn.mutedForeground" mb={3}>
+                Для Cursor и других агентов: Authorization Bearer на{' '}
+                {mcp?.url || '/mcp'}. Заголовок X-Chat-Id не нужен.
+              </Text>
+              <Box
+                fontFamily="mono"
+                fontSize="xs"
+                wordBreak="break-all"
+                p={3}
+                mb={3}
+                bg="shadcn.muted"
+                borderRadius="md"
+              >
+                {mcp?.token || 'Загрузка…'}
+              </Box>
+              <Flex gap={2} wrap="wrap">
+                <Button
+                  size="sm"
+                  onClick={copyMcp}
+                  isDisabled={!mcp?.token}
+                  variant="primary"
+                >
+                  Копировать
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={rotateMcp}
+                  isLoading={mcpBusy}
+                  isDisabled={!mcp?.token}
+                >
+                  Новый ключ
+                </Button>
+              </Flex>
+            </Box>
           </Stack>
         </ModalBody>
         <ModalFooter>

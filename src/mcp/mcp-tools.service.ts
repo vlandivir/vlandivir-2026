@@ -2,8 +2,6 @@ import { HttpException, Injectable } from '@nestjs/common';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { endOfDay, startOfDay } from 'date-fns';
 import { z } from 'zod';
-import { GtdIdentityProvider } from '../generated/prisma-client';
-import { GtdAuthService } from '../gtd/gtd-auth.service';
 import type { GtdAuthContext } from '../gtd/gtd-auth.service';
 import { GtdService } from '../gtd/gtd.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,8 +11,10 @@ import { ReelsQaService } from '../services/reels-qa.service';
 import { ReelsService } from '../services/reels.service';
 
 export interface McpAuthContext {
+  // MCP_API_KEY: reels (+ diary with X-Chat-Id)
   authorized: boolean;
-  // Diary scope of the caller (from the X-Chat-Id header); requires a valid key
+  // Workspace mcpToken: GTD tools for that workspace (no X-Chat-Id)
+  gtdWorkspaceId: string | null;
   chatId: bigint | null;
 }
 
@@ -37,7 +37,6 @@ export class McpToolsService {
     private readonly reelsService: ReelsService,
     private readonly reelsQa: ReelsQaService,
     private readonly gtd: GtdService,
-    private readonly gtdAuth: GtdAuthService,
   ) {}
 
   /**
@@ -45,20 +44,34 @@ export class McpToolsService {
    * depends on the caller — anonymous clients only see the map tools.
    */
   createServer(auth: McpAuthContext, baseUrl: string): McpServer {
+    const instructions = [
+      'Инструменты по личным данным сайта vlandivir.com: карта мест (публичная).',
+    ];
+    if (auth.authorized) {
+      instructions.push(
+        'Записная книжка Instagram-рилсов доступна по MCP_API_KEY;',
+        'дневник — с заголовком X-Chat-Id.',
+      );
+    }
+    if (auth.gtdWorkspaceId) {
+      instructions.push(
+        'GTD доступен по персональному ключу пространства (Authorization: Bearer, без X-Chat-Id).',
+        'gtd_now — только текущая доступная задача очереди (как в приложении).',
+        'Для любой незакрытой задачи, включая отложенные, используй gtd_search',
+        '(status=active включает snoozed). Закрытые — status=done или all.',
+        'Короткое название задачи, детали — в контексте (gtd_capture.context / gtd_add_context).',
+      );
+    }
+    if (!auth.authorized && !auth.gtdWorkspaceId) {
+      instructions.push(
+        'Приватные инструменты появляются только при подключении с API-ключом',
+        '(Authorization: Bearer). Дневник — ещё и X-Chat-Id; GTD — ключ из настроек.',
+      );
+    }
+
     const server = new McpServer(
       { name: 'vlandivir-2025', version: '1.0.0' },
-      {
-        instructions: [
-          'Инструменты по личным данным сайта vlandivir.com: карта мест (публичная),',
-          'записная книжка Instagram-рилсов, личный дневник и GTD.',
-          'Приватные инструменты появляются только при подключении с API-ключом',
-          '(Authorization: Bearer) и, для дневника и GTD, заголовком X-Chat-Id.',
-          'GTD: gtd_now — только текущая доступная задача очереди (как в приложении).',
-          'Для обсуждения любой незакрытой задачи, включая отложенные, используй gtd_search',
-          '(status=active включает snoozed). Закрытые — status=done или all.',
-          'Короткое название задачи, детали — в контексте (gtd_capture.context / gtd_add_context).',
-        ].join(' '),
-      },
+      { instructions: instructions.join(' ') },
     );
 
     this.registerMapTools(server, baseUrl);
@@ -66,8 +79,10 @@ export class McpToolsService {
       this.registerReelsTools(server);
       if (auth.chatId !== null) {
         this.registerDiaryTools(server, auth.chatId);
-        this.registerGtdTools(server, auth.chatId);
       }
+    }
+    if (auth.gtdWorkspaceId) {
+      this.registerGtdTools(server, auth.gtdWorkspaceId);
     }
     return server;
   }
@@ -557,20 +572,21 @@ export class McpToolsService {
     );
   }
 
-  // --- GTD (API key + X-Chat-Id → Telegram identity workspace) ---
+  // --- GTD (workspace mcpToken → that workspace; no X-Chat-Id) ---
 
-  private registerGtdTools(server: McpServer, chatId: bigint): void {
-    const missingWorkspace =
-      'GTD workspace не найден. Открой Mini App или /gtd и свяжи аккаунты.';
-
+  private registerGtdTools(server: McpServer, workspaceId: string): void {
     const withWorkspace = async (
       fn: (auth: GtdAuthContext) => Promise<unknown>,
     ): Promise<ToolResult> => {
-      const auth = await this.gtdAuth.findIdentity(
-        GtdIdentityProvider.TELEGRAM,
-        String(chatId),
-      );
-      if (!auth) return this.errorResult(missingWorkspace);
+      const identity = await this.prisma.gtdIdentity.findFirst({
+        where: { workspaceId },
+      });
+      if (!identity) {
+        return this.errorResult(
+          'GTD workspace не найден. Открой Mini App или /gtd.',
+        );
+      }
+      const auth = { workspaceId, identity };
       try {
         return this.jsonResult(await fn(auth));
       } catch (error) {

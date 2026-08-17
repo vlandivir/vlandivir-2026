@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { timingSafeEqual } from 'crypto';
 import type { Request, Response } from 'express';
+import { GtdAuthService } from '../gtd/gtd-auth.service';
 import { McpAuthContext, McpToolsService } from './mcp-tools.service';
 
 /**
@@ -12,13 +13,16 @@ import { McpAuthContext, McpToolsService } from './mcp-tools.service';
  * Auth is per-request and optional:
  *  - no Authorization header  -> public tools only (map)
  *  - Authorization: Bearer <MCP_API_KEY> -> plus reels tools
- *  - plus X-Chat-Id: <telegram chat id>  -> plus diary and GTD tools for that chat
+ *  - plus X-Chat-Id: <telegram chat id>  -> plus diary tools for that chat
+ *  - Authorization: Bearer <workspace mcpToken> -> GTD tools for that
+ *    workspace (no X-Chat-Id). The token is shown in GTD settings / /gtdkey.
  */
 @Controller('mcp')
 export class McpController {
   constructor(
     private readonly configService: ConfigService,
     private readonly mcpToolsService: McpToolsService,
+    private readonly gtdAuth: GtdAuthService,
   ) {}
 
   @Post()
@@ -27,7 +31,7 @@ export class McpController {
     @Res() res: Response,
     @Body() body: unknown,
   ) {
-    const auth = this.resolveAuth(req);
+    const auth = await this.resolveAuth(req);
     if (!auth) {
       res.status(401).json(this.rpcError(-32001, 'Invalid API key'));
       return;
@@ -76,29 +80,37 @@ export class McpController {
 
   /**
    * Missing key -> anonymous access, wrong key -> null (rejected). The
-   * X-Chat-Id header is only honoured together with a valid key.
+   * X-Chat-Id header is only honoured together with MCP_API_KEY (diary).
    */
-  private resolveAuth(req: Request): McpAuthContext | null {
+  private async resolveAuth(req: Request): Promise<McpAuthContext | null> {
     const header = req.headers.authorization;
     const token =
       typeof header === 'string' && header.startsWith('Bearer ')
         ? header.slice('Bearer '.length).trim()
         : undefined;
     if (!token) {
-      return { authorized: false, chatId: null };
+      return { authorized: false, gtdWorkspaceId: null, chatId: null };
     }
 
-    const expectedKey = this.configService.get<string>('MCP_API_KEY');
-    if (!expectedKey || !this.isSameSecret(token, expectedKey)) {
-      return null;
+    const mcpKey = this.configService.get<string>('MCP_API_KEY');
+    if (mcpKey && this.isSameSecret(token, mcpKey)) {
+      const chatIdHeader = req.headers['x-chat-id'];
+      const chatId =
+        typeof chatIdHeader === 'string' && /^\d+$/.test(chatIdHeader.trim())
+          ? BigInt(chatIdHeader.trim())
+          : null;
+      return { authorized: true, gtdWorkspaceId: null, chatId };
     }
 
-    const chatIdHeader = req.headers['x-chat-id'];
-    const chatId =
-      typeof chatIdHeader === 'string' && /^\d+$/.test(chatIdHeader.trim())
-        ? BigInt(chatIdHeader.trim())
-        : null;
-    return { authorized: true, chatId };
+    const workspace = await this.gtdAuth.findWorkspaceByMcpToken(token);
+    if (workspace) {
+      return {
+        authorized: false,
+        gtdWorkspaceId: workspace.id,
+        chatId: null,
+      };
+    }
+    return null;
   }
 
   private isSameSecret(receivedKey: string, expectedKey: string): boolean {
