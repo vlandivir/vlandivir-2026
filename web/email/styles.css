@@ -1,8 +1,6 @@
 /* Layout-only styles; tokens and components come from /shared/site-theme.css */
 
-/* Inbox rows + accordion need more horizontal room than the shared 1160px. */
 .email-page {
-  width: min(1480px, calc(100% - (var(--v-page-gutter) * 2)));
   padding-bottom: var(--v-space-6);
 }
 
