@@ -26,7 +26,6 @@
       title: (m) => (m.seen ? 'Пометить непрочитанным' : 'Пометить прочитанным'),
       active: (m) => m.seen,
       action: (m) => (m.seen ? 'mark_unread' : 'mark_read'),
-      quick: true,
     },
     {
       key: 'important',
@@ -34,7 +33,6 @@
       title: (m) => (m.important ? 'Убрать из «Важное»' : 'В «Важное»'),
       active: (m) => m.important,
       action: (m) => (m.important ? 'unmark_important' : 'mark_important'),
-      quick: true,
     },
     {
       key: 'archive',
@@ -42,7 +40,6 @@
       title: (m) => (m.archived ? 'Вернуть во «Входящие»' : 'В архив'),
       active: (m) => m.archived,
       action: (m) => (m.archived ? 'unarchive' : 'archive'),
-      quick: true,
     },
     {
       key: 'hide',
@@ -50,7 +47,6 @@
       title: (m) => (m.hidden ? 'Показывать' : 'Скрыть из вида'),
       active: (m) => m.hidden,
       action: (m) => (m.hidden ? 'unhide' : 'hide'),
-      quick: true,
     },
     {
       key: 'label',
@@ -58,7 +54,6 @@
       title: () => 'Ярлык',
       active: (m) => m.labels.some((l) => l.startsWith('agent/')),
       action: () => null, // opens the label picker instead
-      quick: false,
     },
   ];
 
@@ -381,7 +376,7 @@
 
     const rowActions = document.createElement('span');
     rowActions.className = 'row-actions';
-    for (const def of ACTIONS.filter((a) => a.quick)) {
+    for (const def of ACTIONS) {
       rowActions.append(actionButton(message, def, 'row-action'));
     }
 
@@ -573,13 +568,6 @@
     loading.classList.add('hidden');
     content.classList.remove('hidden');
 
-    el('detail-subject').textContent = message.subject || '(без темы)';
-
-    // Compact action toolbar
-    const toolbar = el('detail-actions');
-    toolbar.replaceChildren(
-      ...ACTIONS.map((def) => actionButton(message, def)),
-    );
     // Reset any previous test result when switching messages
     el('test-rules-result').textContent = '';
 

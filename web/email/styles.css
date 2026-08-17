@@ -497,20 +497,6 @@
   background: hsl(var(--primary) / 0.14);
 }
 
-/* Detail action toolbar under the subject */
-.detail-actions-bar {
-  display: flex;
-  gap: 4px;
-  margin-bottom: var(--v-space-2);
-}
-
-.detail-actions-bar .action-btn {
-  min-height: 32px;
-  min-width: 32px;
-  font-size: 15px;
-  opacity: 0.7;
-}
-
 /* Floating label picker */
 .label-picker {
   position: absolute;
@@ -578,11 +564,6 @@
   padding: var(--v-space-3);
   border-top: 1px solid hsl(var(--shadcn-border));
   background: hsl(var(--background));
-}
-
-.detail-subject {
-  margin: 0 0 var(--v-space-2);
-  font-size: 20px;
 }
 
 .detail-meta {
