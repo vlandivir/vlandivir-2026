@@ -11,10 +11,10 @@
   <link rel="stylesheet" href="/shared/site-theme.css?v=20260816-1" />
   <link rel="stylesheet" href="/shared/site-header.css?v=20260816-2" />
   <link rel="stylesheet" href="/shared/app-dialog.css?v=20260805-1" />
-  <link rel="stylesheet" href="/email/styles.css?v=20260811-1" />
+  <link rel="stylesheet" href="/email/styles.css?v=20260817-1" />
   <script src="/shared/app-dialog.js?v=20260805-1"></script>
   <script src="/shared/site-header.js?v=20260816-1" defer></script>
-  <script src="/email/app.js?v=20260811-1" defer></script>
+  <script src="/email/app.js?v=20260817-1" defer></script>
 </head>
 <body>
   <header data-site-header data-active="email" data-lang-none data-lang-ru="/email" data-lang-en="/email"></header>
@@ -32,7 +32,7 @@
       </div>
     </section>
 
-    <section id="stats-row" class="stats-row" aria-label="Аккаунты"></section>
+    <section id="stats-row" class="editor-card stats-row" aria-label="Аккаунты"></section>
 
     <section id="rules-panel" class="editor-card rules-panel hidden" aria-label="Правила">
       <div class="rules-head">
@@ -52,34 +52,34 @@
       <p id="log-empty" class="muted hidden">Действий пока не было</p>
     </section>
 
-    <section class="email-columns">
-      <div class="editor-card list-card">
-        <div class="list-filters">
-          <input id="filter-query" type="search" placeholder="Поиск: тема, отправитель…" autocomplete="off" />
-          <select id="filter-account" aria-label="Аккаунт"><option value="">Все аккаунты</option></select>
-          <select id="filter-flag" aria-label="Фильтр">
-            <option value="">Все письма</option>
-            <option value="unseen">Непрочитанные</option>
-            <option value="attachments">С вложениями</option>
-            <option value="hidden">🙈 Скрытые</option>
-            <option value="archived">📥 В архиве</option>
-          </select>
-        </div>
-        <div id="important-section" class="list-section important-section hidden">
-          <button id="important-toggle" type="button" class="list-section-head" aria-expanded="true">
-            <span id="important-chevron" class="list-section-chevron">▾</span>
-            <span>⭐ Важное</span>
-            <span id="important-count" class="meta-chip">0</span>
-          </button>
-          <ul id="important-list" class="message-list section-list"></ul>
-        </div>
-        <ul id="message-list" class="message-list"></ul>
-        <p id="list-empty" class="muted hidden">Ничего не найдено</p>
+    <section class="editor-card list-card">
+      <div class="list-filters">
+        <input id="filter-query" type="search" placeholder="Поиск: тема, отправитель…" autocomplete="off" />
+        <select id="filter-account" aria-label="Аккаунт"><option value="">Все аккаунты</option></select>
+        <select id="filter-flag" aria-label="Фильтр">
+          <option value="">Все письма</option>
+          <option value="unseen">Непрочитанные</option>
+          <option value="attachments">С вложениями</option>
+          <option value="hidden">🙈 Скрытые</option>
+          <option value="archived">📥 В архиве</option>
+        </select>
       </div>
+      <div id="important-section" class="list-section important-section hidden">
+        <button id="important-toggle" type="button" class="list-section-head" aria-expanded="true">
+          <span id="important-chevron" class="list-section-chevron">▾</span>
+          <span>⭐ Важное</span>
+          <span id="important-count" class="meta-chip">0</span>
+        </button>
+        <ul id="important-list" class="message-list section-list"></ul>
+      </div>
+      <ul id="message-list" class="message-list"></ul>
+      <p id="list-empty" class="muted hidden">Ничего не найдено</p>
+    </section>
 
-      <div class="editor-card detail-card">
-        <div id="detail-empty" class="muted">Выберите письмо в списке</div>
-        <article id="detail" class="hidden">
+    <div id="detail-holder" hidden>
+      <article id="detail" class="message-preview hidden">
+        <p id="detail-loading" class="muted hidden">Загрузка письма…</p>
+        <div id="detail-content">
           <h2 id="detail-subject" class="detail-subject"></h2>
           <div id="detail-actions" class="detail-actions-bar"></div>
           <div class="detail-test-rules">
@@ -93,9 +93,9 @@
           <div id="detail-attachments" class="detail-attachments"></div>
           <div id="detail-body" class="detail-body"></div>
           <div id="detail-thread" class="detail-thread"></div>
-        </article>
-      </div>
-    </section>
+        </div>
+      </article>
+    </div>
   </main>
 </body>
 </html>

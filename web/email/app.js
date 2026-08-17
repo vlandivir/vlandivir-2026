@@ -6,7 +6,7 @@
     stats: [],
     labels: [],
     selectedId: null,
-    detail: null, // full message currently open in the detail pane
+    detail: null, // full message currently open in the accordion preview
     filters: { query: '', account: '', flag: '' },
     // Important sits in its own block (not a filter); remember collapse.
     importantCollapsed: false,
@@ -122,10 +122,11 @@
 
   function renderStats() {
     const row = el('stats-row');
+    row.classList.toggle('hidden', state.stats.length === 0);
     row.replaceChildren(
       ...state.stats.map((account) => {
         const card = document.createElement('div');
-        card.className = 'editor-card stat-card';
+        card.className = 'stat-card';
         card.style.borderLeftColor = accountColor(account.account, 0.85);
         card.style.background = accountColor(account.account, 0.07);
 
@@ -338,31 +339,26 @@
   function renderMessageRow(message) {
     const item = document.createElement('li');
     item.className = 'message-row';
-    item.classList.toggle('selected', message.id === state.selectedId);
+    item.dataset.messageId = String(message.id);
+    const selected = message.id === state.selectedId;
+    item.classList.toggle('selected', selected);
     item.style.borderLeftColor = accountColor(message.account, 1);
 
-    const top = document.createElement('div');
-    top.className = 'message-row-top';
+    const main = document.createElement('div');
+    main.className = 'message-row-main';
+    main.tabIndex = 0;
+    main.setAttribute('role', 'button');
+    main.setAttribute('aria-expanded', selected ? 'true' : 'false');
+
+    const chevron = document.createElement('span');
+    chevron.className = 'message-chevron';
+    chevron.textContent = selected ? '▾' : '▸';
+    chevron.setAttribute('aria-hidden', 'true');
 
     const subject = document.createElement('span');
     subject.className = 'message-subject';
     subject.classList.toggle('unseen', !message.seen);
     subject.textContent = message.subject || '(без темы)';
-
-    const date = document.createElement('span');
-    date.className = 'message-date';
-    date.textContent = formatDate(message.date);
-
-    const rowActions = document.createElement('span');
-    rowActions.className = 'row-actions';
-    for (const def of ACTIONS.filter((a) => a.quick)) {
-      rowActions.append(actionButton(message, def, 'row-action'));
-    }
-
-    top.append(subject, date, rowActions);
-
-    const from = document.createElement('div');
-    from.className = 'message-from';
 
     const sender = document.createElement('span');
     sender.className = 'message-sender';
@@ -379,10 +375,26 @@
     dot.style.background = accountColor(message.account, 1);
     account.append(dot, document.createTextNode(message.account));
 
-    from.append(sender, account);
+    const date = document.createElement('span');
+    date.className = 'message-date';
+    date.textContent = formatDate(message.date);
 
-    item.append(top, from);
-    item.addEventListener('click', () => selectMessage(message.id));
+    const rowActions = document.createElement('span');
+    rowActions.className = 'row-actions';
+    for (const def of ACTIONS.filter((a) => a.quick)) {
+      rowActions.append(actionButton(message, def, 'row-action'));
+    }
+
+    main.append(chevron, subject, sender, account, date, rowActions);
+    main.addEventListener('click', () => selectMessage(message.id));
+    main.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        selectMessage(message.id);
+      }
+    });
+
+    item.append(main);
     return item;
   }
 
@@ -454,6 +466,7 @@
   }
 
   function renderList() {
+    parkPreview();
     const inbox = visibleMessages();
     const important = importantMessages();
     const inboxGroups = threadGroups(inbox);
@@ -489,27 +502,76 @@
     );
 
     messageList.replaceChildren(...renderListSection(inboxGroups));
+    attachPreview();
   }
 
-  // --- Detail ---
+  // --- Accordion preview ---
+
+  function parkPreview() {
+    const holder = el('detail-holder');
+    const preview = el('detail');
+    if (preview.parentElement !== holder) holder.append(preview);
+  }
+
+  function attachPreview() {
+    parkPreview();
+    const preview = el('detail');
+    if (!state.selectedId) {
+      preview.classList.add('hidden');
+      return;
+    }
+    const row = document.querySelector(
+      `.message-row[data-message-id="${state.selectedId}"]`,
+    );
+    if (!row) {
+      preview.classList.add('hidden');
+      return;
+    }
+    preview.classList.remove('hidden');
+    row.append(preview);
+  }
 
   async function selectMessage(id) {
+    if (state.selectedId === id) {
+      state.selectedId = null;
+      state.detail = null;
+      renderList();
+      return;
+    }
     state.selectedId = id;
+    state.detail = null;
     const listed = state.messages.find((message) => message.id === id);
     if (listed) state.expandedThreads.add(threadKey(listed));
     renderList();
+    renderDetail();
+    const preview = el('detail');
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    preview.scrollIntoView({
+      block: 'nearest',
+      behavior: motion.matches ? 'auto' : 'smooth',
+    });
     state.detail = await fetchJson(`${API_BASE}/messages/${id}`);
+    if (state.selectedId !== id) return;
     renderDetail();
   }
 
-  // Redraws the detail pane from state.detail (called on open and after an
+  // Redraws the accordion from state.detail (called on open and after an
   // action changes the open message).
   function renderDetail() {
-    const message = state.detail;
-    if (!message) return;
+    const preview = el('detail');
+    const loading = el('detail-loading');
+    const content = el('detail-content');
+    preview.classList.remove('hidden');
 
-    el('detail-empty').classList.add('hidden');
-    el('detail').classList.remove('hidden');
+    const message = state.detail;
+    if (!message) {
+      loading.classList.remove('hidden');
+      content.classList.add('hidden');
+      return;
+    }
+
+    loading.classList.add('hidden');
+    content.classList.remove('hidden');
 
     el('detail-subject').textContent = message.subject || '(без темы)';
 

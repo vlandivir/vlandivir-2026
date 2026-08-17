@@ -1,6 +1,8 @@
 /* Layout-only styles; tokens and components come from /shared/site-theme.css */
 
+/* Inbox rows + accordion need more horizontal room than the shared 1160px. */
 .email-page {
+  width: min(1480px, calc(100% - (var(--v-page-gutter) * 2)));
   padding-bottom: var(--v-space-6);
 }
 
@@ -20,24 +22,34 @@
 /* --- Account stats --- */
 
 .stats-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--v-space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
   margin-bottom: var(--v-space-3);
+  overflow: hidden;
 }
 
 .stat-card {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px var(--v-card-padding);
+  border-bottom: 1px solid hsl(var(--shadcn-border));
   /* Per-account pastel accent; the color itself is data set from app.js */
   border-left: 4px solid transparent;
+}
+
+.stat-card:last-child {
+  border-bottom: none;
 }
 
 .stat-card .stat-account {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 10rem;
   font-weight: 700;
 }
 
@@ -51,10 +63,12 @@
 .stat-card .stat-line {
   display: flex;
   flex-wrap: wrap;
+  flex: 1 1 240px;
   gap: 6px;
 }
 
 .stat-card .stat-sync {
+  margin-left: auto;
   font-size: 12px;
 }
 
@@ -244,24 +258,11 @@
   font-size: 12px;
 }
 
-/* --- Two columns: list + detail --- */
-
-.email-columns {
-  display: grid;
-  grid-template-columns: minmax(320px, 5fr) 7fr;
-  gap: var(--v-space-2);
-  align-items: start;
-}
-
-/* Grid children must be allowed to shrink below their content width,
-   otherwise a long unbroken subject stretches the page */
-.email-columns > * {
-  min-width: 0;
-}
+/* --- Full-width inbox --- */
 
 .list-filters {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, 14rem) minmax(10rem, 14rem);
   gap: 8px;
   margin-bottom: var(--v-space-2);
 }
@@ -290,8 +291,6 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  max-height: 70vh;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--v-space-2);
@@ -339,20 +338,42 @@
   border: 1px solid hsl(var(--shadcn-border));
   border-radius: calc(var(--radius) - 2px);
   background: hsl(var(--card));
+  overflow: hidden;
 }
 
 .message-row {
-  padding: 10px 8px 10px 14px;
   /* Per-account accent stripe; the color itself is data set from app.js */
   border-left: 5px solid transparent;
+}
+
+.message-row-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 2fr) minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px 10px 10px;
   cursor: pointer;
 }
 
-.message-list > .message-row:hover,
-.message-list > .message-row.selected,
-.thread-messages .message-row:hover,
-.thread-messages .message-row.selected {
+.message-row-main:focus-visible {
+  outline: 2px solid hsl(var(--shadcn-ring));
+  outline-offset: -2px;
+}
+
+.message-list > .message-row:hover > .message-row-main,
+.message-list > .message-row.selected > .message-row-main,
+.thread-messages .message-row:hover > .message-row-main,
+.thread-messages .message-row.selected > .message-row-main {
   background: hsl(var(--shadcn-muted));
+}
+
+.message-chevron {
+  flex: none;
+  width: 1em;
+  color: var(--v-muted);
+  font-size: 13px;
+  line-height: 1;
+  text-align: center;
 }
 
 .thread-group {
@@ -429,15 +450,7 @@
   background: hsl(var(--shadcn-muted));
 }
 
-.message-row-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
 .message-subject {
-  flex: 1;
   min-width: 0;
   font-weight: 600;
   overflow: hidden;
@@ -539,20 +552,13 @@
   padding: 0 12px;
 }
 
-.message-from {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--v-muted);
-}
-
 .message-sender {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
+  color: var(--v-muted);
 }
 
 .account-pill {
@@ -566,11 +572,12 @@
   font-weight: 600;
 }
 
-/* --- Detail --- */
+/* --- Accordion preview under the selected row --- */
 
-.detail-card {
-  max-height: 82vh;
-  overflow-y: auto;
+.message-preview {
+  padding: var(--v-space-3);
+  border-top: 1px solid hsl(var(--shadcn-border));
+  background: hsl(var(--background));
 }
 
 .detail-subject {
@@ -681,16 +688,49 @@
 }
 
 @media (max-width: 900px) {
-  .email-columns {
-    grid-template-columns: 1fr;
-  }
-
   .email-top {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .message-list {
-    max-height: 45vh;
+  .list-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .message-row-main {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'chevron subject subject date'
+      'chevron sender account actions';
+  }
+
+  .message-chevron {
+    grid-area: chevron;
+    align-self: start;
+    margin-top: 4px;
+  }
+
+  .message-subject {
+    grid-area: subject;
+  }
+
+  .message-sender {
+    grid-area: sender;
+  }
+
+  .account-pill {
+    grid-area: account;
+  }
+
+  .message-date {
+    grid-area: date;
+  }
+
+  .row-actions {
+    grid-area: actions;
+  }
+
+  .stat-card .stat-sync {
+    margin-left: 0;
   }
 }
