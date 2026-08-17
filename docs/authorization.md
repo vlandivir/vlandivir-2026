@@ -70,7 +70,7 @@ loopback `http://127.0.0.1|localhost` (для отладки).
 |---|---|---|
 | Записная книжка рилсов (страницы) | `GET /reels`, `GET /reels/:id` | `src/reels-pages.controller.ts` |
 | Дашборд почты (страница) | `GET /email` | `src/email-pages.controller.ts` |
-| API почты | `GET/POST /email-api/*` (stats, messages, sync) | `src/email-api.controller.ts` (guard на классе) |
+| API почты | `GET/POST /email-api/*` (stats, messages, sync, `POST /messages/:id/to-gtd`) | `src/email-api.controller.ts` (guard на классе) |
 | Дневник (страницы) | `GET /diary`, `GET /diary/:MM-DD`, `GET /diary/archive` | `src/diary-pages.controller.ts`; записи скоупятся к личному чату владельца |
 | API дневника | `GET /diary-api/calendar`, `GET /diary-api/day`, `GET /diary-api/archive`, `PATCH/DELETE /diary-api/notes/:id`, `POST /diary-api/notes/:id/restore`, `POST /diary-api/notes/:id/videos`, `PATCH /diary-api/images/:id`, `POST /diary-api/images/:id/describe`, `PATCH /diary-api/videos/:id`, `POST /diary-api/videos/:id/send` | `src/diary-api.controller.ts` (guard на классе); soft-delete через `Note.deletedAt` |
 
@@ -99,7 +99,7 @@ redirect `/reels`, `/reels/<secret>/<id>` → 301 на `/reels/<id>` (дальш
 |---|---|---|
 | Заметки из скриптов | `POST /notes-api/notes` | `x-note-api-key` = `NOTE_API_KEY`; картинка опциональна, text-only тоже принимается |
 | Уведомления | `POST /notifications-api/messages` | `x-notification-api-key` = `NOTE_API_KEY` |
-| MCP-сервер | `POST /mcp` | публичные инструменты (карта) — без ключа; приватные (дневник, рилсы) — `Authorization: Bearer <MCP_API_KEY>` (+ `X-Chat-Id` для дневника) |
+| MCP-сервер | `POST /mcp` | публичные инструменты (карта) — без ключа; рилсы — `Authorization: Bearer <MCP_API_KEY>`; дневник — тот же ключ + `X-Chat-Id` (числовой Telegram chat id владельца дневника); GTD — `Authorization: Bearer <mcpToken пространства>` из настроек GTD / `/gtdkey`, без `X-Chat-Id` |
 | Telegram Mini App profile | `GET /mini-app-api/*` | подпись `initData` токеном бота |
 | Telegram webhook | `POST /telegram-bot` | безопасность на стороне Telegram (токен бота при setWebhook) |
 
@@ -115,7 +115,7 @@ redirect `/reels`, `/reels/<secret>/<id>` → 301 на `/reels/<id>` (дальш
 | `MAP_API_KEY` | Машинный ключ редактирования карты и рилсов |
 | `NOTE_API_KEY` | Ключ notes/notifications API; принимается и как fallback ключа карты |
 | `REELS_API_KEY` | Необязательный отдельный ключ рилсов (не задан — используется `MAP_API_KEY`) |
-| `MCP_API_KEY` | Приватные инструменты MCP |
+| `MCP_API_KEY` | Приватные MCP-инструменты: рилсы и дневник |
 | `EMAIL_ACCOUNTS` | App-пароли IMAP (не для HTTP-доступа) |
 | `TELEGRAM_OWNER_CHAT_ID` | Личный Telegram chat id владельца (дневник, notes/notifications, subs) |
 | `TELEGRAM_CHANNEL_IDS` | Id каналов через запятую; посты дублируются в чат владельца |
@@ -125,6 +125,9 @@ redirect `/reels`, `/reels/<secret>/<id>` → 301 на `/reels/<id>` (дальш
 
 **GTD и список страниц Subs/GPX:** достаточно входа через Google — отдельный
 allowlist не нужен, у каждого аккаунта своё workspace и свой список страниц.
+MCP-ключ GTD живёт на workspace (`mcpToken`): один ключ на связанную пару
+Google+Telegram. Смотреть и копировать — настройки `/gtd` / Mini App / iOS,
+или Telegram `/gtdkey`.
 
 **Админ (дневник, почта, рилсы, правка карты, монтаж поездок):**
 

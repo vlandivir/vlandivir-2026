@@ -1,7 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { endOfDay, startOfDay } from 'date-fns';
 import { z } from 'zod';
+import type { GtdAuthContext } from '../gtd/gtd-auth.service';
+import { GtdService } from '../gtd/gtd.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DiaryQaService } from '../services/diary-qa.service';
 import { DiarySearchService } from '../services/diary-search.service';
@@ -9,8 +11,10 @@ import { ReelsQaService } from '../services/reels-qa.service';
 import { ReelsService } from '../services/reels.service';
 
 export interface McpAuthContext {
+  // MCP_API_KEY: reels (+ diary with X-Chat-Id)
   authorized: boolean;
-  // Diary scope of the caller (from the X-Chat-Id header); requires a valid key
+  // Workspace mcpToken: GTD tools for that workspace (no X-Chat-Id)
+  gtdWorkspaceId: string | null;
   chatId: bigint | null;
 }
 
@@ -32,6 +36,7 @@ export class McpToolsService {
     private readonly diaryQa: DiaryQaService,
     private readonly reelsService: ReelsService,
     private readonly reelsQa: ReelsQaService,
+    private readonly gtd: GtdService,
   ) {}
 
   /**
@@ -39,16 +44,34 @@ export class McpToolsService {
    * depends on the caller — anonymous clients only see the map tools.
    */
   createServer(auth: McpAuthContext, baseUrl: string): McpServer {
+    const instructions = [
+      'Инструменты по личным данным сайта vlandivir.com: карта мест (публичная).',
+    ];
+    if (auth.authorized) {
+      instructions.push(
+        'Записная книжка Instagram-рилсов доступна по MCP_API_KEY;',
+        'дневник — с заголовком X-Chat-Id.',
+      );
+    }
+    if (auth.gtdWorkspaceId) {
+      instructions.push(
+        'GTD доступен по персональному ключу пространства (Authorization: Bearer, без X-Chat-Id).',
+        'gtd_now — только текущая доступная задача очереди (как в приложении).',
+        'Для любой незакрытой задачи, включая отложенные, используй gtd_search',
+        '(status=active включает snoozed). Закрытые — status=done или all.',
+        'Короткое название задачи, детали — в контексте (gtd_capture.context / gtd_add_context).',
+      );
+    }
+    if (!auth.authorized && !auth.gtdWorkspaceId) {
+      instructions.push(
+        'Приватные инструменты появляются только при подключении с API-ключом',
+        '(Authorization: Bearer). Дневник — ещё и X-Chat-Id; GTD — ключ из настроек.',
+      );
+    }
+
     const server = new McpServer(
       { name: 'vlandivir-2025', version: '1.0.0' },
-      {
-        instructions: [
-          'Инструменты по личным данным сайта vlandivir.com: карта мест (публичная),',
-          'записная книжка Instagram-рилсов и личный дневник.',
-          'Приватные инструменты появляются только при подключении с API-ключом',
-          '(Authorization: Bearer) и, для дневника, заголовком X-Chat-Id.',
-        ].join(' '),
-      },
+      { instructions: instructions.join(' ') },
     );
 
     this.registerMapTools(server, baseUrl);
@@ -57,6 +80,9 @@ export class McpToolsService {
       if (auth.chatId !== null) {
         this.registerDiaryTools(server, auth.chatId);
       }
+    }
+    if (auth.gtdWorkspaceId) {
+      this.registerGtdTools(server, auth.gtdWorkspaceId);
     }
     return server;
   }
@@ -544,6 +570,220 @@ export class McpToolsService {
         );
       },
     );
+  }
+
+  // --- GTD (workspace mcpToken → that workspace; no X-Chat-Id) ---
+
+  private registerGtdTools(server: McpServer, workspaceId: string): void {
+    const withWorkspace = async (
+      fn: (auth: GtdAuthContext) => Promise<unknown>,
+    ): Promise<ToolResult> => {
+      const identity = await this.prisma.gtdIdentity.findFirst({
+        where: { workspaceId },
+      });
+      if (!identity) {
+        return this.errorResult(
+          'GTD workspace не найден. Открой Mini App или /gtd.',
+        );
+      }
+      const auth = { workspaceId, identity };
+      try {
+        return this.jsonResult(await fn(auth));
+      } catch (error) {
+        if (error instanceof HttpException) {
+          const message = error.getResponse();
+          const text =
+            typeof message === 'string'
+              ? message
+              : typeof message === 'object' &&
+                  message &&
+                  'message' in message
+                ? String(
+                    (message as { message: string | string[] }).message,
+                  )
+                : error.message;
+          return this.errorResult(text);
+        }
+        throw error;
+      }
+    };
+
+    server.registerTool(
+      'gtd_now',
+      {
+        title: 'Текущая доступная задача GTD',
+        description:
+          'Задача в голове очереди, которую можно делать прямо сейчас ' +
+          '(не отложенная). Не каталог: для любой незакрытой, включая snoozed, ' +
+          'используй gtd_search.',
+        annotations: { readOnlyHint: true },
+      },
+      async () =>
+        withWorkspace(async (auth) => {
+          const data = await this.gtd.bootstrap(auth, { kind: 'all' });
+          return {
+            currentTask: data.currentTask
+              ? this.slimGtdTask(data.currentTask)
+              : null,
+            counts: data.counts,
+            nextWakeAt: data.nextWakeAt,
+            projects: data.projects
+              .filter((project) => !project.archived)
+              .map((project) => ({
+                id: project.id,
+                name: project.name,
+              })),
+          };
+        }),
+    );
+
+    server.registerTool(
+      'gtd_search',
+      {
+        title: 'Поиск по задачам GTD',
+        description:
+          'Семантический поиск по задачам, текстовому контексту и описаниям картинок. ' +
+          'По умолчанию status=active — все незакрытые, включая отложенные. ' +
+          'Пустой query — недавние по дате обновления. Закрытые: status=done или all.',
+        inputSchema: {
+          query: z
+            .string()
+            .optional()
+            .describe('Поисковый запрос; можно опустить, чтобы взять недавние'),
+          status: z
+            .enum(['active', 'done', 'all'])
+            .optional()
+            .describe('active = открытые включая snoozed (по умолчанию)'),
+          limit: z
+            .number()
+            .int()
+            .min(1)
+            .max(MAX_SEARCH_LIMIT)
+            .optional()
+            .describe('Максимум результатов (по умолчанию 12)'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      async ({ query, status, limit }) =>
+        withWorkspace(async (auth) => {
+          const results = await this.gtd.searchTasks(auth.workspaceId, query, {
+            status,
+            limit,
+          });
+          return {
+            count: results.length,
+            results: results.map((task) => this.slimGtdTask(task)),
+          };
+        }),
+    );
+
+    server.registerTool(
+      'gtd_get',
+      {
+        title: 'Задача GTD целиком',
+        description:
+          'Полная задача по id: текст, проект, события, текстовый контекст ' +
+          'и описания картинок.',
+        inputSchema: {
+          taskId: z.string().min(1).describe('Id задачи из gtd_search / gtd_now'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      async ({ taskId }) =>
+        withWorkspace((auth) =>
+          this.gtd.taskDetailsForAgent(auth.workspaceId, taskId),
+        ),
+    );
+
+    server.registerTool(
+      'gtd_capture',
+      {
+        title: 'Захватить задачу в GTD',
+        description:
+          'Создаёт задачу. Название короткое; длинные детали, сценарий или ' +
+          'тикет — в context. Встаёт в начало очереди.',
+        inputSchema: {
+          content: z.string().min(1).describe('Короткое название / действие'),
+          context: z
+            .string()
+            .optional()
+            .describe('Текстовый контекст (markdown), сохранится вложением'),
+          contextName: z
+            .string()
+            .optional()
+            .describe('Имя файла контекста, например ticket.md'),
+          projectId: z.string().optional().describe('Id проекта из gtd_now'),
+          dueDate: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .optional()
+            .describe('Срок YYYY-MM-DD'),
+        },
+      },
+      async ({ content, context, contextName, projectId, dueDate }) =>
+        withWorkspace((auth) =>
+          this.gtd.createTask(
+            auth.workspaceId,
+            content,
+            projectId,
+            dueDate,
+            context
+              ? { name: contextName, text: context }
+              : undefined,
+          ),
+        ),
+    );
+
+    server.registerTool(
+      'gtd_add_context',
+      {
+        title: 'Добавить контекст к задаче GTD',
+        description:
+          'Прикрепляет текстовый файл (markdown) к существующей задаче: ' +
+          'обсуждение, сценарий, тикет. Название задачи не меняется.',
+        inputSchema: {
+          taskId: z.string().min(1).describe('Id задачи'),
+          text: z.string().min(1).describe('Текст контекста'),
+          name: z
+            .string()
+            .optional()
+            .describe('Имя файла, по умолчанию context.md'),
+        },
+      },
+      async ({ taskId, text, name }) =>
+        withWorkspace((auth) =>
+          this.gtd.addContext(auth.workspaceId, taskId, { name, text }),
+        ),
+    );
+  }
+
+  private slimGtdTask(task: {
+    id: string;
+    content: string;
+    status: string;
+    dueDate?: string | null;
+    snoozedUntil?: string | null;
+    updatedAt?: string;
+    project?: { id: string; name: string } | null;
+    attachments?: { originalName: string; mimeType: string }[];
+    similarity?: number | null;
+  }) {
+    return {
+      id: task.id,
+      content: this.truncate(task.content, SNIPPET_CHARS),
+      status: task.status,
+      dueDate: task.dueDate ?? null,
+      snoozedUntil: task.snoozedUntil ?? null,
+      updatedAt: task.updatedAt ?? null,
+      project: task.project
+        ? { id: task.project.id, name: task.project.name }
+        : null,
+      attachments: (task.attachments ?? []).map((attachment) => ({
+        name: attachment.originalName,
+        mimeType: attachment.mimeType,
+      })),
+      similarity: task.similarity ?? null,
+    };
   }
 
   // --- Helpers ---

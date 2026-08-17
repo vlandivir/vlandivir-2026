@@ -29,6 +29,7 @@ In a **private** chat, a message containing an Instagram reel/post link is added
 | `/p`, `/phrase` | RU/EN/SR phrase translation (private) |
 | `/c`, `/collage` | Collage from 3–5 photos |
 | `/a` | Open the GTD Mini App |
+| `/gtdkey` | Show the GTD workspace MCP key (`/gtdkey new` rotates it) |
 | `/v`, `/video` | Save a video by URL (bypasses the 20 MB Bot API limit) |
 | `/bar` | Distance to a known bar + static map |
 | `/dl`, `/debuglog` | Export in-memory debug log |

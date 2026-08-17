@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { parse, validate } from '@telegram-apps/init-data-node';
+import { randomBytes } from 'crypto';
 import type { Request } from 'express';
 import { AuthService } from '../auth/auth.service';
 import {
@@ -11,6 +12,10 @@ import { PrismaService } from '../prisma/prisma.service';
 
 export type GtdAuthContext = { workspaceId: string; identity: GtdIdentity };
 export type GtdRequest = Request & { gtdAuth: GtdAuthContext };
+
+export function newGtdMcpToken(): string {
+  return `gtd_${randomBytes(24).toString('hex')}`;
+}
 
 @Injectable()
 export class GtdAuthService {
@@ -23,7 +28,7 @@ export class GtdAuthService {
   async authenticate(request: Request): Promise<GtdAuthContext> {
     const google = this.authService.getSessionFromRequest(request);
     if (google)
-      return this.resolveIdentity(
+      return this.ensureIdentity(
         GtdIdentityProvider.GOOGLE,
         google.email.toLowerCase(),
         google.name || google.email,
@@ -41,7 +46,7 @@ export class GtdAuthService {
         [user.firstName, user.lastName].filter(Boolean).join(' ') ||
         user.username ||
         String(user.id);
-      return this.resolveIdentity(
+      return this.ensureIdentity(
         GtdIdentityProvider.TELEGRAM,
         String(user.id),
         displayName,
@@ -51,7 +56,7 @@ export class GtdAuthService {
     }
   }
 
-  private async resolveIdentity(
+  async ensureIdentity(
     provider: GtdIdentityProvider,
     providerId: string,
     displayName: string,
@@ -72,7 +77,10 @@ export class GtdAuthService {
     }
     try {
       const workspace = await this.prisma.gtdWorkspace.create({
-        data: { identities: { create: { provider, providerId, displayName } } },
+        data: {
+          mcpToken: newGtdMcpToken(),
+          identities: { create: { provider, providerId, displayName } },
+        },
         include: { identities: true },
       });
       return { workspaceId: workspace.id, identity: workspace.identities[0] };
@@ -83,5 +91,25 @@ export class GtdAuthService {
       if (!raced) throw new UnauthorizedException('Could not create account');
       return { workspaceId: raced.workspaceId, identity: raced };
     }
+  }
+
+  async findIdentity(
+    provider: GtdIdentityProvider,
+    providerId: string,
+  ): Promise<GtdAuthContext | null> {
+    const existing = await this.prisma.gtdIdentity.findUnique({
+      where: { provider_providerId: { provider, providerId } },
+    });
+    if (!existing) return null;
+    return { workspaceId: existing.workspaceId, identity: existing };
+  }
+
+  findWorkspaceByMcpToken(token: string) {
+    const value = token.trim();
+    if (!value.startsWith('gtd_')) return Promise.resolve(null);
+    return this.prisma.gtdWorkspace.findUnique({
+      where: { mcpToken: value },
+      select: { id: true },
+    });
   }
 }

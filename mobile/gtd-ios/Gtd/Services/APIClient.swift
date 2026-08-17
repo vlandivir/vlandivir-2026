@@ -125,6 +125,14 @@ actor APIClient {
         try await get("gtd-api/tasks/\(id)")
     }
 
+    func mcpToken() async throws -> GtdMcpTokenDTO {
+        try await get("gtd-api/mcp-token")
+    }
+
+    func regenerateMcpToken() async throws -> GtdMcpTokenDTO {
+        try await send("gtd-api/mcp-token/regenerate", method: "POST", json: nil)
+    }
+
     func downloadAttachment(id: String) async throws -> Data {
         if let cached = attachmentCache[id] {
             return cached

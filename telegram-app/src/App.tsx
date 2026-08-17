@@ -53,6 +53,7 @@ type Attachment = {
   originalName: string;
   mimeType: string;
   size: number;
+  description?: string | null;
 };
 type Task = {
   id: string;
@@ -139,6 +140,14 @@ function isImageAttachment(attachment: Attachment) {
 
 function isVideoAttachment(attachment: Attachment) {
   return attachment.mimeType.startsWith('video/');
+}
+
+function isTextAttachment(attachment: Attachment) {
+  return (
+    attachment.mimeType === 'text/plain' ||
+    attachment.mimeType === 'text/markdown' ||
+    attachment.mimeType === 'text/x-markdown'
+  );
 }
 
 function formatDate(value: string) {
@@ -322,6 +331,82 @@ function useAttachmentObjectUrl(attachment: Attachment) {
   return { url, failed };
 }
 
+function TextAttachmentPreview({
+  attachment,
+  compact = false,
+}: {
+  attachment: Attachment;
+  compact?: boolean;
+}) {
+  const toast = useToast();
+  const [text, setText] = useState<string | null>(null);
+  const [open, setOpen] = useState(!compact);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchAttachmentBlob(attachment)
+      .then((blob) => blob.text())
+      .then((value) => {
+        if (!cancelled) setText(value);
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled) {
+          toast({ status: 'error', title: String(reason) });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attachment.id]);
+
+  return (
+    <Box
+      borderWidth="1px"
+      borderColor="shadcn.border"
+      borderRadius="md"
+      overflow="hidden"
+      bg="shadcn.card"
+    >
+      <Flex
+        as="button"
+        type="button"
+        width="100%"
+        px={3}
+        py={2}
+        justify="space-between"
+        align="center"
+        gap={2}
+        onClick={() => setOpen((value: boolean) => !value)}
+      >
+        <Text noOfLines={1} fontSize="sm">
+          {attachment.originalName}
+        </Text>
+        <Text color="shadcn.mutedForeground" fontSize="xs">
+          {open ? '▾' : '▸'} {fileSize(attachment.size)}
+        </Text>
+      </Flex>
+      {open && (
+        <Box
+          as="pre"
+          px={3}
+          py={2}
+          m={0}
+          fontSize="sm"
+          whiteSpace="pre-wrap"
+          wordBreak="break-word"
+          maxH={compact ? '160px' : '320px'}
+          overflowY="auto"
+          borderTopWidth="1px"
+          borderColor="shadcn.border"
+          bg="shadcn.muted"
+        >
+          {text ?? '…'}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 function AttachmentPreview({
   attachment,
   compact = false,
@@ -332,6 +417,10 @@ function AttachmentPreview({
   const toast = useToast();
   const media = isImageAttachment(attachment) || isVideoAttachment(attachment);
   const { url, failed } = useAttachmentObjectUrl(attachment);
+
+  if (isTextAttachment(attachment)) {
+    return <TextAttachmentPreview attachment={attachment} compact={compact} />;
+  }
 
   if (!media) {
     return (
@@ -1663,7 +1752,66 @@ function SettingsModal({
   onLinked: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [mcpBusy, setMcpBusy] = useState(false);
+  const [mcp, setMcp] = useState<{ token: string; url: string } | null>(null);
   const toast = useToast();
+
+  useEffect(() => {
+    if (!disclosure.isOpen) return;
+    let cancelled = false;
+    api<{ token: string; url: string }>('/mcp-token')
+      .then((result) => {
+        if (!cancelled) setMcp(result);
+      })
+      .catch((reason) => {
+        if (!cancelled) {
+          toast({
+            status: 'error',
+            title: reason instanceof Error ? reason.message : String(reason),
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [disclosure.isOpen]);
+
+  const copyMcp = async () => {
+    if (!mcp?.token) return;
+    try {
+      await navigator.clipboard.writeText(mcp.token);
+      toast({ status: 'success', title: 'Ключ скопирован' });
+    } catch {
+      toast({ status: 'error', title: 'Не удалось скопировать' });
+    }
+  };
+
+  const rotateMcp = async () => {
+    if (
+      !window.confirm(
+        'Старый ключ перестанет работать у всех клиентов. Выпустить новый?',
+      )
+    ) {
+      return;
+    }
+    setMcpBusy(true);
+    try {
+      const result = await api<{ token: string; url: string }>(
+        '/mcp-token/regenerate',
+        { method: 'POST' },
+      );
+      setMcp(result);
+      toast({ status: 'success', title: 'Новый ключ выпущен' });
+    } catch (reason) {
+      toast({
+        status: 'error',
+        title: reason instanceof Error ? reason.message : String(reason),
+      });
+    } finally {
+      setMcpBusy(false);
+    }
+  };
+
   const link = async () => {
     setBusy(true);
     try {
@@ -1719,6 +1867,45 @@ function SettingsModal({
               Привязка опциональна. Без неё приложение продолжает работать
               самостоятельно.
             </Text>
+            <Divider />
+            <Box>
+              <Text fontWeight="semibold" mb={1}>
+                MCP-ключ
+              </Text>
+              <Text fontSize="sm" color="shadcn.mutedForeground" mb={3}>
+                Для Cursor и других агентов: Authorization Bearer на{' '}
+                {mcp?.url || '/mcp'}. Заголовок X-Chat-Id не нужен.
+              </Text>
+              <Box
+                fontFamily="mono"
+                fontSize="xs"
+                wordBreak="break-all"
+                p={3}
+                mb={3}
+                bg="shadcn.muted"
+                borderRadius="md"
+              >
+                {mcp?.token || 'Загрузка…'}
+              </Box>
+              <Flex gap={2} wrap="wrap">
+                <Button
+                  size="sm"
+                  onClick={copyMcp}
+                  isDisabled={!mcp?.token}
+                  variant="primary"
+                >
+                  Копировать
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={rotateMcp}
+                  isLoading={mcpBusy}
+                  isDisabled={!mcp?.token}
+                >
+                  Новый ключ
+                </Button>
+              </Flex>
+            </Box>
           </Stack>
         </ModalBody>
         <ModalFooter>

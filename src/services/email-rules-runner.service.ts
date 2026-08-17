@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailToGtdService } from '../gtd/email-to-gtd.service';
 import { EmailClassifierService } from './email-classifier.service';
 import {
   EmailExecutorService,
@@ -41,6 +42,9 @@ export class EmailRulesRunnerService {
     private readonly prisma: PrismaService,
     private readonly classifier: EmailClassifierService,
     private readonly executor: EmailExecutorService,
+    @Optional()
+    @Inject(forwardRef(() => EmailToGtdService))
+    private readonly emailToGtd?: EmailToGtdService,
   ) {
     const raw = Number(
       this.configService.get<string>('EMAIL_RULE_CONFIDENCE') ||
@@ -135,6 +139,11 @@ export class EmailRulesRunnerService {
 
       if (confident && matched) {
         await this.executor.applyEffects(
+          messageId,
+          matched.effects as EmailRuleEffects,
+          matched.id,
+        );
+        await this.emailToGtd?.maybeCreateFromEffects(
           messageId,
           matched.effects as EmailRuleEffects,
           matched.id,

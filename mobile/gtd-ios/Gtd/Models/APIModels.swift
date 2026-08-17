@@ -46,6 +46,11 @@ struct GtdIdentityDTO: Codable, Equatable {
     var providers: [String]
 }
 
+struct GtdMcpTokenDTO: Codable, Equatable {
+    var token: String
+    var url: String
+}
+
 struct GtdProjectDTO: Codable, Equatable, Identifiable {
     var id: String
     var workspaceId: String?

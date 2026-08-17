@@ -9,10 +9,14 @@ import {
   ParseIntPipe,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { Request } from 'express';
 import { AdminSessionGuard } from './auth/admin-session.guard';
+import type { SessionUser } from './auth/auth.service';
+import { EmailToGtdService } from './gtd/email-to-gtd.service';
 import { PrismaService } from './prisma/prisma.service';
 import { EmailIngestService } from './services/email-ingest.service';
 import {
@@ -23,6 +27,8 @@ import {
 import { EmailClassifierService } from './services/email-classifier.service';
 import { EmailRulesRunnerService } from './services/email-rules-runner.service';
 import { gmailOpenUrl, parseEmailAccounts } from './services/email-accounts';
+
+type AdminRequest = Request & { user: SessionUser };
 
 type RuleBody = {
   condition?: string;
@@ -60,6 +66,7 @@ export class EmailApiController {
     private readonly emailExecutorService: EmailExecutorService,
     private readonly emailClassifierService: EmailClassifierService,
     private readonly emailRulesRunnerService: EmailRulesRunnerService,
+    private readonly emailToGtd: EmailToGtdService,
     configService: ConfigService,
   ) {
     this.accountEmails = new Map(
@@ -138,6 +145,7 @@ export class EmailApiController {
         important: true,
         hasAttachments: true,
         status: true,
+        gtdTaskId: true,
       },
     });
     return { messages };
@@ -204,6 +212,7 @@ export class EmailApiController {
         hasAttachments: true,
         sizeBytes: true,
         status: true,
+        gtdTaskId: true,
         rawKey: true,
         attachments: {
           select: {
@@ -251,6 +260,14 @@ export class EmailApiController {
     void gmMsgId;
     void rawKey;
     return { ...rest, bodyHtml, gmailUrl };
+  }
+
+  @Post('messages/:id/to-gtd')
+  async toGtd(
+    @Req() req: AdminRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.emailToGtd.createFromGoogleEmail(id, req.user.email);
   }
 
   // --- Rules catalog ---
@@ -331,6 +348,11 @@ export class EmailApiController {
       rule.effects as EmailRuleEffects,
       rule.id,
     );
+    await this.emailToGtd.maybeCreateFromEffects(
+      id,
+      rule.effects as EmailRuleEffects,
+      rule.id,
+    );
     await this.prisma.emailRule.update({
       where: { id: rule.id },
       data: { matchCount: { increment: 1 }, lastMatchedAt: new Date() },
@@ -370,6 +392,7 @@ export class EmailApiController {
           important: true,
           labels: true,
           status: true,
+          gtdTaskId: true,
         },
       }),
       result.matchedRuleId
@@ -463,9 +486,8 @@ export class EmailApiController {
     if (effects.markRead) normalized.markRead = true;
     if (effects.archive) normalized.archive = true;
     if (effects.hide) normalized.hide = true;
-    if (typeof effects.label === 'string' && effects.label.trim()) {
-      normalized.label = effects.label.trim();
-    }
+    if (effects.label?.trim()) normalized.label = effects.label.trim();
+    if (effects.createGtdTask) normalized.createGtdTask = true;
     return normalized;
   }
 

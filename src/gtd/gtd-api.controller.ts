@@ -66,13 +66,27 @@ export class GtdApiController {
   }
   @Post('tasks') createTask(
     @Req() req: GtdRequest,
-    @Body() body: { content?: unknown; projectId?: unknown; dueDate?: unknown },
+    @Body()
+    body: {
+      content?: unknown;
+      projectId?: unknown;
+      dueDate?: unknown;
+      context?: unknown;
+      contextName?: unknown;
+    },
   ) {
+    const contextText =
+      body?.context && typeof body.context === 'object'
+        ? (body.context as { text?: unknown; name?: unknown })
+        : body?.context !== undefined
+          ? { text: body.context, name: body.contextName }
+          : undefined;
     return this.gtd.createTask(
       req.gtdAuth.workspaceId,
       body?.content,
       body?.projectId,
       body?.dueDate,
+      contextText,
     );
   }
   @Get('tasks') listTasks(
@@ -141,6 +155,15 @@ export class GtdApiController {
     return this.gtd.addAttachment(req.gtdAuth.workspaceId, id, file);
   }
 
+  @Post('tasks/:id/context')
+  addContext(
+    @Req() req: GtdRequest,
+    @Param('id') id: string,
+    @Body() body: { name?: unknown; text?: unknown },
+  ) {
+    return this.gtd.addContext(req.gtdAuth.workspaceId, id, body || {});
+  }
+
   @Get('attachments/:id')
   @Header('Cache-Control', 'private, max-age=300')
   async attachment(
@@ -168,6 +191,19 @@ export class GtdApiController {
       `${disposition}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(result.attachment.originalName)}`,
     );
     res.send(result.buffer);
+  }
+
+  @Get('mcp-token') mcpToken(@Req() req: GtdRequest) {
+    return this.gtd.mcpCredentials(
+      req.gtdAuth.workspaceId,
+      this.authService.baseUrl,
+    );
+  }
+  @Post('mcp-token/regenerate') regenerateMcpToken(@Req() req: GtdRequest) {
+    return this.gtd.rotateMcpToken(
+      req.gtdAuth.workspaceId,
+      this.authService.baseUrl,
+    );
   }
 
   @Post('link/start') startLink(@Req() req: GtdRequest) {

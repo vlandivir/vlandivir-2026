@@ -26,6 +26,9 @@ import { HistoryCommandsService } from './history-commands.service';
 import { CollageCommandsService } from './collage-commands.service';
 import { DebugLogService } from '../services/debug-log.service';
 import { ReelsService } from '../services/reels.service';
+import { GtdIdentityProvider } from '../generated/prisma-client';
+import { GtdAuthService } from '../gtd/gtd-auth.service';
+import { GtdService } from '../gtd/gtd.service';
 import * as sharp from 'sharp';
 import { Readable } from 'stream';
 
@@ -73,6 +76,8 @@ export class TelegramBotService {
     private readonly collageCommands: CollageCommandsService,
     private readonly debugLogService: DebugLogService,
     private readonly reelsService: ReelsService,
+    private readonly gtdAuth: GtdAuthService,
+    private readonly gtd: GtdService,
   ) {
     const token = this.configService.get<string>('TELEGRAM_BOT_TOKEN');
     if (!token) {
@@ -423,21 +428,80 @@ export class TelegramBotService {
         }
         const baseUrl = new URL(webhookUrl).origin;
         const appUrl = `${baseUrl}/mini-app`;
-        await ctx.reply('Откройте GTD:', {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: 'Открыть GTD',
-                  web_app: { url: appUrl },
-                },
+        await ctx.reply(
+          'Откройте GTD. MCP-ключ — в настройках приложения или командой /gtdkey.',
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: 'Открыть GTD',
+                    web_app: { url: appUrl },
+                  },
+                ],
               ],
-            ],
+            },
           },
-        });
+        );
       } catch (error) {
         console.error('Error sending mini app button', error);
         await ctx.reply('Не удалось открыть мини‑приложение');
+      }
+    });
+
+    this.bot.command(['gtdkey'], async (ctx) => {
+      try {
+        if (ctx.chat?.type !== 'private') {
+          await ctx.reply(
+            'Команда /gtdkey доступна только в личных сообщениях с ботом',
+          );
+          return;
+        }
+        const user = ctx.from;
+        if (!user) {
+          await ctx.reply('Unable to determine user.');
+          return;
+        }
+        const displayName =
+          [user.first_name, user.last_name].filter(Boolean).join(' ') ||
+          user.username ||
+          String(user.id);
+        const auth = await this.gtdAuth.ensureIdentity(
+          GtdIdentityProvider.TELEGRAM,
+          String(user.id),
+          displayName,
+        );
+        const webhookUrl = this.configService.get<string>(
+          'VLANDIVIR_2025_WEBHOOK_URL',
+        );
+        const baseUrl = webhookUrl
+          ? new URL(webhookUrl).origin
+          : 'https://vlandivir.com';
+        const args = (ctx.message?.text || '')
+          .replace(/^\/gtdkey(@\w+)?\s*/i, '')
+          .trim()
+          .toLowerCase();
+        const rotate = args === 'new' || args === 'rotate';
+        const info = rotate
+          ? await this.gtd.rotateMcpToken(auth.workspaceId, baseUrl)
+          : await this.gtd.mcpCredentials(auth.workspaceId, baseUrl);
+        const lines = [
+          rotate
+            ? 'Новый MCP-ключ этого GTD-пространства (старый больше не действует).'
+            : 'MCP-ключ этого GTD-пространства.',
+          'В Cursor: Authorization Bearer, URL ниже. X-Chat-Id не нужен.',
+          '',
+          `<code>${info.token}</code>`,
+          '',
+          info.url,
+          '',
+          'Тот же ключ — в настройках Mini App и /gtd.',
+        ];
+        if (!rotate) lines.push('Новый ключ: /gtdkey new');
+        await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' });
+      } catch (error) {
+        console.error('Error sending GTD MCP key', error);
+        await ctx.reply('Не удалось получить MCP-ключ');
       }
     });
 
@@ -1560,6 +1624,7 @@ export class TelegramBotService {
       { name: '/s', description: 'Serbian Translation' },
       { name: '/p or /phrase', description: 'Translate between RU/EN/SR' },
       { name: '/a', description: 'Open GTD Mini App' },
+      { name: '/gtdkey', description: 'GTD MCP key for Cursor' },
       { name: '/bar', description: 'Distance to Pivski Zabavnik' },
       { name: '/c or /collage', description: 'Create image collage' },
       { name: '/dl or /debuglog', description: 'Export in-memory debug log' },

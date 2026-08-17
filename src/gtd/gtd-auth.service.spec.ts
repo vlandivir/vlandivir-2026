@@ -2,7 +2,7 @@ import { parse, validate } from '@telegram-apps/init-data-node';
 import type { AuthService } from '../auth/auth.service';
 import { GtdIdentityProvider } from '../generated/prisma-client';
 import type { PrismaService } from '../prisma/prisma.service';
-import { GtdAuthService } from './gtd-auth.service';
+import { GtdAuthService, newGtdMcpToken } from './gtd-auth.service';
 
 jest.mock('@telegram-apps/init-data-node', () => ({
   validate: jest.fn(),
@@ -12,12 +12,13 @@ jest.mock('@telegram-apps/init-data-node', () => ({
 describe('GtdAuthService', () => {
   const identityFind = jest.fn();
   const workspaceCreate = jest.fn();
+  const workspaceFind = jest.fn();
   const prisma = {
     gtdIdentity: {
       findUnique: identityFind,
       update: jest.fn(),
     },
-    gtdWorkspace: { create: workspaceCreate },
+    gtdWorkspace: { create: workspaceCreate, findUnique: workspaceFind },
   } as unknown as PrismaService;
   const config = { get: jest.fn().mockReturnValue('bot-token') };
 
@@ -56,6 +57,7 @@ describe('GtdAuthService', () => {
               providerId: 'owner@example.com',
             }),
           },
+          mcpToken: expect.stringMatching(/^gtd_[a-f0-9]{48}$/),
         }),
       }),
     );
@@ -99,8 +101,43 @@ describe('GtdAuthService', () => {
               providerId: '42',
             }),
           },
+          mcpToken: expect.stringMatching(/^gtd_[a-f0-9]{48}$/),
         }),
       }),
     );
+  });
+
+  it('mints a gtd_ token of 48 hex chars', () => {
+    expect(newGtdMcpToken()).toMatch(/^gtd_[a-f0-9]{48}$/);
+  });
+
+  it('resolves a workspace by its mcp token', async () => {
+    workspaceFind.mockResolvedValue({ id: 'ws-1' });
+    const service = new GtdAuthService(
+      prisma,
+      { getSessionFromRequest: jest.fn() } as unknown as AuthService,
+      config as never,
+    );
+
+    await expect(
+      service.findWorkspaceByMcpToken('gtd_' + 'ab'.repeat(24)),
+    ).resolves.toEqual({ id: 'ws-1' });
+    expect(workspaceFind).toHaveBeenCalledWith({
+      where: { mcpToken: 'gtd_' + 'ab'.repeat(24) },
+      select: { id: true },
+    });
+  });
+
+  it('does not look up tokens without the gtd_ prefix', async () => {
+    const service = new GtdAuthService(
+      prisma,
+      { getSessionFromRequest: jest.fn() } as unknown as AuthService,
+      config as never,
+    );
+
+    await expect(service.findWorkspaceByMcpToken('not-a-gtd-key')).resolves.toBe(
+      null,
+    );
+    expect(workspaceFind).not.toHaveBeenCalled();
   });
 });
