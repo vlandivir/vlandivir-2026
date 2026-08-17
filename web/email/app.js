@@ -580,6 +580,15 @@
       gmail.classList.add('hidden');
     }
 
+    const toGtd = el('to-gtd-btn');
+    if (message.gtdTaskId) {
+      toGtd.textContent = 'Уже в GTD';
+      toGtd.disabled = true;
+    } else {
+      toGtd.textContent = 'В GTD';
+      toGtd.disabled = false;
+    }
+
     const meta = el('detail-meta');
     const rows = [
       ['От', `${message.fromName || ''} <${message.fromAddress || ''}>`],
@@ -859,11 +868,12 @@ a{color:#1a73e8;}
     markRead: '✓ прочитано',
     archive: '📥 архив',
     hide: '🙈 скрыть',
+    createGtdTask: 'GTD',
   };
 
   function effectChips(effects) {
     const chips = [];
-    for (const key of ['markRead', 'archive', 'hide']) {
+    for (const key of ['markRead', 'archive', 'hide', 'createGtdTask']) {
       if (effects[key]) chips.push(EFFECT_LABELS[key]);
     }
     if (effects.label) chips.push(`🏷 ${effects.label}`);
@@ -944,6 +954,7 @@ a{color:#1a73e8;}
         <label><input type="checkbox" name="markRead" /> ✓ прочитано</label>
         <label><input type="checkbox" name="archive" /> 📥 архив</label>
         <label><input type="checkbox" name="hide" /> 🙈 скрыть</label>
+        <label><input type="checkbox" name="createGtdTask" /> GTD-задача</label>
         <input name="label" type="text" placeholder="🏷 ярлык (необязательно)" />
         <input name="priority" type="number" title="Приоритет" value="0" />
       </div>
@@ -955,6 +966,7 @@ a{color:#1a73e8;}
     form.markRead.checked = Boolean(e.markRead);
     form.archive.checked = Boolean(e.archive);
     form.hide.checked = Boolean(e.hide);
+    form.createGtdTask.checked = Boolean(e.createGtdTask);
     form.label.value = e.label || '';
     form.priority.value = String(rule?.priority ?? 0);
     form.dataset.ruleId = editing ? String(rule.id) : '';
@@ -974,6 +986,7 @@ a{color:#1a73e8;}
         markRead: form.markRead.checked,
         archive: form.archive.checked,
         hide: form.hide.checked,
+        createGtdTask: form.createGtdTask.checked,
         label: form.label.value.trim() || undefined,
       },
       priority: Number(form.priority.value) || 0,
@@ -1071,6 +1084,7 @@ a{color:#1a73e8;}
           important: data.message.important,
           labels: data.message.labels,
           status: data.message.status,
+          gtdTaskId: data.message.gtdTaskId,
         });
       }
       let text;
@@ -1167,8 +1181,36 @@ a{color:#1a73e8;}
     panel.classList.toggle('hidden');
     if (!panel.classList.contains('hidden')) void loadLog();
   });
+  async function toGtd() {
+    if (!state.detail || state.detail.gtdTaskId) return;
+    const button = el('to-gtd-btn');
+    const result = el('test-rules-result');
+    button.disabled = true;
+    result.textContent = 'Формулирую задачу…';
+    result.className = 'test-rules-result muted';
+    try {
+      const data = await fetchJson(
+        `${API_BASE}/messages/${state.detail.id}/to-gtd`,
+        { method: 'POST' },
+      );
+      patchLocal(state.detail.id, { gtdTaskId: data.task?.id || true });
+      const resultLine = el('test-rules-result');
+      resultLine.className = 'test-rules-result matched';
+      resultLine.textContent = data.created
+        ? `Задача: ${data.task?.content || ''}`
+        : `Уже было: ${data.task?.content || ''}`;
+    } catch (error) {
+      console.error(error);
+      result.className = 'test-rules-result';
+      result.textContent =
+        error instanceof Error ? error.message : 'Не удалось создать задачу';
+      button.disabled = false;
+    }
+  }
+
   el('test-rules-btn').addEventListener('click', () => void testRules());
   el('apply-rules-btn').addEventListener('click', () => void applyRulesNow());
+  el('to-gtd-btn').addEventListener('click', () => void toGtd());
   el('rule-add').addEventListener('click', () => openRuleForm(null));
   el('rule-form').addEventListener('submit', (event) => void saveRule(event));
 

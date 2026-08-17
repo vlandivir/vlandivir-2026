@@ -84,4 +84,15 @@ export class GtdAuthService {
       return { workspaceId: raced.workspaceId, identity: raced };
     }
   }
+
+  async findIdentity(
+    provider: GtdIdentityProvider,
+    providerId: string,
+  ): Promise<GtdAuthContext | null> {
+    const existing = await this.prisma.gtdIdentity.findUnique({
+      where: { provider_providerId: { provider, providerId } },
+    });
+    if (!existing) return null;
+    return { workspaceId: existing.workspaceId, identity: existing };
+  }
 }

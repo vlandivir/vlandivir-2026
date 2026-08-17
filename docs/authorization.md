@@ -70,7 +70,7 @@ loopback `http://127.0.0.1|localhost` (для отладки).
 |---|---|---|
 | Записная книжка рилсов (страницы) | `GET /reels`, `GET /reels/:id` | `src/reels-pages.controller.ts` |
 | Дашборд почты (страница) | `GET /email` | `src/email-pages.controller.ts` |
-| API почты | `GET/POST /email-api/*` (stats, messages, sync) | `src/email-api.controller.ts` (guard на классе) |
+| API почты | `GET/POST /email-api/*` (stats, messages, sync, `POST /messages/:id/to-gtd`) | `src/email-api.controller.ts` (guard на классе) |
 | Дневник (страницы) | `GET /diary`, `GET /diary/:MM-DD`, `GET /diary/archive` | `src/diary-pages.controller.ts`; записи скоупятся к личному чату владельца |
 | API дневника | `GET /diary-api/calendar`, `GET /diary-api/day`, `GET /diary-api/archive`, `PATCH/DELETE /diary-api/notes/:id`, `POST /diary-api/notes/:id/restore`, `POST /diary-api/notes/:id/videos`, `PATCH /diary-api/images/:id`, `POST /diary-api/images/:id/describe`, `PATCH /diary-api/videos/:id`, `POST /diary-api/videos/:id/send` | `src/diary-api.controller.ts` (guard на классе); soft-delete через `Note.deletedAt` |
 
@@ -99,7 +99,7 @@ redirect `/reels`, `/reels/<secret>/<id>` → 301 на `/reels/<id>` (дальш
 |---|---|---|
 | Заметки из скриптов | `POST /notes-api/notes` | `x-note-api-key` = `NOTE_API_KEY`; картинка опциональна, text-only тоже принимается |
 | Уведомления | `POST /notifications-api/messages` | `x-notification-api-key` = `NOTE_API_KEY` |
-| MCP-сервер | `POST /mcp` | публичные инструменты (карта) — без ключа; приватные (дневник, рилсы) — `Authorization: Bearer <MCP_API_KEY>` (+ `X-Chat-Id` для дневника) |
+| MCP-сервер | `POST /mcp` | публичные инструменты (карта) — без ключа; приватные (дневник, рилсы, GTD) — `Authorization: Bearer <MCP_API_KEY>` (+ `X-Chat-Id` для дневника и GTD) |
 | Telegram Mini App profile | `GET /mini-app-api/*` | подпись `initData` токеном бота |
 | Telegram webhook | `POST /telegram-bot` | безопасность на стороне Telegram (токен бота при setWebhook) |
 

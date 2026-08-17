@@ -12,7 +12,7 @@ import { McpAuthContext, McpToolsService } from './mcp-tools.service';
  * Auth is per-request and optional:
  *  - no Authorization header  -> public tools only (map)
  *  - Authorization: Bearer <MCP_API_KEY> -> plus reels tools
- *  - plus X-Chat-Id: <telegram chat id>  -> plus diary tools for that chat
+ *  - plus X-Chat-Id: <telegram chat id>  -> plus diary and GTD tools for that chat
  */
 @Controller('mcp')
 export class McpController {

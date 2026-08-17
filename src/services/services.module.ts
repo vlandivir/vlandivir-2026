@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DateParserService } from './date-parser.service';
 import { StorageService } from './storage.service';
@@ -19,9 +19,10 @@ import { EmailClassifierService } from './email-classifier.service';
 import { EmailRulesRunnerService } from './email-rules-runner.service';
 import { TripThumbsService } from './trip-thumbs.service';
 import { ToolPagesService } from './tool-pages.service';
+import { GtdModule } from '../gtd/gtd.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, forwardRef(() => GtdModule)],
   providers: [
     DateParserService,
     StorageService,

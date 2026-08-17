@@ -351,4 +351,53 @@ describe('GtdService', () => {
     expect(result.tasks[0].orderKey).toBe('1');
     expect(result.nextCursor).toBeNull();
   });
+
+  it('stores context as a markdown attachment', async () => {
+    const uploadPrivateFileWithKey = jest.fn().mockResolvedValue(undefined);
+    const mockStorage = { uploadPrivateFileWithKey } as unknown as StorageService;
+    const mockPrisma = {
+      gtdTask: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'task-1',
+          workspaceId: 'ws',
+          status: GtdTaskStatus.ACTIVE,
+          content: 'short',
+        }),
+        update: jest.fn().mockResolvedValue({
+          id: 'task-1',
+          workspaceId: 'ws',
+          orderKey: 1n,
+          content: 'short',
+          status: GtdTaskStatus.ACTIVE,
+          dueDate: null,
+          snoozedUntil: null,
+          completedAt: null,
+          canceledAt: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          project: null,
+          attachments: [
+            {
+              id: 'att-1',
+              originalName: 'ticket.md',
+              mimeType: 'text/markdown',
+              size: 12,
+              description: null,
+            },
+          ],
+        }),
+      },
+      gtdAttachment: { count: jest.fn().mockResolvedValue(0) },
+    } as unknown as PrismaService;
+    const contextService = new GtdService(mockPrisma, mockStorage);
+
+    const result = await contextService.addContext('ws', 'task-1', {
+      name: 'ticket',
+      text: 'длинный тикет',
+    });
+
+    expect(uploadPrivateFileWithKey).toHaveBeenCalled();
+    expect(result.attachments[0].originalName).toBe('ticket.md');
+    expect(result.attachments[0].mimeType).toBe('text/markdown');
+  });
 });

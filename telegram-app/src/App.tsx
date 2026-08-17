@@ -53,6 +53,7 @@ type Attachment = {
   originalName: string;
   mimeType: string;
   size: number;
+  description?: string | null;
 };
 type Task = {
   id: string;
@@ -139,6 +140,14 @@ function isImageAttachment(attachment: Attachment) {
 
 function isVideoAttachment(attachment: Attachment) {
   return attachment.mimeType.startsWith('video/');
+}
+
+function isTextAttachment(attachment: Attachment) {
+  return (
+    attachment.mimeType === 'text/plain' ||
+    attachment.mimeType === 'text/markdown' ||
+    attachment.mimeType === 'text/x-markdown'
+  );
 }
 
 function formatDate(value: string) {
@@ -322,6 +331,82 @@ function useAttachmentObjectUrl(attachment: Attachment) {
   return { url, failed };
 }
 
+function TextAttachmentPreview({
+  attachment,
+  compact = false,
+}: {
+  attachment: Attachment;
+  compact?: boolean;
+}) {
+  const toast = useToast();
+  const [text, setText] = useState<string | null>(null);
+  const [open, setOpen] = useState(!compact);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchAttachmentBlob(attachment)
+      .then((blob) => blob.text())
+      .then((value) => {
+        if (!cancelled) setText(value);
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled) {
+          toast({ status: 'error', title: String(reason) });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attachment.id]);
+
+  return (
+    <Box
+      borderWidth="1px"
+      borderColor="shadcn.border"
+      borderRadius="md"
+      overflow="hidden"
+      bg="shadcn.card"
+    >
+      <Flex
+        as="button"
+        type="button"
+        width="100%"
+        px={3}
+        py={2}
+        justify="space-between"
+        align="center"
+        gap={2}
+        onClick={() => setOpen((value: boolean) => !value)}
+      >
+        <Text noOfLines={1} fontSize="sm">
+          {attachment.originalName}
+        </Text>
+        <Text color="shadcn.mutedForeground" fontSize="xs">
+          {open ? '▾' : '▸'} {fileSize(attachment.size)}
+        </Text>
+      </Flex>
+      {open && (
+        <Box
+          as="pre"
+          px={3}
+          py={2}
+          m={0}
+          fontSize="sm"
+          whiteSpace="pre-wrap"
+          wordBreak="break-word"
+          maxH={compact ? '160px' : '320px'}
+          overflowY="auto"
+          borderTopWidth="1px"
+          borderColor="shadcn.border"
+          bg="shadcn.muted"
+        >
+          {text ?? '…'}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 function AttachmentPreview({
   attachment,
   compact = false,
@@ -332,6 +417,10 @@ function AttachmentPreview({
   const toast = useToast();
   const media = isImageAttachment(attachment) || isVideoAttachment(attachment);
   const { url, failed } = useAttachmentObjectUrl(attachment);
+
+  if (isTextAttachment(attachment)) {
+    return <TextAttachmentPreview attachment={attachment} compact={compact} />;
+  }
 
   if (!media) {
     return (

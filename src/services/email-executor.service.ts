@@ -33,6 +33,7 @@ export type EmailRuleEffects = {
   archive?: boolean;
   hide?: boolean;
   label?: string;
+  createGtdTask?: boolean;
 };
 
 @Injectable()

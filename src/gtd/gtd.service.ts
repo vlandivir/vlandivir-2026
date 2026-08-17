@@ -2,7 +2,9 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import {
@@ -12,8 +14,19 @@ import {
   type Prisma,
 } from '../generated/prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  DESCRIBE_FAILURE_SENTINELS,
+  LlmService,
+} from '../services/llm.service';
 import { StorageService } from '../services/storage.service';
 import type { GtdAuthContext } from './gtd-auth.service';
+import { GtdSearchService } from './gtd-search.service';
+import {
+  GTD_MAX_CONTEXT_CHARS,
+  contextMimeForName,
+  isGtdTextMime,
+  sanitizeContextName,
+} from './gtd-text';
 
 const MAX_CONTENT = 10_000;
 const MAX_PROJECT_NAME = 120;
@@ -93,9 +106,13 @@ const EVENING_CET_HOUR = 20;
 
 @Injectable()
 export class GtdService {
+  private readonly logger = new Logger(GtdService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    @Optional() private readonly llm?: LlmService,
+    @Optional() private readonly search?: GtdSearchService,
   ) {}
   private readonly taskInclude = {
     project: true,
@@ -206,12 +223,13 @@ export class GtdService {
     contentValue: unknown,
     projectId?: unknown,
     dueDateValue?: unknown,
+    context?: { name?: unknown; text?: unknown },
   ) {
     const content = this.content(contentValue);
     const project = await this.optionalActiveProject(workspaceId, projectId);
     const dueDate =
       dueDateValue === undefined ? null : this.parseDueDate(dueDateValue);
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       const orderKey = await this.frontOrder(tx, workspaceId);
       const task = await tx.gtdTask.create({
         data: {
@@ -226,6 +244,15 @@ export class GtdService {
       });
       return this.serializeTask(task);
     });
+    if (
+      context?.text !== undefined &&
+      context.text !== null &&
+      context.text !== ''
+    ) {
+      return this.addContext(workspaceId, created.id, context);
+    }
+    this.scheduleIndex(workspaceId, created.id);
+    return created;
   }
 
   async updateTask(
@@ -293,6 +320,7 @@ export class GtdService {
       data: { ...data, events: events.length ? { create: events } : undefined },
       include: this.taskInclude,
     });
+    this.scheduleIndex(workspaceId, updated.id);
     return this.serializeTask(updated);
   }
 
@@ -351,6 +379,7 @@ export class GtdService {
               },
       });
     });
+    this.scheduleIndex(workspaceId, updated.id);
     return this.serializeTask(updated);
   }
 
@@ -375,6 +404,21 @@ export class GtdService {
         ).length,
       },
     };
+  }
+
+  async taskDetailsForAgent(workspaceId: string, taskId: string) {
+    const details = await this.taskDetails(workspaceId, taskId);
+    const contexts = await Promise.all(
+      details.attachments
+        .filter((attachment) => isGtdTextMime(attachment.mimeType))
+        .map(async (attachment) => ({
+          id: attachment.id,
+          name: attachment.originalName,
+          mimeType: attachment.mimeType,
+          text: await this.readAttachmentText(attachment.storageKey),
+        })),
+    );
+    return { ...details, contexts };
   }
 
   async archive(workspaceId: string, cursor?: string, status?: string) {
@@ -477,6 +521,44 @@ export class GtdService {
     };
   }
 
+  async searchTasks(
+    workspaceId: string,
+    query: string | undefined,
+    options: { status?: 'active' | 'done' | 'all'; limit?: number } = {},
+  ) {
+    if (!this.search) {
+      throw new BadRequestException('GTD search is unavailable');
+    }
+    const hits = await this.search.search(workspaceId, query, options);
+    return hits.map((hit) => ({
+      ...this.serializeTask(hit.task),
+      similarity: hit.similarity,
+    }));
+  }
+
+  async addContext(
+    workspaceId: string,
+    taskId: string,
+    body: { name?: unknown; text?: unknown },
+  ) {
+    if (typeof body.text !== 'string' || !body.text.trim()) {
+      throw new BadRequestException('text is required');
+    }
+    if (body.text.length > GTD_MAX_CONTEXT_CHARS) {
+      throw new BadRequestException(
+        `text must be at most ${GTD_MAX_CONTEXT_CHARS} characters`,
+      );
+    }
+    const originalName = sanitizeContextName(body.name);
+    const buffer = Buffer.from(body.text, 'utf8');
+    return this.addAttachment(workspaceId, taskId, {
+      buffer,
+      mimetype: contextMimeForName(originalName),
+      originalname: originalName,
+      size: buffer.length,
+    });
+  }
+
   async addAttachment(
     workspaceId: string,
     taskId: string,
@@ -487,7 +569,7 @@ export class GtdService {
       size: number;
     },
   ) {
-    await this.requireTask(workspaceId, taskId, true);
+    const taskRow = await this.requireTask(workspaceId, taskId, true);
     if (!this.allowedMime(file.mimetype))
       throw new BadRequestException('Unsupported file type');
     if (file.size <= 0 || file.size > GTD_MAX_FILE_BYTES)
@@ -505,6 +587,10 @@ export class GtdService {
       file.mimetype,
       storageKey,
     );
+    const description = await this.describeImageAttachment(
+      file,
+      taskRow.content,
+    );
     const task = await this.prisma.gtdTask.update({
       where: { id: taskId },
       data: {
@@ -514,6 +600,7 @@ export class GtdService {
             originalName: file.originalname.slice(0, 255),
             mimeType: file.mimetype,
             size: file.size,
+            description,
           },
         },
         events: {
@@ -525,6 +612,7 @@ export class GtdService {
       },
       include: this.taskInclude,
     });
+    this.scheduleIndex(workspaceId, taskId);
     return this.serializeTask(task);
   }
 
@@ -659,7 +747,7 @@ export class GtdService {
     return { linked: true };
   }
 
-  private serializeTask<
+  serializeTask<
     T extends {
       orderKey: bigint;
       dueDate?: Date | null;
@@ -949,6 +1037,51 @@ export class GtdService {
       ].includes(mime)
     );
   }
+  private scheduleIndex(workspaceId: string, taskId: string) {
+    void this.search?.indexTask(workspaceId, taskId).catch((error) => {
+      this.logger.warn(
+        `GTD index failed for ${taskId}: ${String(error)}`,
+      );
+    });
+  }
+
+  private async describeImageAttachment(
+    file: { buffer: Buffer; mimetype: string },
+    taskContent: string,
+  ): Promise<string | null> {
+    if (!file.mimetype.startsWith('image/') || !this.llm) return null;
+    try {
+      const description = await this.llm.describeImage(
+        file.buffer,
+        undefined,
+        taskContent,
+      );
+      const trimmed = description.trim();
+      if (
+        !trimmed ||
+        (DESCRIBE_FAILURE_SENTINELS as readonly string[]).includes(trimmed)
+      ) {
+        return null;
+      }
+      return trimmed;
+    } catch (error) {
+      this.logger.warn(`GTD image describe failed: ${String(error)}`);
+      return null;
+    }
+  }
+
+  private async readAttachmentText(storageKey: string): Promise<string | null> {
+    try {
+      const buffer = await this.storage.downloadByKey(storageKey);
+      return buffer.toString('utf8');
+    } catch (error) {
+      this.logger.warn(
+        `Could not read GTD attachment ${storageKey}: ${String(error)}`,
+      );
+      return null;
+    }
+  }
+
   private hashToken(token: string) {
     return createHash('sha256').update(token).digest('hex');
   }

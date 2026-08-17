@@ -155,13 +155,14 @@ enum GtdTaskEventType {
 }
 
 model GtdWorkspace {
-  id         String        @id @default(cuid())
-  nextOrder  BigInt        @default(0)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id         String         @id @default(cuid())
+  nextOrder  BigInt         @default(0)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
   identities GtdIdentity[]
   projects   GtdProject[]
   tasks      GtdTask[]
+  embeddings GtdEmbedding[]
 }
 
 model GtdIdentity {
@@ -223,6 +224,8 @@ model GtdTask {
   updatedAt    DateTime        @updatedAt
   events       GtdTaskEvent[]
   attachments  GtdAttachment[]
+  embedding    GtdEmbedding?
+  emailMessages EmailMessage[]
 
   @@index([workspaceId, status, snoozedUntil, orderKey])
   @@index([workspaceId, projectId, status, orderKey])
@@ -249,9 +252,25 @@ model GtdAttachment {
   originalName String
   mimeType     String
   size         Int
+  description  String?  @db.Text // vision caption for images
   createdAt    DateTime @default(now())
 
   @@index([taskId, createdAt])
+}
+
+// Semantic search over GTD tasks (cuid ids, workspace scope). Separate from
+// Embedding because that table uses integer refId + optional chatId.
+model GtdEmbedding {
+  taskId      String                         @id
+  task        GtdTask                        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   GtdWorkspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  content     String                         @db.Text
+  embedding   Unsupported("vector(1536)")
+  createdAt   DateTime                       @default(now())
+  updatedAt   DateTime                       @updatedAt
+
+  @@index([workspaceId])
 }
 
 model MapPoint {
@@ -403,6 +422,8 @@ model EmailMessage {
   sizeBytes      Int?
   rawKey         String? // DO Spaces key of the raw .eml (private object)
   status         String            @default("new") // new | classified | error
+  gtdTaskId      String?
+  gtdTask        GtdTask?          @relation(fields: [gtdTaskId], references: [id], onDelete: SetNull)
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   attachments    EmailAttachment[]
@@ -412,6 +433,7 @@ model EmailMessage {
   @@index([status])
   @@index([threadId])
   @@index([date])
+  @@index([gtdTaskId])
 }
 
 // Attachment metadata only; the bytes live inside the raw .eml in Spaces.
@@ -439,7 +461,7 @@ model EmailAttachment {
 model EmailRule {
   id            Int       @id @default(autoincrement())
   condition     String    @db.Text // NL rule text — also its display title
-  effects       Json      @default("{}") // { markRead?, archive?, hide?, label? }
+  effects       Json      @default("{}") // { markRead?, archive?, hide?, label?, createGtdTask? }
   accounts      String[]  @default([]) // empty = all accounts
   enabled       Boolean   @default(true)
   priority      Int       @default(0) // higher = evaluated first
