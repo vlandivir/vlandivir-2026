@@ -56,7 +56,7 @@ export class EmailRulesRunnerService {
 
   async processPending(limit = PENDING_BATCH): Promise<ProcessPendingSummary> {
     const pending = await this.prisma.emailMessage.findMany({
-      where: { status: 'new' },
+      where: { status: 'new', hidden: false },
       orderBy: [{ date: 'asc' }, { id: 'asc' }],
       take: Math.min(Math.max(limit, 1), PENDING_BATCH),
       select: { id: true },

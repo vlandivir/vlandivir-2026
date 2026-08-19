@@ -526,11 +526,25 @@
     row.append(preview);
   }
 
-  async function selectMessage(id) {
-    if (state.selectedId === id) {
+  function scrollPreviewIntoView() {
+    const preview = el('detail');
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    preview.scrollIntoView({
+      block: 'nearest',
+      behavior: motion.matches ? 'auto' : 'smooth',
+    });
+  }
+
+  async function selectMessage(id, { toggle = true } = {}) {
+    if (toggle && state.selectedId === id) {
       state.selectedId = null;
       state.detail = null;
       renderList();
+      return;
+    }
+    if (!toggle && state.selectedId === id && state.detail?.id === id) {
+      attachPreview();
+      scrollPreviewIntoView();
       return;
     }
     state.selectedId = id;
@@ -539,15 +553,68 @@
     if (listed) state.expandedThreads.add(threadKey(listed));
     renderList();
     renderDetail();
-    const preview = el('detail');
-    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    preview.scrollIntoView({
-      block: 'nearest',
-      behavior: motion.matches ? 'auto' : 'smooth',
-    });
+    scrollPreviewIntoView();
     state.detail = await fetchJson(`${API_BASE}/messages/${id}`);
     if (state.selectedId !== id) return;
     renderDetail();
+  }
+
+  function listShapeFromDetail(detail) {
+    return {
+      id: detail.id,
+      account: detail.account,
+      threadId: detail.threadId,
+      fromAddress: detail.fromAddress,
+      fromName: detail.fromName,
+      subject: detail.subject,
+      date: detail.date,
+      snippet: detail.snippet ?? null,
+      labels: detail.labels,
+      seen: detail.seen,
+      archived: detail.archived,
+      hidden: detail.hidden,
+      important: detail.important,
+      hasAttachments: detail.hasAttachments,
+      status: detail.status,
+      gtdTaskId: detail.gtdTaskId,
+    };
+  }
+
+  function revealMessageInList(message) {
+    if (message.hidden) state.filters.flag = 'hidden';
+    else if (message.archived) state.filters.flag = 'archived';
+    else state.filters.flag = '';
+    if (state.filters.account && state.filters.account !== message.account) {
+      state.filters.account = '';
+    }
+    const query = state.filters.query.trim().toLowerCase();
+    if (query && !matchesQuery(message, query)) {
+      state.filters.query = '';
+      el('filter-query').value = '';
+    }
+    if (message.important && !message.hidden) state.importantCollapsed = false;
+    el('filter-flag').value = state.filters.flag;
+    el('filter-account').value = state.filters.account;
+  }
+
+  async function openMessageFromLog(entryMessage) {
+    if (!entryMessage?.id) return;
+    let message = state.messages.find((row) => row.id === entryMessage.id);
+    if (!message) {
+      try {
+        const detail = await fetchJson(
+          `${API_BASE}/messages/${entryMessage.id}`,
+        );
+        message = listShapeFromDetail(detail);
+        state.messages.unshift(message);
+      } catch (error) {
+        console.error(error);
+        alert('Письмо не найдено');
+        return;
+      }
+    }
+    revealMessageInList(message);
+    await selectMessage(message.id, { toggle: false });
   }
 
   // Redraws the accordion from state.detail (called on open and after an
@@ -833,10 +900,12 @@ a{color:#1a73e8;}
     try {
       const data = await fetchJson(`${API_BASE}/sync`, { method: 'POST' });
       const summary = (data.results || [])
-        .map(
-          (result) =>
-            `${result.account}: ${result.error ? `ошибка (${result.error})` : `+${result.ingested}`}`,
-        )
+        .map((result) => {
+          if (result.error) return `${result.account}: ошибка (${result.error})`;
+          const hidden =
+            result.hidden > 0 ? `, скрыто ${result.hidden}` : '';
+          return `${result.account}: +${result.ingested}${hidden}`;
+        })
         .join(', ');
       const rules = data.rules
         ? ` · правила: ${data.rules.applied}/${data.rules.processed}`
@@ -1138,8 +1207,9 @@ a{color:#1a73e8;}
 
         const action = document.createElement('span');
         action.className = 'log-action';
-        action.textContent =
-          entry.action + (entry.param ? ` ${entry.param}` : '');
+        const param =
+          entry.param && entry.source !== 'sync' ? ` ${entry.param}` : '';
+        action.textContent = entry.action + param;
 
         const src = document.createElement('span');
         src.className = 'meta-chip log-source';
@@ -1151,13 +1221,26 @@ a{color:#1a73e8;}
               ? `⚙️ правило #${entry.ruleId}`
               : '⚙️ правило';
           if (condition) src.title = condition;
+        } else if (entry.source === 'sync') {
+          src.textContent = '📭 Gmail';
+          src.title =
+            'Исчезло из входящих Gmail (архив или удаление)';
         } else {
           src.textContent = '👆 вручную';
         }
 
-        const subj = document.createElement('span');
-        subj.className = 'log-subject muted';
+        const subj = document.createElement('button');
+        subj.type = 'button';
+        subj.className = 'log-subject';
         subj.textContent = entry.message?.subject || '(без темы)';
+        if (entry.message?.id) {
+          subj.title = 'Открыть письмо';
+          subj.addEventListener('click', () =>
+            void openMessageFromLog(entry.message),
+          );
+        } else {
+          subj.disabled = true;
+        }
 
         row.append(when, action, src, subj);
         if (entry.result !== 'ok') {

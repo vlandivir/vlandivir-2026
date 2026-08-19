@@ -454,7 +454,16 @@ export class EmailApiController {
       take,
       orderBy: { id: 'desc' },
       include: {
-        message: { select: { id: true, subject: true, account: true } },
+        message: {
+          select: {
+            id: true,
+            subject: true,
+            account: true,
+            hidden: true,
+            archived: true,
+            important: true,
+          },
+        },
       },
     });
     const ruleIds = [

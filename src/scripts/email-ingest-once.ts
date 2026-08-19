@@ -37,8 +37,10 @@ async function main() {
     }
     for (const result of results) {
       const suffix = result.error ? ` — ERROR: ${result.error}` : '';
+      const hidden =
+        result.hidden > 0 ? `, ${result.hidden} hidden (gone from Gmail)` : '';
       console.log(
-        `${result.account}: ${result.ingested} new, ${result.skipped} already known${suffix}`,
+        `${result.account}: ${result.ingested} new, ${result.skipped} already known${hidden}${suffix}`,
       );
     }
     console.log(
