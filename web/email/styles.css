@@ -245,6 +245,27 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.log-subject:hover,
+.log-subject:focus-visible {
+  text-decoration-thickness: 2px;
+}
+
+.log-subject:disabled {
+  color: var(--v-muted);
+  text-decoration: none;
+  cursor: default;
 }
 
 .log-row.log-error .log-action {

@@ -20,6 +20,12 @@ import {
   EmailRulesRunnerService,
   ProcessPendingSummary,
 } from './email-rules-runner.service';
+import {
+  InboxPresence,
+  LocalInboxMessage,
+  chunkItems,
+  messagesGoneFromInbox,
+} from './email-gone';
 
 export type { EmailAccountConfig } from './email-accounts';
 
@@ -27,8 +33,11 @@ export type AccountSyncResult = {
   account: string;
   ingested: number;
   skipped: number;
+  hidden: number;
   error?: string;
 };
+
+const EMAIL_ID_SEARCH_CHUNK = 20;
 
 export type SyncAllResult = {
   results: AccountSyncResult[];
@@ -114,6 +123,7 @@ export class EmailIngestService
             account: account.name,
             ingested: 0,
             skipped: 0,
+            hidden: 0,
             error: error instanceof Error ? error.message : String(error),
           });
         }
@@ -172,66 +182,198 @@ export class EmailIngestService
     // Fresh cursor: take only the N most recent messages (by sequence
     // number) instead of the whole mailbox history. Otherwise: UIDs above
     // the stored cursor.
-    let range: string;
-    let byUid: boolean;
-    if (isFreshCursor) {
-      if (!mailbox.exists) {
-        return { account: config.name, ingested: 0, skipped: 0 };
-      }
-      const firstSeq = Math.max(1, mailbox.exists - this.initialFetchCount + 1);
-      range = `${firstSeq}:*`;
-      byUid = false;
-    } else {
-      range = `${BigInt(state.lastUid) + BigInt(1)}:*`;
-      byUid = true;
-    }
-
     let ingested = 0;
     let skipped = 0;
-    let maxUid = BigInt(state.lastUid);
-
-    const messages: FetchMessageObject[] = await client.fetchAll(
-      range,
-      {
-        uid: true,
-        flags: true,
-        envelope: true,
-        internalDate: true,
-        size: true,
-        source: true,
-        threadId: true,
-        labels: true,
-      },
-      byUid ? { uid: true } : undefined,
-    );
-
-    for (const message of messages) {
-      const uid = BigInt(message.uid);
-      // IMAP quirk: "N:*" always matches at least the highest-UID message,
-      // so a round with no new mail returns the last seen message again.
-      if (!isFreshCursor && uid <= BigInt(state.lastUid)) {
-        continue;
+    const canFetch = !isFreshCursor || mailbox.exists;
+    if (canFetch) {
+      let range: string;
+      let byUid: boolean;
+      if (isFreshCursor) {
+        const firstSeq = Math.max(
+          1,
+          mailbox.exists - this.initialFetchCount + 1,
+        );
+        range = `${firstSeq}:*`;
+        byUid = false;
+      } else {
+        range = `${BigInt(state.lastUid) + BigInt(1)}:*`;
+        byUid = true;
       }
 
-      const stored = await this.storeMessage(config.name, message);
-      if (stored) ingested += 1;
-      else skipped += 1;
+      let maxUid = BigInt(state.lastUid);
 
-      if (uid > maxUid) {
-        maxUid = uid;
-        await this.prisma.emailSyncState.update({
-          where: { id: state.id },
-          data: { lastUid: maxUid },
-        });
+      const messages: FetchMessageObject[] = await client.fetchAll(
+        range,
+        {
+          uid: true,
+          flags: true,
+          envelope: true,
+          internalDate: true,
+          size: true,
+          source: true,
+          threadId: true,
+          labels: true,
+        },
+        byUid ? { uid: true } : undefined,
+      );
+
+      for (const message of messages) {
+        const uid = BigInt(message.uid);
+        // IMAP quirk: "N:*" always matches at least the highest-UID message,
+        // so a round with no new mail returns the last seen message again.
+        if (!isFreshCursor && uid <= BigInt(state.lastUid)) {
+          continue;
+        }
+
+        const stored = await this.storeMessage(config.name, message);
+        if (stored) ingested += 1;
+        else skipped += 1;
+
+        if (uid > maxUid) {
+          maxUid = uid;
+          await this.prisma.emailSyncState.update({
+            where: { id: state.id },
+            data: { lastUid: maxUid },
+          });
+        }
       }
     }
 
-    if (ingested > 0 || skipped > 0) {
-      this.logger.log(
-        `Email sync ${config.name}: ${ingested} new, ${skipped} already known`,
+    let hidden = 0;
+    try {
+      hidden = await this.hideMessagesGoneFromMailbox(
+        config.name,
+        client,
+        !isFreshCursor,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Hide-gone check failed for ${config.name}: ${String(error)}`,
       );
     }
-    return { account: config.name, ingested, skipped };
+
+    if (ingested > 0 || skipped > 0 || hidden > 0) {
+      this.logger.log(
+        `Email sync ${config.name}: ${ingested} new, ${skipped} already known, ${hidden} hidden (gone from Gmail)`,
+      );
+    }
+    return { account: config.name, ingested, skipped, hidden };
+  }
+
+  // Visible inbox copies (not hidden, not archived here) that Gmail already
+  // archived or deleted should drop out of the dashboard. Logged as source=sync.
+  private async hideMessagesGoneFromMailbox(
+    account: string,
+    client: ImapFlow,
+    uidValidityOk: boolean,
+  ): Promise<number> {
+    const pending = await this.prisma.emailMessage.findMany({
+      where: { account, hidden: false, archived: false },
+      select: { id: true, uid: true, gmMsgId: true },
+    });
+    if (pending.length === 0) return 0;
+
+    const inbox = await this.readInboxPresence(client, pending, uidValidityOk);
+    const gone = messagesGoneFromInbox(pending, inbox);
+    if (gone.length === 0) return 0;
+
+    await this.prisma.$transaction([
+      this.prisma.emailMessage.updateMany({
+        where: { id: { in: gone.map((message) => message.id) } },
+        data: { hidden: true },
+      }),
+      this.prisma.emailActionLog.createMany({
+        data: gone.map((message) => ({
+          messageId: message.id,
+          action: 'hide',
+          param: 'gmail',
+          source: 'sync',
+          prevState: { hidden: false },
+          result: 'ok',
+        })),
+      }),
+    ]);
+
+    return gone.length;
+  }
+
+  private async readInboxPresence(
+    client: ImapFlow,
+    pending: LocalInboxMessage[],
+    uidValidityOk: boolean,
+  ): Promise<InboxPresence> {
+    const mailbox = client.mailbox as MailboxObject | null;
+    const empty: InboxPresence = {
+      emailIds: new Set(),
+      uids: new Set(),
+      uidValidityOk,
+      searched: true,
+    };
+    if (!mailbox?.exists) return empty;
+
+    const emailIds = await this.searchInboxByEmailId(client, pending);
+    const uids = uidValidityOk
+      ? await this.searchInboxByUid(client, pending)
+      : null;
+
+    if (emailIds === null && uids === null) {
+      return { ...empty, searched: false };
+    }
+
+    return {
+      emailIds: emailIds ?? new Set(),
+      uids: uids ?? new Set(),
+      uidValidityOk,
+      searched: true,
+    };
+  }
+
+  private async searchInboxByUid(
+    client: ImapFlow,
+    pending: LocalInboxMessage[],
+  ): Promise<Set<string> | null> {
+    try {
+      const found = await client.search(
+        { uid: pending.map((message) => String(message.uid)).join(',') },
+        { uid: true },
+      );
+      if (found === false) {
+        this.logger.warn('INBOX UID search failed, skip UID presence');
+        return null;
+      }
+      return new Set(found.map((uid) => String(uid)));
+    } catch (error) {
+      this.logger.warn(`INBOX UID search failed: ${String(error)}`);
+      return null;
+    }
+  }
+
+  private async searchInboxByEmailId(
+    client: ImapFlow,
+    pending: LocalInboxMessage[],
+  ): Promise<Set<string> | null> {
+    const present = new Set<string>();
+    let fetchedAny = false;
+    try {
+      for (const chunk of chunkItems(pending, EMAIL_ID_SEARCH_CHUNK)) {
+        const query =
+          chunk.length === 1
+            ? { emailId: chunk[0].gmMsgId }
+            : { or: chunk.map((message) => ({ emailId: message.gmMsgId })) };
+        const rows = await client.fetchAll(query, { uid: true });
+        if (rows.length > 0) fetchedAny = true;
+        for (const row of rows) {
+          if (row.emailId) present.add(row.emailId);
+        }
+      }
+      if (fetchedAny && present.size === 0) return null;
+      return present;
+    } catch (error) {
+      this.logger.warn(
+        `INBOX emailId search failed, falling back to UID: ${String(error)}`,
+      );
+      return null;
+    }
   }
 
   // Returns true if the message was stored, false if it was already known.

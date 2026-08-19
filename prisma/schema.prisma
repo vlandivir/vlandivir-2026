@@ -482,7 +482,7 @@ model EmailActionLog {
   messageId Int
   action    String // mark_read | archive | label | hide | notify | ...
   param     String? // e.g. the label name
-  source    String       @default("manual") // manual | rule
+  source    String       @default("manual") // manual | rule | sync
   ruleId    Int? // set when a rule triggered the action
   prevState Json? // state before the action, for undo
   result    String       @default("ok") // ok | error
