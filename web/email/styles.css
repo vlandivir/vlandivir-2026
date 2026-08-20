@@ -617,8 +617,6 @@
   border-radius: calc(var(--radius) - 2px);
   background: hsl(var(--card));
   overflow: hidden;
-  max-height: 60vh;
-  overflow-y: auto;
 }
 
 .detail-body.is-text {
