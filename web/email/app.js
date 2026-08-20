@@ -651,13 +651,14 @@
       const frame = document.createElement('iframe');
       frame.className = 'detail-body-frame';
       frame.title = 'Тело письма';
+      frame.scrolling = 'no';
       frame.setAttribute(
         'sandbox',
         'allow-popups allow-popups-to-escape-sandbox allow-same-origin',
       );
       frame.srcdoc = wrapEmailHtml(message.bodyHtml);
       body.append(frame);
-      frame.addEventListener('load', () => resizeEmailFrame(frame));
+      frame.addEventListener('load', () => bindEmailFrame(frame));
     } else if (message.bodyText) {
       body.classList.add('is-text');
       body.classList.remove('is-html');
@@ -677,11 +678,21 @@
   // and keep the iframe height in sync with content.
   function wrapEmailHtml(html) {
     return `<!doctype html><html><head><meta charset="utf-8"><base target="_blank" rel="noopener noreferrer"><style>
-html,body{margin:0;padding:12px;background:#fff;}
+html,body{margin:0;padding:12px;background:#fff;overflow:hidden;}
 body{font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;word-wrap:break-word;overflow-wrap:anywhere;}
 img{max-width:100%;height:auto;}
 a{color:#1a73e8;}
 </style></head><body>${html}</body></html>`;
+  }
+
+  function bindEmailFrame(frame) {
+    resizeEmailFrame(frame);
+    const doc = frame.contentDocument;
+    if (!doc) return;
+    const sync = () => resizeEmailFrame(frame);
+    for (const img of doc.images) {
+      if (!img.complete) img.addEventListener('load', sync);
+    }
   }
 
   function resizeEmailFrame(frame) {
@@ -692,7 +703,7 @@ a{color:#1a73e8;}
         doc.body.scrollHeight,
         doc.documentElement?.scrollHeight || 0,
       );
-      frame.style.height = `${Math.min(Math.max(height + 8, 120), 1200)}px`;
+      frame.style.height = `${Math.max(height + 8, 120)}px`;
     } catch {
       // Cross-origin shouldn't happen with srcdoc, but ignore if it does.
     }
