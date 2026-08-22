@@ -1,0 +1,39 @@
+---
+description: Local Prisma/Postgres goes through an SSH tunnel; never open the managed DB to the world
+alwaysApply: true
+---
+
+# Postgres access (local laptop)
+
+DigitalOcean managed Postgres is **not** reachable from the public internet. Trusted sources allow only the production droplet. Local `.env` points at `127.0.0.1:25060` (not the `*.db.ondigitalocean.com` host).
+
+## Before any command that talks to the database
+
+In a separate terminal (leave it open):
+
+```bash
+ssh -N vlandivir-db
+```
+
+Requires `Host vlandivir-db` in the user's `~/.ssh/config` (LocalForward to the private DB host). Do not add home IPs to DigitalOcean trusted sources — the laptop has no static IP.
+
+Then the usual commands work unchanged:
+
+```bash
+npx prisma migrate deploy
+npx prisma studio
+npm run start:dev
+```
+
+`npx prisma generate` does **not** need the tunnel (no DB connection).
+
+If Prisma fails with `Can't reach database server` / timeout, the tunnel is down — start it, do not widen trusted sources.
+
+## Do not
+
+- `prisma migrate reset` or other destructive commands (this is the production database)
+- Put a public `0.0.0.0/0` or laptop IP into DO database trusted sources
+- Point local `.env` back at the public DB hostname
+- Expect Cursor Cloud agents to reach this database (no SSH tunnel there unless the user set one up)
+
+Migrations stay local, before deploy, same as before.

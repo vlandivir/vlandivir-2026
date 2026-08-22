@@ -16,6 +16,6 @@ Personal experimental server for https://vlandivir.com. Mixed stacks are expecte
 | `telegram-app/` | Vite GTD + Mini App → served at `/gtd` and `/mini-app` |
 | `desktop/trip-montage/` | Tauri trip export |
 | `mobile/gtd-ios/`, `mobile/gps-tracker-ios/` | Xcode apps |
-| `prisma/` | Shared prod Postgres — never migrate reset |
+| `prisma/` | Shared prod Postgres via SSH tunnel (`ssh -N vlandivir-db`) — never migrate reset |
 
 No nested git repos. Feature branches only, not `main`. New env vars: `.env` + Dockerfile + deploy workflow + GitHub secret.

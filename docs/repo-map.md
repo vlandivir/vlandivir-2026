@@ -16,7 +16,7 @@ Read this first, then [project-overview.md](project-overview.md) only if you nee
 | `desktop/trip-montage/` | Tauri 2 + ffmpeg | CapCut-oriented trip export |
 | `mobile/gtd-ios/` | SwiftUI GTD client | iPhone GTD |
 | `mobile/gps-tracker-ios/` | SwiftUI GPS → GPX, no backend | iPhone tracker |
-| `prisma/` | Schema + migrations | Data model. Apply `migrate deploy` from the laptop **before** shipping code that needs it |
+| `prisma/` | Schema + migrations | Data model. Apply `migrate deploy` from the laptop **before** shipping code that needs it (`ssh -N vlandivir-db` first) |
 | `docs/` | Living docs | You are here |
 | `assets/fonts/` | Noto Sans for PDF export | `/history pdf` |
 | `test/` | Nest e2e harness | Rarely |
