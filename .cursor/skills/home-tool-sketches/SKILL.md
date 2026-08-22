@@ -9,13 +9,15 @@ Pencil-on-paper cards for `web/home/`. One character, many camera setups. The or
 
 ## Style (copy into the image prompt)
 
-- Medium: black pencil / fine-liner on textured cream paper. Monochrome. No color, no gray wash, no photorealism.
+- Medium: black pencil / fine-liner on textured cream paper. The default is monochrome with no gray wash or photorealism. When a paired color version is requested, keep the same line-art character and add only restrained watercolor accents taken from the character reference.
 - Line: loose, gestural, uneven weight. Cross-hatching for shade, not fills.
-- Character: same girl every time — round face, tiny smile, dot eyes, messy high bun with loose strands, thick sweater, simple pants.
+- Character: keep one character within a set. The original girl has a round face, tiny smile, dot eyes, messy high bun with loose strands, thick sweater, and simple pants. The current home-page set uses the witch doll reference: floppy black pointed hat, mustard yarn hair, round cloth face with dot eyes and a stitched smile, rosy cheek patches, lavender/purple striped dress, and oversized black shoes with lilac bows.
 - Mood: cozy, whimsical. A metaphor for the tool should "come alive" (path, pins, papers, captions), not a screenshot of the UI.
 - No readable words, logos, or UI chrome.
 
 Reference file (pass to GenerateImage as `reference_image_paths`): [style-reference.webp](style-reference.webp).
+
+Witch character reference (pass before the style reference): [references/witch-reference.jpg](references/witch-reference.jpg). Treat it as the character/wardrobe reference, not as a pose or background reference.
 
 ## Composition (the actual rule)
 
@@ -34,12 +36,27 @@ Reference file (pass to GenerateImage as `reference_image_paths`): [style-refere
 | Reels | Sitting cross-legged, filming herself on a phone on a tripod |
 | Threads | Over-the-shoulder, typing on a giant phone; stacked speech bubbles rise from the screen |
 
+### Witch compositions already used
+
+| Tool | Composition already used |
+|---|---|
+| Subs | Bird's-eye view, sitting inside a spiral filmstrip and arranging blank subtitle ribbons |
+| GPX | High aerial three-quarter view, flying on a broom above a pinned winding route |
+| Trip | Low-angle view, riding an open suitcase with blank photo prints streaming behind |
+| Map | Balancing on a giant compass needle and looking through a spyglass at a miniature world |
+| Files | Diagonal side view, ziplining on a giant paperclip between floating folders |
+| GTD | Tightrope balancing act with checked task cards while a broom sweeps completed cards |
+| Diary | Cutaway inside a giant hourglass, arranging falling note cards |
+| Email | Side view, riding a giant envelope down a curved trail of smaller envelopes |
+| Reels | Front view, turning the crank of a giant film reel with a strip spiraling upward |
+| Threads | Top-down craft-table view, sewing blank speech bubbles into a yarn chain |
+
 Forbidden default: girl kneeling in the lower-left, object in the center, magic rising up. If two sketches could be swapped and still "read" the same, regenerate.
 
 ## How to make one
 
-1. Write a prompt that starts with the style block, names the girl, then states the **new** composition in one concrete sentence (angle + pose + scale + metaphor). Explicitly list the poses above as "do not repeat".
-2. Generate square (`1:1`) with the reference image.
+1. Write a prompt that starts with the style block, names the chosen character, then states the **new** composition in one concrete sentence (angle + pose + scale + metaphor). Explicitly list the poses above as "do not repeat".
+2. Generate square (`1:1`) with the matching character reference and the style reference.
 3. Convert into the repo (800px WebP, quality ~82):
 
 ```bash
