@@ -121,7 +121,7 @@ export class ThreadsService {
     const posts = await this.prisma.threadsPost.findMany({
       where: status ? { status } : undefined,
       include: postInclude,
-      orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
+      orderBy: { updatedAt: 'desc' },
     });
     return posts.map((post) => this.serialize(post));
   }
