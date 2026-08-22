@@ -124,4 +124,4 @@ npm run lint             # eslint --fix
 npm run telegram-app:dev # GTD/Mini App Vite dev server
 ```
 
-Deploy: commit + push, then manually run the `deploy-production.yml` GitHub Actions workflow. Migrations are applied from the local machine (`npx prisma migrate deploy`) **before** deploying. Never run destructive Prisma commands — the DB is shared with production.
+Deploy: commit + push, then manually run the `deploy-production.yml` GitHub Actions workflow. Migrations are applied from the local machine (`npx prisma migrate deploy`) **before** deploying — first `ssh -N vlandivir-db` (see AGENTS.md). Never run destructive Prisma commands — the DB is shared with production.
