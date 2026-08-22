@@ -570,3 +570,40 @@ model TripProjectClip {
   @@index([projectId, position])
   @@index([mediaId])
 }
+
+// Threads composer drafts and published posts (@vlandivir).
+model ThreadsPost {
+  id          Int      @id @default(autoincrement())
+  canvasId    String?  @unique // original threads-poster canvas id, for import
+  text        String   @db.Text
+  status      String   @default("draft") // draft | published
+  destination String   @default("threads") // threads | diary
+  ghost       Boolean  @default(false)
+  topic       String?
+  poll        String[] @default([])
+  url         String?
+  mediaId     String?
+  diaryNoteId Int?
+  stats       Json?    @db.JsonB
+  statsPrev   Json?    @db.JsonB
+  pollResults Json?    @db.JsonB
+  repliesJson Json?    @db.JsonB
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  images      ThreadsImage[]
+
+  @@index([status, updatedAt])
+}
+
+model ThreadsImage {
+  id        Int         @id @default(autoincrement())
+  postId    Int
+  url       String
+  key       String
+  sortOrder Int         @default(0)
+  createdAt DateTime    @default(now())
+  post      ThreadsPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}

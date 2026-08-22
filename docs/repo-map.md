@@ -48,6 +48,7 @@ Each page is `web/<name>/` (`index.html`, optional `app.js` / `styles.css` / `i1
 | `places/` | `/places`, `/places/point/:id`, `/places/track/:id` | Leaflet map; OG tags from `map-pages.controller.ts` |
 | `diary/` | `/diary` | Google session |
 | `email/` | `/email` | Google session, IMAP-backed mail UI |
+| `threads/` | `/threads` | Google session; composer for @vlandivir Threads posts |
 | `reels/` | `/reels` | Unlisted catalog; Google or API key |
 | `subs/` | `/subs` | Vertical-video subtitles (dark workbench palette allowed) |
 | `gpx-route-png/` | `/gpx-route-png` | Client-only GPX → PNG |

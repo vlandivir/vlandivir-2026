@@ -72,6 +72,12 @@ async function bootstrap() {
       index: false,
       redirect: false,
     });
+    const threadsPage = path.join(process.cwd(), 'web', 'threads');
+    app.useStaticAssets(threadsPage, {
+      prefix: '/threads',
+      index: false,
+      redirect: false,
+    });
     // Assets only; the page is served by DiaryPagesController behind sign-in
     const diaryPage = path.join(process.cwd(), 'web', 'diary');
     app.useStaticAssets(diaryPage, {
@@ -186,6 +192,12 @@ async function bootstrap() {
     const emailPage = path.join(process.cwd(), 'web', 'email');
     app.useStaticAssets(emailPage, {
       prefix: '/email',
+      index: false,
+      redirect: false,
+    });
+    const threadsPage = path.join(process.cwd(), 'web', 'threads');
+    app.useStaticAssets(threadsPage, {
+      prefix: '/threads',
       index: false,
       redirect: false,
     });

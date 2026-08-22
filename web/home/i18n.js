@@ -42,6 +42,11 @@ window.PAGE_I18N = {
     reelsAlt: 'Скетч: девочка снимает вертикальное видео на телефон на штативе',
     reelsText: 'Записная книжка Instagram-роликов с расшифровкой.',
     reelsHref: '/reels',
+    threadsTitle: 'Threads',
+    threadsAlt:
+      'Скетч: девочка через плечо печатает на огромном телефоне, из экрана растут стопки сообщений',
+    threadsText: 'Черновики и публикация в Threads, с копией в дневник.',
+    threadsHref: '/threads',
   },
   en: {
     title: 'vlandivir',
@@ -86,5 +91,10 @@ window.PAGE_I18N = {
     reelsAlt: 'Sketch: a girl filming a vertical video on a phone on a tripod',
     reelsText: 'A notebook of Instagram reels with transcripts.',
     reelsHref: '/reels',
+    threadsTitle: 'Threads',
+    threadsAlt:
+      'Sketch: over her shoulder, the girl types on a giant phone while stacked posts grow from the screen',
+    threadsText: 'Drafts and publishing to Threads, with a copy in the diary.',
+    threadsHref: '/threads',
   },
 };

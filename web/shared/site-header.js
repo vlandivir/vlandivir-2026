@@ -27,6 +27,7 @@
     diary: { ru: 'Дневник', en: 'Diary' },
     email: { ru: 'Почта', en: 'Mail' },
     reels: { ru: 'Reels', en: 'Reels' },
+    threads: { ru: 'Threads', en: 'Threads' },
     gtd: { ru: 'GTD', en: 'GTD' },
   };
 

@@ -28,6 +28,7 @@
     "telegram-app:preview": "npm run preview --prefix telegram-app",
     "email-ingest": "ts-node src/scripts/email-ingest-once.ts",
     "import-own-reels": "ts-node src/scripts/import-own-reels.ts",
+    "import-threads-posts": "ts-node src/scripts/import-threads-posts.ts",
     "process-diary-videos": "ts-node src/scripts/process-diary-videos.ts",
     "backfill-own-reels-to-diary": "ts-node src/scripts/backfill-own-reels-to-diary.ts",
     "generate-history-pdf": "ts-node src/scripts/generate-history-pdf.ts",

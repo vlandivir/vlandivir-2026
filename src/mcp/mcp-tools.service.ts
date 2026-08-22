@@ -9,6 +9,7 @@ import { DiaryQaService } from '../services/diary-qa.service';
 import { DiarySearchService } from '../services/diary-search.service';
 import { ReelsQaService } from '../services/reels-qa.service';
 import { ReelsService } from '../services/reels.service';
+import { ThreadsService } from '../services/threads.service';
 
 export interface McpAuthContext {
   // MCP_API_KEY: reels (+ diary with X-Chat-Id)
@@ -36,6 +37,7 @@ export class McpToolsService {
     private readonly diaryQa: DiaryQaService,
     private readonly reelsService: ReelsService,
     private readonly reelsQa: ReelsQaService,
+    private readonly threads: ThreadsService,
     private readonly gtd: GtdService,
   ) {}
 
@@ -49,7 +51,7 @@ export class McpToolsService {
     ];
     if (auth.authorized) {
       instructions.push(
-        'Записная книжка Instagram-рилсов доступна по MCP_API_KEY;',
+        'Записная книжка Instagram-рилсов и черновики Threads доступны по MCP_API_KEY;',
         'дневник — с заголовком X-Chat-Id.',
       );
     }
@@ -77,6 +79,7 @@ export class McpToolsService {
     this.registerMapTools(server, baseUrl);
     if (auth.authorized) {
       this.registerReelsTools(server);
+      this.registerThreadsTools(server);
       if (auth.chatId !== null) {
         this.registerDiaryTools(server, auth.chatId);
       }
@@ -378,6 +381,150 @@ export class McpToolsService {
         }
         return this.jsonResult(result);
       },
+    );
+  }
+
+  // --- Threads (API key required) ---
+
+  private registerThreadsTools(server: McpServer): void {
+    const withHttp = async (fn: () => Promise<unknown>): Promise<ToolResult> => {
+      try {
+        return this.jsonResult(await fn());
+      } catch (error) {
+        if (error instanceof HttpException) {
+          const message = error.getResponse();
+          const text =
+            typeof message === 'string'
+              ? message
+              : typeof message === 'object' &&
+                  message &&
+                  'message' in message
+                ? String((message as { message: string | string[] }).message)
+                : error.message;
+          return this.errorResult(text);
+        }
+        throw error;
+      }
+    };
+
+    server.registerTool(
+      'threads_list',
+      {
+        title: 'Список постов Threads',
+        description:
+          'Черновики и опубликованные посты композера @vlandivir. ' +
+          'Полный текст — через threads_get. Картинки удобнее грузить на /threads.',
+        inputSchema: {
+          status: z
+            .enum(['draft', 'published'])
+            .optional()
+            .describe('Фильтр по статусу; без него — все'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      async ({ status }) =>
+        withHttp(async () => {
+          const posts = await this.threads.listPosts(status);
+          return {
+            count: posts.length,
+            results: posts.map((post) => ({
+              id: post.id,
+              status: post.status,
+              destination: post.destination,
+              preview: this.truncate(post.text, 180),
+              url: post.url,
+              topic: post.topic,
+              poll: post.poll,
+              imageCount: post.images.length,
+              stats: post.stats,
+              updatedAt: post.updatedAt,
+            })),
+          };
+        }),
+    );
+
+    server.registerTool(
+      'threads_get',
+      {
+        title: 'Пост Threads целиком',
+        description:
+          'Полный текст черновика или опубликованного поста, картинки, опрос, метрики и ответы.',
+        inputSchema: {
+          id: z.number().int().describe('Id поста из threads_list'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      async ({ id }) => withHttp(() => this.threads.getPost(id)),
+    );
+
+    server.registerTool(
+      'threads_create',
+      {
+        title: 'Новый черновик Threads',
+        description:
+          'Создаёт черновик. Факты сверяй через diary_search / diary_ask, затем threads_update.',
+        inputSchema: {
+          text: z.string().optional().describe('Текст поста'),
+          destination: z
+            .enum(['threads', 'diary'])
+            .optional()
+            .describe('threads — Threads и дневник; diary — только дневник'),
+          ghost: z.boolean().optional(),
+          topic: z.string().optional().describe('Тема первого поста, без #'),
+          poll: z
+            .array(z.string())
+            .optional()
+            .describe('2–4 варианта опроса, каждый до 25 байт UTF-8'),
+        },
+      },
+      async (input) => withHttp(() => this.threads.createDraft(input)),
+    );
+
+    server.registerTool(
+      'threads_update',
+      {
+        title: 'Правка черновика Threads',
+        description:
+          'Меняет текст, тему, опрос, ghost и назначение. Опубликованные посты править нельзя.',
+        inputSchema: {
+          id: z.number().int().describe('Id черновика'),
+          text: z.string().optional(),
+          destination: z.enum(['threads', 'diary']).optional(),
+          ghost: z.boolean().optional(),
+          topic: z.string().nullable().optional(),
+          poll: z.array(z.string()).nullable().optional(),
+        },
+      },
+      async ({ id, ...input }) =>
+        withHttp(() => this.threads.updateDraft(id, input)),
+    );
+
+    server.registerTool(
+      'threads_publish',
+      {
+        title: 'Отправить пост в Threads',
+        description:
+          'Публикует черновик: нарезка на 500 символов, картинки/опрос, копия в дневник. ' +
+          'Вызывай только когда пользователь явно просит отправить.',
+        inputSchema: {
+          id: z.number().int().describe('Id черновика'),
+        },
+      },
+      async ({ id }) => withHttp(() => this.threads.publish(id)),
+    );
+
+    server.registerTool(
+      'threads_insights',
+      {
+        title: 'Обновить метрики Threads',
+        description:
+          'Тянет Insights (просмотры, лайки, ответы, опрос). Цепочку ответов качает, ' +
+          'если число replies изменилось.',
+        inputSchema: {
+          id: z.number().int().describe('Id опубликованного поста'),
+        },
+      },
+      async ({ id }) => withHttp(() => this.threads.refreshInsights(id)),
     );
   }
 

@@ -32,6 +32,7 @@ Reference file (pass to GenerateImage as `reference_image_paths`): [style-refere
 | Diary | Sitting inside a giant calendar, writing on one day's square |
 | Email | Running, catching a flock of envelopes / paper airplanes |
 | Reels | Sitting cross-legged, filming herself on a phone on a tripod |
+| Threads | Over-the-shoulder, typing on a giant phone; stacked speech bubbles rise from the screen |
 
 Forbidden default: girl kneeling in the lower-left, object in the center, magic rising up. If two sketches could be swapped and still "read" the same, regenerate.
 
