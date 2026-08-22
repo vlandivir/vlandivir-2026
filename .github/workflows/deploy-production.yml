@@ -70,6 +70,7 @@ jobs:
           ALLOWED_GOOGLE_EMAILS=${{ secrets.ALLOWED_GOOGLE_EMAILS }}
           TELEGRAM_OWNER_CHAT_ID=${{ secrets.TELEGRAM_OWNER_CHAT_ID }}
           TELEGRAM_CHANNEL_IDS=${{ secrets.TELEGRAM_CHANNEL_IDS }}
+          THREADS_ACCESS_TOKEN=${{ secrets.THREADS_ACCESS_TOKEN }}
 
     - name: Clean up old Docker images
       uses: appleboy/ssh-action@v1.0.3

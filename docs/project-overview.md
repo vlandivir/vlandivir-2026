@@ -30,7 +30,10 @@ Root module: [src/app.module.ts](../src/app.module.ts) — ConfigModule (global)
 | [map-pages.controller.ts](../src/map-pages.controller.ts) | `/places/point/:id`, `/places/track/:id` | Server-side Open Graph tags for shareable map links (injected into `web/places/index.html`) |
 | [reels-api.controller.ts](../src/reels-api.controller.ts) | `/reels-api` | Instagram reels archive: create/retry/delete, transcribe (Whisper), vision (frame extraction + LLM), tag/title generation, semantic search (`GET /search`), Q&A (`GET /ask`) + embeddings backfill (`POST /embed-all`). Reads: `x-reels-page-key`, writes: `x-reels-api-key` |
 | [reels-pages.controller.ts](../src/reels-pages.controller.ts) | `/reels/:secret`, `/reels/:secret/:id` | Unlisted reels catalog (secret = `REELS_PAGE_KEY`); per-reel OG tags |
-| [mcp/mcp.controller.ts](../src/mcp/mcp.controller.ts) | `/mcp` | Stateless MCP server (Streamable HTTP). Public tools: map search/get/tags. `Authorization: Bearer <MCP_API_KEY>` adds reels tools (search/get/ask); plus `X-Chat-Id` adds diary tools (search/get note/get day/ask). GTD tools (`gtd_now`, `gtd_search`, `gtd_get`, `gtd_capture`, `gtd_add_context`) use `Authorization: Bearer <workspace mcpToken>` from GTD settings or Telegram `/gtdkey` — no `X-Chat-Id`. Tools live in [mcp/mcp-tools.service.ts](../src/mcp/mcp-tools.service.ts) |
+| [email-api.controller.ts](../src/email-api.controller.ts) | `/email-api` | IMAP mail dashboard (Google admin) |
+| [threads-api.controller.ts](../src/threads-api.controller.ts) | `/threads-api` | Threads composer: drafts, image upload, publish to Threads Graph API + diary copy, Insights/replies. Google admin |
+| [threads-pages.controller.ts](../src/threads-pages.controller.ts) | `/threads` | Owner-only composer page; serves `web/threads/index.html` |
+| [mcp/mcp.controller.ts](../src/mcp/mcp.controller.ts) | `/mcp` | Stateless MCP server (Streamable HTTP). Public tools: map search/get/tags. `Authorization: Bearer <MCP_API_KEY>` adds reels tools (search/get/ask) and Threads tools (list/get/create/update/publish/insights); plus `X-Chat-Id` adds diary tools (search/get note/get day/ask). GTD tools (`gtd_now`, `gtd_search`, `gtd_get`, `gtd_capture`, `gtd_add_context`) use `Authorization: Bearer <workspace mcpToken>` from GTD settings or Telegram `/gtdkey` — no `X-Chat-Id`. Tools live in [mcp/mcp-tools.service.ts](../src/mcp/mcp-tools.service.ts) |
 | [subs.controller.ts](../src/subs.controller.ts) | `/subs-api` | Subtitle pipeline: upload vertical video → extract MP3 + waveform manifest → Whisper transcript → LLM translation → ffmpeg render with ASS subtitles → download. Everything cached in Spaces under `subs/*` by video hash |
 | [mini-app/mini-app.controller.ts](../src/mini-app/mini-app.controller.ts) | `/mini-app-api` | Telegram Mini App backend: verifies signed initData, returns user profile/note count/avatar |
 | [gtd/gtd-api.controller.ts](../src/gtd/gtd-api.controller.ts) | `/gtd-api` | Private GTD API for projects, one-task queue, snoozing, archive, history, private attachments, JSON context (`POST /tasks/:id/context`), sync list endpoints (`GET /tasks`, `GET /projects`), workspace MCP token (`GET /mcp-token`, `POST /mcp-token/regenerate`) and optional Google ↔ Telegram account linking; accepts Google session/Bearer or signed Telegram initData |
@@ -88,6 +91,7 @@ Root module: [src/app.module.ts](../src/app.module.ts) — ConfigModule (global)
 - **Trip / TripMedia** — shared trip albums: unlisted `secret` URL, original media on Spaces keyed by content hash, JPEG `thumbUrl` (~480px via sharp/ffmpeg) for cheap gallery previews, uploader metadata (`contributorId`, display name, user-agent, optional dimensions/`takenAt`/`cameraModel`), full capture tags in `exif` JSONB (EXIF for photos, ffprobe tags for videos), soft-delete via `deletedAt`
 - **ChatSettings / Todo / Question / Answer / TaskNote / TaskImage** — defined in the schema but not referenced anywhere in `src/` (planned features); the tables may contain data, check before dropping
 - **GtdWorkspace / GtdIdentity / GtdProject / GtdTask / GtdTaskEvent / GtdAttachment / GtdLinkRequest / GtdEmbedding** — isolated GTD model. Google and Telegram identities start with independent workspaces and can optionally be merged 1:1; none of the legacy todo tables are reused. `GtdEmbedding` is a workspace-scoped pgvector index (cuid task ids), separate from diary/reels `Embedding`.
+- **ThreadsPost / ThreadsImage** — Threads composer: draft or published post, optional poll/topic/ghost, Spaces images under `threads/YYYY/MM/`, Insights JSONB and reply dump
 
 ## Web apps (`web/`)
 
@@ -98,6 +102,7 @@ Root module: [src/app.module.ts](../src/app.module.ts) — ConfigModule (global)
 | `reels/` | Reels catalog | Vanilla JS; Google session (old `/reels/<secret>` URLs redirect) |
 | `diary/` | Diary calendar + note editor | Vanilla JS SPA behind Google sign-in; year-agnostic calendar → `/diary/MM-DD` day view, inline note editing, soft-delete archive (`/diary/archive`), video upload + send-to-Telegram, enlarged images with an editable/regenerable description |
 | `email/` | Mail UI | Google session; IMAP ingest on the server; кнопка «В GTD» и эффект правила `createGtdTask` |
+| `threads/` | Threads composer | Google session; drafts, images, poll, publish to @vlandivir + diary copy |
 | `subs/` | Vertical-video subtitle editor | Vanilla JS; dark workbench palette allowed; bilingual |
 | `gpx-route-png/` | GPX → PNG route renderer | Fully client-side; bilingual |
 | `gpx-track-demo/` | GPS smoothing demo | Client-side; `/gpx-track-demo` |
@@ -109,11 +114,11 @@ Clients that are **not** under `web/`: `telegram-app/` (Vite, `/gtd` and `/mini-
 
 ## Scripts (`src/scripts/`, run via npm scripts)
 
-`update-image-descriptions`, `check-image-status`, `test-collage`, `generate-history-pdf`, `generate-history-pdf:html`, `generate-history-md` — maintenance/one-off utilities against the shared DB. Be careful: dev and prod use the same database.
+`update-image-descriptions`, `check-image-status`, `test-collage`, `generate-history-pdf`, `generate-history-pdf:html`, `generate-history-md`, `import-threads-posts` — maintenance/one-off utilities against the shared DB. Be careful: dev and prod use the same database.
 
 ## Environment variables
 
-`TELEGRAM_BOT_TOKEN`, `VLANDIVIR_2025_WEBHOOK_URL`, `POSTGRES_CONNECTION_STRING`, `DO_SPACES_ACCESS_KEY`/`DO_SPACES_SECRET_KEY`, `OPENAI_API_KEY`, `NOTE_API_KEY`, `MAP_API_KEY`, `REELS_API_KEY` (optional; falls back to `MAP_API_KEY`), `MCP_API_KEY`, `TELEGRAM_OWNER_CHAT_ID`, `TELEGRAM_CHANNEL_IDS` (comma-separated, optional), `ENVIRONMENT` (DEV/PROD), `PORT`, plus Google OAuth / session vars in [authorization.md](authorization.md). `REELS_PAGE_KEY` was removed. New vars must be added in four places: local `.env`, `Dockerfile` ARG/ENV, `deploy-production.yml` build-args, GitHub secret (see AGENTS.md → Deployment). GitHub secret `VLANDIVIR_2025_BOT_TOKEN` is passed into the image as `TELEGRAM_BOT_TOKEN`.
+`TELEGRAM_BOT_TOKEN`, `VLANDIVIR_2025_WEBHOOK_URL`, `POSTGRES_CONNECTION_STRING`, `DO_SPACES_ACCESS_KEY`/`DO_SPACES_SECRET_KEY`, `OPENAI_API_KEY`, `NOTE_API_KEY`, `MAP_API_KEY`, `REELS_API_KEY` (optional; falls back to `MAP_API_KEY`), `MCP_API_KEY`, `THREADS_ACCESS_TOKEN`, `TELEGRAM_OWNER_CHAT_ID`, `TELEGRAM_CHANNEL_IDS` (comma-separated, optional), `ENVIRONMENT` (DEV/PROD), `PORT`, plus Google OAuth / session vars in [authorization.md](authorization.md). `REELS_PAGE_KEY` was removed. New vars must be added in four places: local `.env`, `Dockerfile` ARG/ENV, `deploy-production.yml` build-args, GitHub secret (see AGENTS.md → Deployment). GitHub secret `VLANDIVIR_2025_BOT_TOKEN` is passed into the image as `TELEGRAM_BOT_TOKEN`.
 
 ## Development
 

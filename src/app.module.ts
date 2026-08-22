@@ -25,6 +25,9 @@ import { GtdModule } from './gtd/gtd.module';
 import { MapSearchThrottleGuard } from './common/rate-limit.guard';
 import { GpxApiController } from './gpx-api.controller';
 import { UserPagesController } from './user-pages.controller';
+import { ThreadsApiController } from './threads-api.controller';
+import { ThreadsPagesController } from './threads-pages.controller';
+import { ThreadsService } from './services/threads.service';
 
 @Module({
   imports: [
@@ -54,8 +57,15 @@ import { UserPagesController } from './user-pages.controller';
     TripApiController,
     GpxApiController,
     UserPagesController,
+    ThreadsApiController,
+    ThreadsPagesController,
     McpController,
   ],
-  providers: [AppService, McpToolsService, MapSearchThrottleGuard],
+  providers: [
+    AppService,
+    McpToolsService,
+    ThreadsService,
+    MapSearchThrottleGuard,
+  ],
 })
 export class AppModule {}

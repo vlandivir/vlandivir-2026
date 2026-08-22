@@ -12,7 +12,7 @@ import { McpAuthContext, McpToolsService } from './mcp-tools.service';
  *
  * Auth is per-request and optional:
  *  - no Authorization header  -> public tools only (map)
- *  - Authorization: Bearer <MCP_API_KEY> -> plus reels tools
+ *  - Authorization: Bearer <MCP_API_KEY> -> plus reels and Threads tools
  *  - plus X-Chat-Id: <telegram chat id>  -> plus diary tools for that chat
  *  - Authorization: Bearer <workspace mcpToken> -> GTD tools for that
  *    workspace (no X-Chat-Id). The token is shown in GTD settings / /gtdkey.
