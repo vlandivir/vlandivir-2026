@@ -11,10 +11,10 @@
   <link rel="stylesheet" href="/shared/site-theme.css?v=20260816-1" />
   <link rel="stylesheet" href="/shared/site-header.css?v=20260816-2" />
   <link rel="stylesheet" href="/shared/app-dialog.css?v=20260805-1" />
-  <link rel="stylesheet" href="/threads/styles.css?v=20260822-1" />
+  <link rel="stylesheet" href="/threads/styles.css?v=20260822-2" />
   <script src="/shared/app-dialog.js?v=20260805-1"></script>
   <script src="/shared/site-header.js?v=20260816-1" defer></script>
-  <script src="/threads/app.js?v=20260822-1" defer></script>
+  <script src="/threads/app.js?v=20260822-2" defer></script>
 </head>
 <body>
   <header data-site-header data-active="threads" data-lang-none data-lang-ru="/threads" data-lang-en="/threads"></header>
@@ -34,19 +34,36 @@
 
     <p id="status-line" class="muted" hidden></p>
 
-    <div class="threads-layout">
-      <section class="editor-card list-card" aria-label="Посты">
-        <ul id="post-list" class="post-list"></ul>
-        <p id="list-empty" class="muted">Черновиков пока нет</p>
-      </section>
+    <section class="editor-card list-card" aria-label="Посты">
+      <div class="table-wrap">
+        <table class="threads-table">
+          <thead>
+            <tr>
+              <th scope="col">Превью</th>
+              <th scope="col">Статус</th>
+              <th scope="col">Дата</th>
+              <th scope="col">Текст</th>
+              <th scope="col">Ссылка</th>
+              <th scope="col">Статистика</th>
+            </tr>
+          </thead>
+          <tbody id="post-list"></tbody>
+        </table>
+      </div>
+      <p id="list-empty" class="muted">Постов пока нет</p>
+    </section>
 
-      <section id="editor" class="editor-card composer" hidden>
-        <label class="field">
-          <span class="field-label">Текст</span>
-          <textarea id="draft-text" rows="12" placeholder="Текст поста…"></textarea>
-          <span id="char-count" class="muted char-count"></span>
-        </label>
+    <section id="editor" class="editor-card composer" hidden>
+      <p id="editor-kicker" class="eyebrow"></p>
 
+      <label class="field" id="draft-field">
+        <span class="field-label">Текст</span>
+        <textarea id="draft-text" rows="12" placeholder="Текст поста…"></textarea>
+        <span id="char-count" class="muted char-count"></span>
+      </label>
+      <div id="published-text" class="published-text" hidden></div>
+
+      <div id="draft-options">
         <div class="composer-row">
           <label class="check">
             <input id="destination-diary" type="checkbox" />
@@ -71,20 +88,20 @@
           </label>
           <div id="poll-options" class="poll-options" hidden></div>
         </fieldset>
+      </div>
 
-        <div class="field">
-          <span class="field-label">Картинки</span>
-          <div id="image-list" class="image-list"></div>
-          <label class="ghost-btn file-btn">
-            Прикрепить
-            <input id="image-input" type="file" accept="image/jpeg,image/png" multiple hidden />
-          </label>
-        </div>
+      <div id="images-field" class="field">
+        <span class="field-label">Картинки</span>
+        <div id="image-list" class="image-list"></div>
+        <label class="ghost-btn file-btn" id="file-btn">
+          Прикрепить
+          <input id="image-input" type="file" accept="image/jpeg,image/png" multiple hidden />
+        </label>
+      </div>
 
-        <section id="metrics" class="metrics" hidden></section>
-        <section id="replies" class="replies" hidden></section>
-      </section>
-    </div>
+      <section id="metrics" class="metrics" hidden></section>
+      <section id="replies" class="replies" hidden></section>
+    </section>
   </main>
 </body>
 </html>
