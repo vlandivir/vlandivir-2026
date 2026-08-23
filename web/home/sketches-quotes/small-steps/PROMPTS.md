@@ -34,3 +34,7 @@ Generated on 2026-08-23 as a precise headwear edit. The classic pointed hat is r
 ## Cyberpunk warlock boy early twilight (v3)
 
 Generated on 2026-08-23 as an atmospheric edit of v2. The scene moves from pale daytime into mild early twilight: layered blue-gray clouds, thin violet-gray haze, gently deeper terrain and city values, and softly glowing paths. The foreground and characters retain warm cream-paper breathing room, so the mood is contemplative and slightly ominous rather than gloomy, nocturnal, or frightening. No objects or geometry change. The revised pair is `cyber-warlock-boy-color-v3.png` and `cyber-warlock-boy-bw-v3.png`.
+
+## Cyberpunk warlock boy uncertain world (v4)
+
+Generated on 2026-08-23 from the daylight v2 composition after clarifying that tension should come from the world rather than the time of day. The unattached floating charm is removed. The city is reduced and placed behind a long fortified wall with one narrow gate. Only a few paths approach it; others leave through both frame edges, vanish behind barren ridges, or disappear into fog. Eroded ground, fissures, sparse bent plants, abandoned pylons, and restrained cyan/violet light make the world guarded and uncertain without becoming horrific or apocalyptic. The revised pair is `cyber-warlock-boy-color-v4.png` and `cyber-warlock-boy-bw-v4.png`.
