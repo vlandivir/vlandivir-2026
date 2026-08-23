@@ -170,13 +170,14 @@
       }
 
       const previewCell = document.createElement('td');
-      previewCell.className = 'preview-cell';
+      const previewInner = document.createElement('div');
+      previewInner.className = 'preview-cell';
       if (published) {
         const chevron = document.createElement('span');
         chevron.className = 'chevron';
         chevron.setAttribute('aria-hidden', 'true');
         chevron.textContent = '▸';
-        previewCell.append(chevron);
+        previewInner.append(chevron);
       }
       const firstImage = (post.images || [])[0];
       if (firstImage?.url) {
@@ -184,13 +185,14 @@
         img.className = 'thumb';
         img.src = firstImage.url;
         img.alt = '';
-        previewCell.append(img);
+        previewInner.append(img);
       } else {
         const dash = document.createElement('span');
         dash.className = 'thumb-empty';
         dash.textContent = '—';
-        previewCell.append(dash);
+        previewInner.append(dash);
       }
+      previewCell.append(previewInner);
 
       const statusCell = document.createElement('td');
       statusCell.className = 'cell-status';
