@@ -48,7 +48,7 @@ Witch character reference (pass before the style reference): [references/witch-r
 | GTD | Tightrope balancing act with checked task cards while a broom sweeps completed cards |
 | Diary | Cutaway inside a giant hourglass, arranging falling note cards |
 | Email | Side view, riding a giant envelope down a curved trail of smaller envelopes |
-| Reels | Front view, turning the crank of a giant film reel with a strip spiraling upward |
+| Reels | Rear three-quarter view, sitting in a director's chair facing a portrait projection screen while blank vertical film frames arc around it |
 | Threads | Top-down craft-table view, sewing blank speech bubbles into a yarn chain |
 
 Forbidden default: girl kneeling in the lower-left, object in the center, magic rising up. If two sketches could be swapped and still "read" the same, regenerate.

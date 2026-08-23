@@ -22,3 +22,27 @@ Use case: illustration-story. Asset type: square website tool-card illustration.
 ## Black-and-white edit prompt
 
 Use case: precise-object-edit. Remove all color and convert the supplied color illustration into a monochrome black-pencil/fine-liner drawing on warm cream paper. Preserve the exact composition, character identity, pose, expression, camera angle, object placement, crop, line art, cross-hatching, texture, and dimensions. Change only watercolor accents to black, white, and natural paper tone. No gray watercolor wash, new or removed objects, shifted elements, text, logos, or watermark.
+
+## Reels geometry refinement (v2)
+
+Generated with the built-in ImageGen tool on 2026-08-23. The original `sketch-reels.webp` pair remains preserved; the site uses the `sketch-reels-v2.webp` pair.
+
+Color edit: preserve the character, square composition, crop, cream-paper pencil/fine-liner style, restrained watercolor, large reel, filmstrip, and background camera. Repair the near arm as one coherent sleeve, wrist, and hand gripping a distinct handle. Attach one rigid bent crank to the exact center axle of a circular reel in consistent perspective. Connect the reel to a stable stand. Keep the filmstrip at constant width with evenly spaced sprocket holes and one smooth continuous path. No fused fingers, extra limbs, floating parts, impossible overlaps, text, logos, border, or watermark.
+
+Black-and-white edit: preserve the corrected color image's exact composition and geometry. Remove all watercolor color, retaining only black, charcoal, and graphite-gray pencil/fine-liner marks on warm cream paper, with clear grayscale separation between the dark hat and shoes, midtone dress, pale face, reel, filmstrip, and stand. Do not move, add, remove, or redraw objects; no text, logo, border, or watermark.
+
+## Reels gear-drive refinement (v3)
+
+Generated with the built-in ImageGen tool on 2026-08-23. The `sketch-reels.webp` and `sketch-reels-v2.webp` pairs remain preserved; the site uses the `sketch-reels-v3.webp` pair.
+
+Color edit: replace the direct crank with a functional exposed gear drive. A large spur gear shares the film reel's exact center, shaft, and axle. A smaller pinion sits below-left on a separate shaft supported by a triangular bracket connected to the base; the two sets of evenly spaced teeth mesh at one tangent contact. A short crank runs continuously from the pinion's center to a wooden grip held by one natural hand. The power path must read as hand → crank → pinion → large coaxial gear → reel, with no floating shafts, duplicate hubs, disconnected gears, intersections, text, logos, border, or watermark. Preserve all unrelated composition and styling.
+
+Black-and-white edit: preserve the exact corrected mechanism and composition, changing only the color treatment to black, charcoal, and graphite-gray pencil/fine-liner marks on warm cream paper. Do not simplify or redraw the gears, crank, shafts, brackets, hand, or any other object; no text, logo, border, or watermark.
+
+## Reels director composition (v4)
+
+Generated with the built-in ImageGen tool on 2026-08-23. All earlier Reels pairs remain preserved; the site uses the `sketch-reels-v4.webp` pair.
+
+Color generation: rear three-quarter eye-level view of the witch sitting in a canvas director's chair with both empty hands resting naturally on her lap. She faces a freestanding portrait-format projection screen; a vintage camera on a tripod projects toward it. One continuous filmstrip with blank vertical frames arcs broadly around the screen. Preserve the witch character and cream-paper pencil/fine-liner style with restrained watercolor. No crank, handle, hand-operated mechanism, gears, axle, giant reel, UI, text, logos, border, or watermark.
+
+Black-and-white edit: preserve the exact composition, empty hands, chair, screen, camera, tripod, and filmstrip geometry. Remove only the watercolor colors, leaving black, charcoal, and graphite-gray pencil/fine-liner marks on warm cream paper. Do not add mechanisms, controls, text, logos, border, or watermark.
