@@ -81,6 +81,34 @@
     return `${day}.${month} ${hours}:${minutes}`;
   }
 
+  function compactText(value) {
+    return String(value || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function pollPercent(value) {
+    if (typeof value !== 'number' || Number.isNaN(value)) return 0;
+    return value <= 1 ? Math.round(value * 100) : Math.round(value);
+  }
+
+  function rootText(post) {
+    const fromDump = post.replies?.root?.text;
+    if (fromDump) return String(fromDump);
+    return post.text || '';
+  }
+
+  function isRootCopy(item, post) {
+    const id = String(item.id || '');
+    const root = post.replies?.root;
+    if (root?.id && id && id === String(root.id)) return true;
+    const text = compactText(item.text);
+    if (!text) return false;
+    const rootCopy = compactText(root?.text);
+    const full = compactText(post.text);
+    return (rootCopy && text === rootCopy) || (full && text === full);
+  }
+
   function selected() {
     return state.posts.find((post) => post.id === state.selectedId) || null;
   }
@@ -158,7 +186,10 @@
 
       const textCell = document.createElement('td');
       textCell.className = 'cell-text';
-      textCell.textContent = preview(post.text);
+      const clip = document.createElement('span');
+      clip.className = 'cell-clip';
+      clip.textContent = preview(post.text);
+      textCell.append(clip);
 
       const linkCell = document.createElement('td');
       if (post.url) {
@@ -181,6 +212,29 @@
         appendStat(statsCell, 'просм.', stats.views, prev.views);
         appendStat(statsCell, 'лайк.', stats.likes, prev.likes);
         appendStat(statsCell, 'отв.', stats.replies, prev.replies);
+        const poll = post.pollResults;
+        if (poll?.options?.length) {
+          const pollBox = document.createElement('div');
+          pollBox.className = 'cell-poll';
+          for (const option of poll.options) {
+            const line = document.createElement('div');
+            line.className = 'cell-poll-line';
+            const name = document.createElement('span');
+            name.textContent = option.text || '';
+            const pct = document.createElement('span');
+            pct.className = 'muted';
+            pct.textContent = `${pollPercent(option.percent)}%`;
+            line.append(name, pct);
+            pollBox.append(line);
+          }
+          statsCell.append(pollBox);
+        }
+        if (stats.updated) {
+          const sync = document.createElement('div');
+          sync.className = 'muted cell-sync';
+          sync.textContent = `синхр. ${formatWhen(stats.updated)}`;
+          statsCell.append(sync);
+        }
         if (!statsCell.childElementCount) statsCell.textContent = '—';
       } else {
         statsCell.textContent = '—';
@@ -263,24 +317,33 @@
 
   function renderImages(post, locked) {
     const list = el('image-list');
+    const published = el('published-media');
     const images = post.images || [];
     list.replaceChildren();
-    el('images-field').hidden = locked && images.length === 0;
+    published.replaceChildren();
+    el('images-field').hidden = locked;
     el('file-btn').hidden = locked;
+    published.hidden = !locked || images.length === 0;
+    if (locked) {
+      for (const image of images) {
+        const img = document.createElement('img');
+        img.src = image.url;
+        img.alt = '';
+        published.append(img);
+      }
+      return;
+    }
     for (const image of images) {
       const chip = document.createElement('div');
       chip.className = 'image-chip';
       const img = document.createElement('img');
       img.src = image.url;
       img.alt = '';
-      chip.append(img);
-      if (!locked) {
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.textContent = 'Убрать';
-        remove.addEventListener('click', () => removeImage(image.id));
-        chip.append(remove);
-      }
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = 'Убрать';
+      remove.addEventListener('click', () => removeImage(image.id));
+      chip.append(img, remove);
       list.append(chip);
     }
   }
@@ -316,6 +379,12 @@
       row.append(chip);
     }
     box.replaceChildren(row);
+    if (stats.updated) {
+      const sync = document.createElement('p');
+      sync.className = 'muted';
+      sync.textContent = `Статистика от ${formatWhen(stats.updated)}`;
+      box.append(sync);
+    }
     if (post.url) {
       const link = document.createElement('a');
       link.href = post.url;
@@ -332,7 +401,7 @@
       box.append(title);
       for (const option of poll.options) {
         const label = document.createElement('div');
-        const pct = Math.round((option.percent || 0) * 100);
+        const pct = pollPercent(option.percent);
         label.textContent = `${option.text} · ${pct}%`;
         const bar = document.createElement('div');
         bar.className = 'poll-bar';
@@ -354,7 +423,8 @@
     const known = new Set(replies.map((item) => String(item.id || '')));
     known.add(rootId);
     for (const item of replies) {
-      let parent = nestedId(item.replied_to) || rootId;
+      let parent =
+        nestedId(item['replied_to'] || item.replied_to) || rootId;
       if (!known.has(parent)) parent = rootId;
       const bucket = children.get(parent) || [];
       bucket.push(item);
@@ -369,7 +439,9 @@
     article.dataset.depth = String(Math.min(depth, 4));
     const username = String(item.username || 'unknown');
     const own =
-      item.is_reply_owned_by_me === true || username === OWN_USERNAME;
+      item['is_reply_owned_by_me'] === true ||
+      item.is_reply_owned_by_me === true ||
+      username === OWN_USERNAME;
 
     const head = document.createElement('header');
     head.className = 'reply-head';
@@ -397,7 +469,9 @@
       time.textContent = formatWhen(String(item.timestamp));
       head.append(time);
     }
-    const hide = String(item.hide_status || 'NOT_HUSHED');
+    const hide = String(
+      item['hide_status'] || item.hide_status || 'NOT_HUSHED',
+    );
     if (hide && hide !== 'NOT_HUSHED') {
       const badge = document.createElement('span');
       badge.className = 'muted';
@@ -437,16 +511,19 @@
   function renderReplies(post) {
     const box = el('replies');
     const dump = post.replies;
-    const replies = dump?.replies;
-    if (!Array.isArray(replies) || !replies.length) {
+    const replies = (dump?.replies || []).filter(
+      (item) => !isRootCopy(item, post),
+    );
+    if (!replies.length) {
       box.hidden = true;
       box.replaceChildren();
       return;
     }
     box.hidden = false;
+    const counts = dump.counts || dump['counts'] || {};
     const title = document.createElement('p');
     title.className = 'field-label';
-    title.textContent = `Ответы · ${dump.counts?.total ?? replies.length}`;
+    title.textContent = `Ответы · ${counts.total ?? replies.length}`;
     box.replaceChildren(title);
     const rootId = String(dump.root?.id || post.mediaId || '');
     if (!rootId) {
@@ -477,7 +554,7 @@
     el('draft-options').hidden = locked;
     el('published-text').hidden = !locked;
     if (locked) {
-      el('published-text').textContent = post.text || '';
+      el('published-text').textContent = rootText(post);
     } else {
       el('draft-text').value = post.text || '';
       el('draft-text').disabled = false;
