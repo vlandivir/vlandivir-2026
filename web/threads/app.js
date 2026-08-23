@@ -11,9 +11,12 @@
     'Music',
   ];
 
+  const COLUMNS = 6;
+
   const state = {
     posts: [],
     selectedId: null,
+    expandedId: null,
     saving: false,
     dirty: false,
     pollOn: false,
@@ -155,13 +158,26 @@
     if (table) table.hidden = state.posts.length === 0;
 
     for (const post of state.posts) {
+      const published = post.status === 'published';
+      const expanded = published && post.id === state.expandedId;
+      const selected = post.id === state.selectedId || expanded;
       const row = document.createElement('tr');
+      row.className = 'post-row';
       row.dataset.id = String(post.id);
-      if (post.id === state.selectedId) {
-        row.setAttribute('aria-selected', 'true');
+      if (selected) row.setAttribute('aria-selected', 'true');
+      if (published) {
+        row.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       }
 
       const previewCell = document.createElement('td');
+      previewCell.className = 'preview-cell';
+      if (published) {
+        const chevron = document.createElement('span');
+        chevron.className = 'chevron';
+        chevron.setAttribute('aria-hidden', 'true');
+        chevron.textContent = '▸';
+        previewCell.append(chevron);
+      }
       const firstImage = (post.images || [])[0];
       if (firstImage?.url) {
         const img = document.createElement('img');
@@ -248,15 +264,30 @@
         linkCell,
         statsCell,
       );
-      row.addEventListener('click', () => selectPost(post.id));
+      row.addEventListener('click', () => {
+        void onRowClick(post.id);
+      });
       row.tabIndex = 0;
       row.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          void selectPost(post.id);
+          void onRowClick(post.id);
         }
       });
       list.append(row);
+
+      if (expanded) {
+        const detail = document.createElement('tr');
+        detail.className = 'post-detail';
+        const cell = document.createElement('td');
+        cell.colSpan = COLUMNS;
+        const panel = document.createElement('div');
+        panel.className = 'thread-panel';
+        renderThreadPanel(post, panel);
+        cell.append(panel);
+        detail.append(cell);
+        list.append(detail);
+      }
     }
   }
 
@@ -286,7 +317,7 @@
             return utf8Bytes(next) > 25 ? acc : next;
           }, '');
         }
-        scheduleSave();
+        markDirty();
       });
       box.append(input);
     }
@@ -301,7 +332,7 @@
         const live = selected();
         if (live) live.poll = current;
         renderPoll(live || { poll: current });
-        scheduleSave();
+        markDirty();
       });
       box.append(add);
     }
@@ -315,24 +346,12 @@
     return options.length >= 2 ? options : [];
   }
 
-  function renderImages(post, locked) {
+  function renderImages(post) {
     const list = el('image-list');
-    const published = el('published-media');
     const images = post.images || [];
     list.replaceChildren();
-    published.replaceChildren();
-    el('images-field').hidden = locked;
-    el('file-btn').hidden = locked;
-    published.hidden = !locked || images.length === 0;
-    if (locked) {
-      for (const image of images) {
-        const img = document.createElement('img');
-        img.src = image.url;
-        img.alt = '';
-        published.append(img);
-      }
-      return;
-    }
+    el('images-field').hidden = false;
+    el('file-btn').hidden = false;
     for (const image of images) {
       const chip = document.createElement('div');
       chip.className = 'image-chip';
@@ -354,13 +373,8 @@
     return change ? `${current} (${change})` : String(current);
   }
 
-  function renderMetrics(post) {
-    const box = el('metrics');
-    if (post.status !== 'published') {
-      box.hidden = true;
-      box.replaceChildren();
-      return;
-    }
+  function renderMetrics(post, box) {
+    box.replaceChildren();
     box.hidden = false;
     const stats = post.stats || {};
     const prev = post.statsPrev || {};
@@ -508,15 +522,14 @@
     return article;
   }
 
-  function renderReplies(post) {
-    const box = el('replies');
+  function renderReplies(post, box) {
     const dump = post.replies;
     const replies = (dump?.replies || []).filter(
       (item) => !isRootCopy(item, post),
     );
+    box.replaceChildren();
     if (!replies.length) {
       box.hidden = true;
-      box.replaceChildren();
       return;
     }
     box.hidden = false;
@@ -538,45 +551,75 @@
     }
   }
 
+  function renderThreadPanel(post, panel) {
+    panel.replaceChildren();
+    const kicker = document.createElement('p');
+    kicker.className = 'eyebrow';
+    kicker.textContent = statusLabel(post);
+    panel.append(kicker);
+
+    const text = document.createElement('div');
+    text.className = 'published-text';
+    text.textContent = rootText(post);
+    panel.append(text);
+
+    const images = post.images || [];
+    if (images.length) {
+      const media = document.createElement('div');
+      media.className = 'post-media';
+      for (const image of images) {
+        const img = document.createElement('img');
+        img.src = image.url;
+        img.alt = '';
+        media.append(img);
+      }
+      panel.append(media);
+    }
+
+    const metrics = document.createElement('section');
+    metrics.className = 'metrics';
+    renderMetrics(post, metrics);
+    panel.append(metrics);
+
+    const replies = document.createElement('section');
+    replies.className = 'replies';
+    renderReplies(post, replies);
+    panel.append(replies);
+  }
+
   function renderEditor() {
     const post = selected();
     const editor = el('editor');
-    if (!post) {
+    if (!post || post.status === 'published') {
       editor.hidden = true;
+      updateActionButtons();
       return;
     }
     editor.hidden = false;
-    const locked = post.status === 'published';
-    el('editor-kicker').textContent = locked
-      ? statusLabel(post)
-      : 'Черновик';
-    el('draft-field').hidden = locked;
-    el('draft-options').hidden = locked;
-    el('published-text').hidden = !locked;
-    if (locked) {
-      el('published-text').textContent = rootText(post);
-    } else {
-      el('draft-text').value = post.text || '';
-      el('draft-text').disabled = false;
-    }
+    el('editor-kicker').textContent = 'Черновик';
+    el('draft-text').value = post.text || '';
+    el('draft-text').disabled = false;
     el('destination-diary').checked = post.destination === 'diary';
     el('ghost').checked = Boolean(post.ghost);
     el('topic').value = post.topic || '';
-    el('destination-diary').disabled = locked;
-    el('ghost').disabled = locked;
-    el('topic').disabled = locked;
-    el('poll-on').disabled = locked || (post.images || []).length > 0;
-    el('image-input').disabled = locked || state.pollOn;
-    el('publish').disabled = locked;
+    el('destination-diary').disabled = false;
+    el('ghost').disabled = false;
+    el('topic').disabled = false;
+    el('poll-on').disabled = (post.images || []).length > 0;
+    el('image-input').disabled = state.pollOn;
+    state.pollOn = (post.poll || []).filter(Boolean).length >= 2;
     updateCharCount();
-    state.pollOn = (post.poll || []).filter(Boolean).length >= 2 || state.pollOn;
-    if (post.status === 'published') {
-      state.pollOn = (post.poll || []).filter(Boolean).length >= 2;
-    }
     renderPoll(post);
-    renderImages(post, locked);
-    renderMetrics(post);
-    renderReplies(post);
+    renderImages(post);
+    updateActionButtons();
+  }
+
+  function hideEditor() {
+    state.selectedId = null;
+    state.dirty = false;
+    state.pollOn = false;
+    el('editor').hidden = true;
+    updateActionButtons();
   }
 
   function updateCharCount() {
@@ -589,6 +632,34 @@
     count.dataset.over = text.length > LIMIT ? 'true' : 'false';
   }
 
+  function updateActionButtons() {
+    const post = selected();
+    const editing = Boolean(post) && post.status !== 'published';
+    el('save-draft').disabled = !editing || !state.dirty || state.saving;
+    el('publish').disabled = !editing || state.saving;
+    el('close-editor').disabled = state.saving;
+  }
+
+  function markDirty() {
+    if (!selected() || selected().status === 'published') return;
+    state.dirty = true;
+    updateCharCount();
+    updateActionButtons();
+  }
+
+  async function confirmDiscard() {
+    if (!state.dirty) return true;
+    const dialog = window.AppDialog;
+    const ok = dialog
+      ? await dialog.confirm(
+          'Есть несохранённые изменения. Закрыть без сохранения?',
+          { confirmLabel: 'Закрыть' },
+        )
+      : window.confirm('Есть несохранённые изменения. Закрыть без сохранения?');
+    if (ok) state.dirty = false;
+    return ok;
+  }
+
   function collectDraft() {
     return {
       text: el('draft-text').value,
@@ -599,22 +670,11 @@
     };
   }
 
-  let saveTimer = 0;
-  function scheduleSave() {
-    const post = selected();
-    if (!post || post.status === 'published') return;
-    state.dirty = true;
-    updateCharCount();
-    clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(() => {
-      void saveDraft();
-    }, 400);
-  }
-
   async function saveDraft() {
     const post = selected();
-    if (!post || post.status === 'published' || state.saving) return;
+    if (!post || post.status === 'published' || state.saving) return false;
     state.saving = true;
+    updateActionButtons();
     try {
       const updated = await fetchJson(`${API}/posts/${post.id}`, {
         method: 'PATCH',
@@ -623,10 +683,14 @@
       });
       replacePost(updated);
       state.dirty = false;
+      setStatus('Сохранено');
+      return true;
     } catch (error) {
       setStatus(error.message, true);
+      return false;
     } finally {
       state.saving = false;
+      updateActionButtons();
     }
   }
 
@@ -648,14 +712,26 @@
     });
   }
 
-  async function selectPost(id) {
-    if (state.dirty) await saveDraft();
-    state.selectedId = id;
+  async function onRowClick(id) {
     const post = state.posts.find((item) => item.id === id);
-    state.pollOn = (post?.poll || []).filter(Boolean).length >= 2;
+    if (!post) return;
+
+    if (post.status !== 'published') {
+      if (state.selectedId === id) return;
+      if (!(await confirmDiscard())) return;
+      state.expandedId = null;
+      state.selectedId = id;
+      state.pollOn = (post.poll || []).filter(Boolean).length >= 2;
+      renderList();
+      renderEditor();
+      scrollEditorIntoView();
+      return;
+    }
+
+    if (state.selectedId && !(await confirmDiscard())) return;
+    hideEditor();
+    state.expandedId = state.expandedId === id ? null : id;
     renderList();
-    renderEditor();
-    scrollEditorIntoView();
   }
 
   async function loadPosts() {
@@ -665,14 +741,20 @@
       state.selectedId &&
       !state.posts.some((post) => post.id === state.selectedId)
     ) {
-      state.selectedId = null;
+      hideEditor();
+    }
+    if (
+      state.expandedId &&
+      !state.posts.some((post) => post.id === state.expandedId)
+    ) {
+      state.expandedId = null;
     }
     renderList();
-    renderEditor();
+    if (state.selectedId) renderEditor();
   }
 
   async function newDraft() {
-    if (state.dirty) await saveDraft();
+    if (!(await confirmDiscard())) return;
     const created = await fetchJson(`${API}/posts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -680,24 +762,38 @@
     });
     state.posts.unshift(created);
     sortPosts();
+    state.expandedId = null;
     state.selectedId = created.id;
+    state.pollOn = false;
     renderList();
     renderEditor();
     el('draft-text').focus();
     scrollEditorIntoView();
   }
 
+  async function closeEditor() {
+    if (!(await confirmDiscard())) return;
+    hideEditor();
+    renderList();
+  }
+
   async function publish() {
     const post = selected();
     if (!post) return;
-    await saveDraft();
-    if (
-      !window.confirm(
-        'Отправить этот черновик в Threads и дневник? Отменить нельзя.',
-      )
-    ) {
-      return;
+    if (state.dirty) {
+      const saved = await saveDraft();
+      if (!saved) return;
     }
+    const dialog = window.AppDialog;
+    const ok = dialog
+      ? await dialog.confirm(
+          'Отправить этот черновик в Threads и дневник? Отменить нельзя.',
+          { confirmLabel: 'Отправить', danger: true },
+        )
+      : window.confirm(
+          'Отправить этот черновик в Threads и дневник? Отменить нельзя.',
+        );
+    if (!ok) return;
     el('publish').disabled = true;
     setStatus('Публикую…');
     try {
@@ -705,15 +801,16 @@
         method: 'POST',
       });
       replacePost(updated);
-      state.selectedId = updated.id;
-      renderEditor();
+      hideEditor();
+      state.expandedId = updated.id;
+      renderList();
       setStatus(
         updated.url ? `Опубликовано: ${updated.url}` : 'Сохранено в дневник',
       );
     } catch (error) {
       setStatus(error.message, true);
     } finally {
-      el('publish').disabled = false;
+      updateActionButtons();
     }
   }
 
@@ -733,7 +830,7 @@
         });
         replacePost(updated);
       }
-      renderEditor();
+      renderList();
       setStatus('Данные обновлены');
     } catch (error) {
       setStatus(error.message, true);
@@ -743,7 +840,6 @@
   async function uploadImages(files) {
     const post = selected();
     if (!post || !files.length) return;
-    await saveDraft();
     const body = new FormData();
     for (const file of files) body.append('images', file);
     try {
@@ -752,7 +848,7 @@
         body,
       });
       replacePost(updated);
-      renderEditor();
+      renderImages(updated);
     } catch (error) {
       setStatus(error.message, true);
     }
@@ -767,7 +863,7 @@
         { method: 'DELETE' },
       );
       replacePost(updated);
-      renderEditor();
+      renderImages(updated);
     } catch (error) {
       setStatus(error.message, true);
     }
@@ -783,7 +879,7 @@
       button.textContent = topic;
       button.addEventListener('click', () => {
         el('topic').value = topic;
-        scheduleSave();
+        markDirty();
       });
       box.append(button);
     }
@@ -792,16 +888,22 @@
   el('new-draft').addEventListener('click', () => {
     void newDraft().catch((error) => setStatus(error.message, true));
   });
+  el('save-draft').addEventListener('click', () => {
+    void saveDraft();
+  });
+  el('close-editor').addEventListener('click', () => {
+    void closeEditor();
+  });
   el('publish').addEventListener('click', () => {
     void publish();
   });
   el('refresh-insights').addEventListener('click', () => {
     void refreshInsights();
   });
-  el('draft-text').addEventListener('input', scheduleSave);
-  el('destination-diary').addEventListener('change', scheduleSave);
-  el('ghost').addEventListener('change', scheduleSave);
-  el('topic').addEventListener('input', scheduleSave);
+  el('draft-text').addEventListener('input', markDirty);
+  el('destination-diary').addEventListener('change', markDirty);
+  el('ghost').addEventListener('change', markDirty);
+  el('topic').addEventListener('input', markDirty);
   el('poll-on').addEventListener('change', () => {
     const post = selected();
     if (!post) return;
@@ -809,15 +911,20 @@
     if (!state.pollOn) post.poll = [];
     else if (!post.poll?.length) post.poll = ['', ''];
     renderPoll(post);
-    scheduleSave();
+    markDirty();
   });
   el('image-input').addEventListener('change', (event) => {
     const files = [...event.target.files];
     event.target.value = '';
     void uploadImages(files);
   });
+  window.addEventListener('beforeunload', (event) => {
+    if (!state.dirty) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
 
   renderTopicPills();
-  el('publish').disabled = true;
+  updateActionButtons();
   void loadPosts().catch((error) => setStatus(error.message, true));
 })();
