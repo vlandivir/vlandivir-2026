@@ -20,6 +20,16 @@
     saving: false,
     dirty: false,
     pollOn: false,
+    freshReplyIds: {},
+  };
+
+  const STAT_ICONS = {
+    views:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+    likes:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+    replies:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
   };
 
   const el = (id) => document.getElementById(id);
@@ -132,21 +142,62 @@
     return `${sign}${current - previous}`;
   }
 
-  function appendStat(box, label, current, previous) {
+  function statIcon(kind) {
+    const wrap = document.createElement('span');
+    wrap.className = 'stat-icon';
+    wrap.innerHTML = STAT_ICONS[kind] || '';
+    return wrap;
+  }
+
+  function appendStat(row, kind, label, current, previous) {
     if (typeof current !== 'number') return;
-    const line = document.createElement('div');
-    line.className = 'stat-line';
+    const item = document.createElement('span');
+    item.className = 'stat-item';
+    item.title = label;
+    item.append(statIcon(kind));
     const value = document.createElement('span');
-    value.textContent = `${current} ${label}`;
-    line.append(value);
+    value.textContent = String(current);
+    item.append(value);
     const change = delta(current, previous);
     if (change) {
       const extra = document.createElement('span');
       extra.className = 'muted';
       extra.textContent = change;
-      line.append(extra);
+      item.append(extra);
     }
-    box.append(line);
+    row.append(item);
+  }
+
+  function replyIds(post) {
+    const items = post.replies?.replies || [];
+    return new Set(
+      items.map((item) => String(item.id || '')).filter(Boolean),
+    );
+  }
+
+  function freshIdsFor(post) {
+    return state.freshReplyIds[String(post.id)] || null;
+  }
+
+  function renderPollOptions(poll, box) {
+    if (!poll?.options?.length) return;
+    for (const option of poll.options) {
+      const pct = pollPercent(option.percent);
+      const line = document.createElement('div');
+      line.className = 'cell-poll-line';
+      const name = document.createElement('span');
+      name.textContent = option.text || '';
+      const value = document.createElement('span');
+      value.className = 'muted';
+      value.textContent = `${pct}%`;
+      line.append(name, value);
+      const bar = document.createElement('div');
+      bar.className = 'poll-bar';
+      const fill = document.createElement('span');
+      fill.style.width = `${Math.min(pct, 100)}%`;
+      bar.append(fill);
+      box.append(line, bar);
+    }
   }
 
   function renderList() {
@@ -227,24 +278,17 @@
       if (post.status === 'published') {
         const stats = post.stats || {};
         const prev = post.statsPrev || {};
-        appendStat(statsCell, 'просм.', stats.views, prev.views);
-        appendStat(statsCell, 'лайк.', stats.likes, prev.likes);
-        appendStat(statsCell, 'отв.', stats.replies, prev.replies);
+        const statRow = document.createElement('div');
+        statRow.className = 'stat-row';
+        appendStat(statRow, 'views', 'просмотры', stats.views, prev.views);
+        appendStat(statRow, 'likes', 'лайки', stats.likes, prev.likes);
+        appendStat(statRow, 'replies', 'ответы', stats.replies, prev.replies);
+        if (statRow.childElementCount) statsCell.append(statRow);
         const poll = post.pollResults;
         if (poll?.options?.length) {
           const pollBox = document.createElement('div');
           pollBox.className = 'cell-poll';
-          for (const option of poll.options) {
-            const line = document.createElement('div');
-            line.className = 'cell-poll-line';
-            const name = document.createElement('span');
-            name.textContent = option.text || '';
-            const pct = document.createElement('span');
-            pct.className = 'muted';
-            pct.textContent = `${pollPercent(option.percent)}%`;
-            line.append(name, pct);
-            pollBox.append(line);
-          }
+          renderPollOptions(poll, pollBox);
           statsCell.append(pollBox);
         }
         if (stats.updated) {
@@ -415,17 +459,7 @@
       title.className = 'muted';
       title.textContent = `Опрос · ${poll.totalVotes ?? '—'} голосов`;
       box.append(title);
-      for (const option of poll.options) {
-        const label = document.createElement('div');
-        const pct = pollPercent(option.percent);
-        label.textContent = `${option.text} · ${pct}%`;
-        const bar = document.createElement('div');
-        bar.className = 'poll-bar';
-        const fill = document.createElement('span');
-        fill.style.width = `${Math.min(pct, 100)}%`;
-        bar.append(fill);
-        box.append(label, bar);
-      }
+      renderPollOptions(poll, box);
     }
   }
 
@@ -449,10 +483,13 @@
     return children;
   }
 
-  function renderReplyNode(item, children, depth) {
+  function renderReplyNode(item, children, depth, freshIds) {
     const article = document.createElement('article');
     article.className = 'reply';
     article.dataset.depth = String(Math.min(depth, 4));
+    const id = String(item.id || '');
+    const isFresh = Boolean(freshIds?.has(id));
+    if (isFresh) article.classList.add('reply-new');
     const username = String(item.username || 'unknown');
     const own =
       item['is_reply_owned_by_me'] === true ||
@@ -494,6 +531,12 @@
       badge.textContent = hide.toLowerCase();
       head.append(badge);
     }
+    if (isFresh) {
+      const mark = document.createElement('span');
+      mark.className = 'reply-new-mark';
+      mark.textContent = 'новое';
+      head.append(mark);
+    }
     article.append(head);
 
     if (item.text) {
@@ -517,7 +560,7 @@
       const nest = document.createElement('div');
       nest.className = 'reply-children';
       for (const kid of kids) {
-        nest.append(renderReplyNode(kid, children, depth + 1));
+        nest.append(renderReplyNode(kid, children, depth + 1, freshIds));
       }
       article.append(nest);
     }
@@ -536,20 +579,27 @@
     }
     box.hidden = false;
     const counts = dump.counts || dump['counts'] || {};
+    const freshIds = freshIdsFor(post);
+    const freshCount = freshIds
+      ? replies.filter((item) => freshIds.has(String(item.id || ''))).length
+      : 0;
     const title = document.createElement('p');
     title.className = 'field-label';
-    title.textContent = `Ответы · ${counts.total ?? replies.length}`;
+    title.textContent =
+      freshCount > 0
+        ? `Ответы · ${counts.total ?? replies.length} · новых: ${freshCount}`
+        : `Ответы · ${counts.total ?? replies.length}`;
     box.replaceChildren(title);
     const rootId = String(dump.root?.id || post.mediaId || '');
     if (!rootId) {
       for (const item of replies) {
-        box.append(renderReplyNode(item, new Map(), 0));
+        box.append(renderReplyNode(item, new Map(), 0, freshIds));
       }
       return;
     }
     const children = buildChildren(rootId, replies);
     for (const item of children.get(rootId) || []) {
-      box.append(renderReplyNode(item, children, 0));
+      box.append(renderReplyNode(item, children, 0, freshIds));
     }
   }
 
@@ -826,14 +876,27 @@
     }
     setStatus('Обновляю данные…');
     try {
+      const fresh = {};
+      let freshTotal = 0;
       for (const post of targets) {
+        const before = replyIds(post);
         const updated = await fetchJson(`${API}/posts/${post.id}/insights`, {
           method: 'POST',
         });
+        const added = [...replyIds(updated)].filter((id) => !before.has(id));
+        if (added.length) {
+          fresh[String(updated.id)] = new Set(added);
+          freshTotal += added.length;
+        }
         replacePost(updated);
       }
+      state.freshReplyIds = fresh;
       renderList();
-      setStatus('Данные обновлены');
+      setStatus(
+        freshTotal
+          ? `Данные обновлены · новых ответов: ${freshTotal}`
+          : 'Данные обновлены',
+      );
     } catch (error) {
       setStatus(error.message, true);
     }
