@@ -30,3 +30,7 @@ Generated on 2026-08-23 as a companion character. The original handmade rag-doll
 ## Cyberpunk warlock boy punk headpiece (v2)
 
 Generated on 2026-08-23 as a precise headwear edit. The classic pointed hat is replaced with a close-fitting asymmetric patchwork hood-cap with a short ragged dark-teal yarn mohawk, muted violet tips, safety pins, rings, a fine side chain, rough stitched seams, a faint cyan abstract rune line, and one small floating magical charm. Everything outside the headpiece remains unchanged. The revised pair is `cyber-warlock-boy-color-v2.png` and `cyber-warlock-boy-bw-v2.png`.
+
+## Cyberpunk warlock boy early twilight (v3)
+
+Generated on 2026-08-23 as an atmospheric edit of v2. The scene moves from pale daytime into mild early twilight: layered blue-gray clouds, thin violet-gray haze, gently deeper terrain and city values, and softly glowing paths. The foreground and characters retain warm cream-paper breathing room, so the mood is contemplative and slightly ominous rather than gloomy, nocturnal, or frightening. No objects or geometry change. The revised pair is `cyber-warlock-boy-color-v3.png` and `cyber-warlock-boy-bw-v3.png`.
