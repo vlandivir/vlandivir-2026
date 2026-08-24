@@ -22,3 +22,7 @@ Preserve the established cyberpunk rag-doll warlock boy and robotic cat. In a dy
 ## Monochrome prompt summary
 
 Preserve the exact composition and geometry, especially both hands, the horizontal phone, successful centered document, rejected attempts, rotation arc, cat, notebooks, and character identity. Remove all color and translate the magical focus effect into white paper highlights and graphite radiance. Keep strong contrast between blurred failures and the single sharp landscape-oriented success.
+
+## Simplified composition (v2)
+
+Generated on 2026-08-24 as a focused revision. The dense wall of rejected attempts is reduced to a small, widely spaced set with more cream-paper breathing room. Every visible identity document receives an anonymous head-and-shoulders silhouette without personal data. The successful horizontal phone contains one large crisp centered silhouette, while failed captures remain tiny, blurred, cropped, or off-center. The boy's head and upper torso turn slightly toward the viewer, revealing one complete eye, cheek, stitched nose, and part of the smile while his attention remains on the phone. The revised pair is `cyber-warlock-camera-color-v2.png` and `cyber-warlock-camera-bw-v2.png`.
