@@ -22,3 +22,7 @@ Preserve the established young-adult cyberpunk rag-doll warlock boy and stitched
 ## Monochrome prompt summary
 
 Preserve the exact square composition, character identity, anatomy, stool, question-well, cat, question bubbles, and solution path. Remove all watercolor accents and render the image solely with black pencil, fine-liner, cross-hatching, cream-paper highlights, and graphite radiance. Do not add, remove, or move any scene elements.
+
+## Cloth doll nose (v2)
+
+Generated on 2026-08-24 as a precise face-only edit. A small rounded stuffed-cloth nose, inspired by the original witch doll reference, is placed naturally between and slightly below the eyes. It uses the same beige face fabric, a subtle outline, and a soft shadow underneath; it is deliberately not realistic, pointed, triangular, button-like, or dark-filled. The entire square composition and all other character and scene details remain unchanged. The revised pair is `cyber-warlock-free-coding-help-color-v2.png` and `cyber-warlock-free-coding-help-bw-v2.png`.
