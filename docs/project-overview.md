@@ -118,7 +118,7 @@ Clients that are **not** under `web/`: `telegram-app/` (Vite, `/gtd` and `/mini-
 
 ## Environment variables
 
-`TELEGRAM_BOT_TOKEN`, `VLANDIVIR_2025_WEBHOOK_URL`, `POSTGRES_CONNECTION_STRING`, `DO_SPACES_ACCESS_KEY`/`DO_SPACES_SECRET_KEY`, `OPENAI_API_KEY`, `NOTE_API_KEY`, `MAP_API_KEY`, `REELS_API_KEY` (optional; falls back to `MAP_API_KEY`), `MCP_API_KEY`, `THREADS_ACCESS_TOKEN`, `TELEGRAM_OWNER_CHAT_ID`, `TELEGRAM_CHANNEL_IDS` (comma-separated, optional), `ENVIRONMENT` (DEV/PROD), `PORT`, plus Google OAuth / session vars in [authorization.md](authorization.md). `REELS_PAGE_KEY` was removed. New vars must be added in four places: local `.env`, `Dockerfile` ARG/ENV, `deploy-production.yml` build-args, GitHub secret (see AGENTS.md → Deployment). GitHub secret `VLANDIVIR_2025_BOT_TOKEN` is passed into the image as `TELEGRAM_BOT_TOKEN`.
+`TELEGRAM_BOT_TOKEN`, `VLANDIVIR_2025_WEBHOOK_URL`, `POSTGRES_CONNECTION_STRING`, `DO_SPACES_ACCESS_KEY`/`DO_SPACES_SECRET_KEY`, `OPENAI_API_KEY`, `NOTE_API_KEY`, `MAP_API_KEY`, `REELS_API_KEY` (optional; falls back to `MAP_API_KEY`), `MCP_API_KEY`, `THREADS_ACCESS_TOKEN`, `TELEGRAM_OWNER_CHAT_ID`, `TELEGRAM_CHANNEL_IDS` (comma-separated, optional), `ENVIRONMENT` (DEV/PROD), `PORT`, plus Google OAuth / session vars in [authorization.md](authorization.md). `REELS_PAGE_KEY` was removed. New vars must be added in three places: local `.env`, `docker run -e` in `deploy-production.yml`, GitHub secret (see AGENTS.md → Deployment). GitHub secret `VLANDIVIR_2025_BOT_TOKEN` is passed into the container as `TELEGRAM_BOT_TOKEN`.
 
 ## Development
 

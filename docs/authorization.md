@@ -107,7 +107,7 @@ redirect `/reels`, `/reels/<secret>/<id>` → 301 на `/reels/<id>` (дальш
 
 ## Секреты (env)
 
-Локально — `.env`; прод — GitHub secrets → build-args (`.github/workflows/deploy-production.yml`) → `Dockerfile` ARG/ENV.
+Локально — `.env`; прод — GitHub secrets → `docker run -e` (`.github/workflows/deploy-production.yml`). Не класть секреты в `Dockerfile` `ARG`/`ENV`.
 
 | Переменная | Что даёт |
 |---|---|

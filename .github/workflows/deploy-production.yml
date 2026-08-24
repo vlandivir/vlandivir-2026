@@ -53,24 +53,6 @@ jobs:
         tags: registry.digitalocean.com/vlandivir-main/vlandivir-2025:${{ steps.tag.outputs.TAG_NAME }}
         build-args: |
           TAG_NAME=${{ steps.tag.outputs.TAG_NAME }}
-          ENVIRONMENT=PROD
-          TELEGRAM_BOT_TOKEN=${{ secrets.VLANDIVIR_2025_BOT_TOKEN }}
-          POSTGRES_CONNECTION_STRING=${{ secrets.POSTGRES_CONNECTION_STRING }}
-          DO_SPACES_ACCESS_KEY=${{ secrets.DO_SPACES_ACCESS_KEY }}
-          DO_SPACES_SECRET_KEY=${{ secrets.DO_SPACES_SECRET_KEY }}
-          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-          VLANDIVIR_2025_WEBHOOK_URL=${{ secrets.VLANDIVIR_2025_WEBHOOK_URL }}
-          NOTE_API_KEY=${{ secrets.NOTE_API_KEY }}
-          MAP_API_KEY=${{ secrets.MAP_API_KEY }}
-          MCP_API_KEY=${{ secrets.MCP_API_KEY }}
-          EMAIL_ACCOUNTS=${{ secrets.EMAIL_ACCOUNTS }}
-          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
-          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-          ALLOWED_GOOGLE_EMAILS=${{ secrets.ALLOWED_GOOGLE_EMAILS }}
-          TELEGRAM_OWNER_CHAT_ID=${{ secrets.TELEGRAM_OWNER_CHAT_ID }}
-          TELEGRAM_CHANNEL_IDS=${{ secrets.TELEGRAM_CHANNEL_IDS }}
-          THREADS_ACCESS_TOKEN=${{ secrets.THREADS_ACCESS_TOKEN }}
 
     - name: Clean up old Docker images
       uses: appleboy/ssh-action@v1.0.3
@@ -106,20 +88,58 @@ jobs:
 
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
+      env:
+        IMAGE_TAG: ${{ steps.tag.outputs.TAG_NAME }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.VLANDIVIR_2025_BOT_TOKEN }}
+        POSTGRES_CONNECTION_STRING: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+        DO_SPACES_ACCESS_KEY: ${{ secrets.DO_SPACES_ACCESS_KEY }}
+        DO_SPACES_SECRET_KEY: ${{ secrets.DO_SPACES_SECRET_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        VLANDIVIR_2025_WEBHOOK_URL: ${{ secrets.VLANDIVIR_2025_WEBHOOK_URL }}
+        NOTE_API_KEY: ${{ secrets.NOTE_API_KEY }}
+        MAP_API_KEY: ${{ secrets.MAP_API_KEY }}
+        MCP_API_KEY: ${{ secrets.MCP_API_KEY }}
+        EMAIL_ACCOUNTS: ${{ secrets.EMAIL_ACCOUNTS }}
+        GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+        ALLOWED_GOOGLE_EMAILS: ${{ secrets.ALLOWED_GOOGLE_EMAILS }}
+        TELEGRAM_OWNER_CHAT_ID: ${{ secrets.TELEGRAM_OWNER_CHAT_ID }}
+        TELEGRAM_CHANNEL_IDS: ${{ secrets.TELEGRAM_CHANNEL_IDS }}
+        THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
       with:
         host: ${{ secrets.DIGITAL_OCEAN_IP }}
         username: root
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         command_timeout: 10m
+        envs: IMAGE_TAG,TELEGRAM_BOT_TOKEN,POSTGRES_CONNECTION_STRING,DO_SPACES_ACCESS_KEY,DO_SPACES_SECRET_KEY,OPENAI_API_KEY,VLANDIVIR_2025_WEBHOOK_URL,NOTE_API_KEY,MAP_API_KEY,MCP_API_KEY,EMAIL_ACCOUNTS,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,SESSION_SECRET,ALLOWED_GOOGLE_EMAILS,TELEGRAM_OWNER_CHAT_ID,TELEGRAM_CHANNEL_IDS,THREADS_ACCESS_TOKEN
         script: |
-          docker pull registry.digitalocean.com/vlandivir-main/vlandivir-2025:${{ steps.tag.outputs.TAG_NAME }}
+          docker pull registry.digitalocean.com/vlandivir-main/vlandivir-2025:"$IMAGE_TAG"
           docker stop vlandivir-2025 || true
           docker rm vlandivir-2025 || true
-          docker run -d -p 443:443 -e ENVIRONMENT=PROD \
+          docker run -d -p 443:443 --restart unless-stopped \
+            --name vlandivir-2025 \
+            -e ENVIRONMENT=PROD \
+            -e TAG_NAME="$IMAGE_TAG" \
+            -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+            -e POSTGRES_CONNECTION_STRING="$POSTGRES_CONNECTION_STRING" \
+            -e DO_SPACES_ACCESS_KEY="$DO_SPACES_ACCESS_KEY" \
+            -e DO_SPACES_SECRET_KEY="$DO_SPACES_SECRET_KEY" \
+            -e OPENAI_API_KEY="$OPENAI_API_KEY" \
+            -e VLANDIVIR_2025_WEBHOOK_URL="$VLANDIVIR_2025_WEBHOOK_URL" \
+            -e NOTE_API_KEY="$NOTE_API_KEY" \
+            -e MAP_API_KEY="$MAP_API_KEY" \
+            -e MCP_API_KEY="$MCP_API_KEY" \
+            -e EMAIL_ACCOUNTS="$EMAIL_ACCOUNTS" \
+            -e GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+            -e GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+            -e SESSION_SECRET="$SESSION_SECRET" \
+            -e ALLOWED_GOOGLE_EMAILS="$ALLOWED_GOOGLE_EMAILS" \
+            -e TELEGRAM_OWNER_CHAT_ID="$TELEGRAM_OWNER_CHAT_ID" \
+            -e TELEGRAM_CHANNEL_IDS="$TELEGRAM_CHANNEL_IDS" \
+            -e THREADS_ACCESS_TOKEN="$THREADS_ACCESS_TOKEN" \
             -e YTDLP_COOKIES_FILE=/usr/src/app/.secret/cookies/instagram-cookies.txt \
-            --restart unless-stopped \
             -v /etc/letsencrypt/live/vlandivir.com/fullchain.pem:/usr/src/app/.secret/fullchain.pem:ro \
             -v /etc/letsencrypt/live/vlandivir.com/privkey.pem:/usr/src/app/.secret/privkey.pem:ro \
             -v /root/secrets:/usr/src/app/.secret/cookies \
-            --name vlandivir-2025 \
-            registry.digitalocean.com/vlandivir-main/vlandivir-2025:${{ steps.tag.outputs.TAG_NAME }}
+            registry.digitalocean.com/vlandivir-main/vlandivir-2025:"$IMAGE_TAG"
