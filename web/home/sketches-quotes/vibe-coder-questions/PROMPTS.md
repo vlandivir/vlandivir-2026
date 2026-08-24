@@ -26,3 +26,7 @@ Preserve the exact square composition, character identity, anatomy, stool, quest
 ## Cloth doll nose (v2)
 
 Generated on 2026-08-24 as a precise face-only edit. A small rounded stuffed-cloth nose, inspired by the original witch doll reference, is placed naturally between and slightly below the eyes. It uses the same beige face fabric, a subtle outline, and a soft shadow underneath; it is deliberately not realistic, pointed, triangular, button-like, or dark-filled. The entire square composition and all other character and scene details remain unchanged. The revised pair is `cyber-warlock-free-coding-help-color-v2.png` and `cyber-warlock-free-coding-help-bw-v2.png`.
+
+## Smaller cloth doll nose (v3)
+
+Generated on 2026-08-24 as a second nose-only edit. The rounded stuffed-cloth nose is reduced to roughly sixty-five percent of its v2 width, height, and projection while retaining the same fabric, position, highlight, and soft shadow. It remains visible and three-dimensional but is no longer visually prominent. Every other element remains unchanged. The revised pair is `cyber-warlock-free-coding-help-color-v3.png` and `cyber-warlock-free-coding-help-bw-v3.png`.
