@@ -26,3 +26,7 @@ Preserve the exact composition and geometry, especially both hands, the horizont
 ## Simplified composition (v2)
 
 Generated on 2026-08-24 as a focused revision. The dense wall of rejected attempts is reduced to a small, widely spaced set with more cream-paper breathing room. Every visible identity document receives an anonymous head-and-shoulders silhouette without personal data. The successful horizontal phone contains one large crisp centered silhouette, while failed captures remain tiny, blurred, cropped, or off-center. The boy's head and upper torso turn slightly toward the viewer, revealing one complete eye, cheek, stitched nose, and part of the smile while his attention remains on the phone. The revised pair is `cyber-warlock-camera-color-v2.png` and `cyber-warlock-camera-bw-v2.png`.
+
+## Young-adult whole-body turn (v3)
+
+Generated on 2026-08-24 after correcting the childlike face and isolated head turn. The pelvis, bent knees, torso, coat front, shoulders, neck, and head rotate together into a coherent three-quarter pose. Both arms remain naturally connected while holding the horizontal phone. The fabric face is slightly longer and narrower, with a smaller eye, straight stitched brow, defined stitched nose, restrained half-smile, subtle cheek seam, and a tired focused expression. The character remains a handmade rag doll but reads as a young adult rather than a chibi child. The revised pair is `cyber-warlock-camera-color-v3.png` and `cyber-warlock-camera-bw-v3.png`.
