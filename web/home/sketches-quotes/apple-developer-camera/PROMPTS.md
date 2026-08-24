@@ -30,3 +30,7 @@ Generated on 2026-08-24 as a focused revision. The dense wall of rejected attemp
 ## Young-adult whole-body turn (v3)
 
 Generated on 2026-08-24 after correcting the childlike face and isolated head turn. The pelvis, bent knees, torso, coat front, shoulders, neck, and head rotate together into a coherent three-quarter pose. Both arms remain naturally connected while holding the horizontal phone. The fabric face is slightly longer and narrower, with a smaller eye, straight stitched brow, defined stitched nose, restrained half-smile, subtle cheek seam, and a tired focused expression. The character remains a handmade rag doll but reads as a young adult rather than a chibi child. The revised pair is `cyber-warlock-camera-color-v3.png` and `cyber-warlock-camera-bw-v3.png`.
+
+## Natural rear-side pose (v4)
+
+Generated on 2026-08-24 after returning to the more doll-like v2 character. The viewer sits behind and slightly left of the hero; about seventy percent of his back is visible and the face appears only in near profile. The entire body points toward the phone, with no posing or eye contact. The horizontal screen is raised and tilted toward the hero so it is clearly readable along his gaze while remaining strongly foreshortened to us. Both legs are rebuilt into a stable cross-legged seated pose with outward knees and naturally crossed ankles. The revised pair is `cyber-warlock-camera-color-v4.png` and `cyber-warlock-camera-bw-v4.png`.
