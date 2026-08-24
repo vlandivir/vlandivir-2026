@@ -34,3 +34,7 @@ Generated on 2026-08-24 after correcting the childlike face and isolated head tu
 ## Natural rear-side pose (v4)
 
 Generated on 2026-08-24 after returning to the more doll-like v2 character. The viewer sits behind and slightly left of the hero; about seventy percent of his back is visible and the face appears only in near profile. The entire body points toward the phone, with no posing or eye contact. The horizontal screen is raised and tilted toward the hero so it is clearly readable along his gaze while remaining strongly foreshortened to us. Both legs are rebuilt into a stable cross-legged seated pose with outward knees and naturally crossed ankles. The revised pair is `cyber-warlock-camera-color-v4.png` and `cyber-warlock-camera-bw-v4.png`.
+
+## Restored kneeling legs and boots (v5)
+
+Generated on 2026-08-24 after rebuilding only the body below the hips. The character kneels and sits on both heels, with thighs leading forward to separate knees and parallel shins folding backward. Two distinct oversized black patchwork boots are clearly visible and attached: the left boot at the lower left and the right boot at the lower center, both with rounded toes, stitched soles, and cyan laces in the color version. Everything above the hips and the surrounding scene remain unchanged. The revised pair is `cyber-warlock-camera-color-v5.png` and `cyber-warlock-camera-bw-v5.png`.
