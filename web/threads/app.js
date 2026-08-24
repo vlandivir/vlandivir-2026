@@ -2,14 +2,6 @@
   const API = '/threads-api';
   const LIMIT = 500;
   const OWN_USERNAME = 'vlandivir';
-  const SUGGESTED_TOPICS = [
-    'AI',
-    'Technology',
-    'Design',
-    'Photography',
-    'Startups',
-    'Music',
-  ];
 
   const COLUMNS = 6;
 
@@ -396,7 +388,6 @@
     const list = el('image-list');
     const images = post.images || [];
     list.replaceChildren();
-    el('images-field').hidden = false;
     el('file-btn').hidden = false;
     for (const image of images) {
       const chip = document.createElement('div');
@@ -653,10 +644,8 @@
     el('draft-text').disabled = false;
     el('destination-diary').checked = post.destination === 'diary';
     el('ghost').checked = Boolean(post.ghost);
-    el('topic').value = post.topic || '';
     el('destination-diary').disabled = false;
     el('ghost').disabled = false;
-    el('topic').disabled = false;
     el('poll-on').disabled = (post.images || []).length > 0;
     el('image-input').disabled = state.pollOn;
     state.pollOn = (post.poll || []).filter(Boolean).length >= 2;
@@ -717,7 +706,6 @@
       text: el('draft-text').value,
       destination: el('destination-diary').checked ? 'diary' : 'threads',
       ghost: el('ghost').checked,
-      topic: el('topic').value,
       poll: collectPoll(),
     };
   }
@@ -934,22 +922,6 @@
     }
   }
 
-  function renderTopicPills() {
-    const box = el('topic-pills');
-    box.replaceChildren();
-    for (const topic of SUGGESTED_TOPICS) {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'ghost-btn';
-      button.textContent = topic;
-      button.addEventListener('click', () => {
-        el('topic').value = topic;
-        markDirty();
-      });
-      box.append(button);
-    }
-  }
-
   el('new-draft').addEventListener('click', () => {
     void newDraft().catch((error) => setStatus(error.message, true));
   });
@@ -968,7 +940,6 @@
   el('draft-text').addEventListener('input', markDirty);
   el('destination-diary').addEventListener('change', markDirty);
   el('ghost').addEventListener('change', markDirty);
-  el('topic').addEventListener('input', markDirty);
   el('poll-on').addEventListener('change', () => {
     const post = selected();
     if (!post) return;
@@ -989,7 +960,6 @@
     event.returnValue = '';
   });
 
-  renderTopicPills();
   updateActionButtons();
   void loadPosts().catch((error) => setStatus(error.message, true));
 })();
