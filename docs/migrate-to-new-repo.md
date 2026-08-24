@@ -109,7 +109,7 @@ rsync -a --delete \
 
 Прод собирается из GitHub Actions secrets. Их **история git не содержит**, но в новом репо их нет, пока не перенесёшь.
 
-Сверить `gh secret list --repo vlandivir/vlandivir-2025` с `.github/workflows/deploy-production.yml` и `Dockerfile` ARG. Как минимум:
+Сверить `gh secret list --repo vlandivir/vlandivir-2025` с `docker run -e` в `.github/workflows/deploy-production.yml`. Как минимум:
 
 - `VLANDIVIR_2025_BOT_TOKEN` → в контейнере это `TELEGRAM_BOT_TOKEN` (имя секрета и имя env **разные**)
 - `POSTGRES_CONNECTION_STRING`

@@ -100,6 +100,6 @@ Controllers sit mostly at `src/*.controller.ts` (flat), with folders for `auth`,
 
 1. Feature branch, not `main` (`.cursor/rules/work-on-feature-branch.mdc`).
 2. Web CSS: tokens only (`.cursor/rules/web-design-system.mdc`).
-3. New env vars in **four** places: `.env`, `Dockerfile` ARG/ENV, `deploy-production.yml` build-args, GitHub secret.
+3. New env vars in **three** places: `.env`, `docker run -e` in `deploy-production.yml`, GitHub secret. Do not put secrets in `Dockerfile` `ARG`/`ENV`.
 4. No Puppeteer unless the user asks.
 5. Shared Postgres with production — no destructive Prisma commands.
