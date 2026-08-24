@@ -4,6 +4,7 @@
   const OWN_USERNAME = 'vlandivir';
 
   const COLUMNS = 6;
+  const SENTENCE_SPLIT = /(?<=[.!?…])\s+/;
 
   const state = {
     posts: [],
@@ -25,6 +26,90 @@
   };
 
   const el = (id) => document.getElementById(id);
+
+  function packChunks(parts, limit, joiner) {
+    const chunks = [];
+    let current = '';
+    for (const part of parts) {
+      const piece = part.trim();
+      if (!piece) continue;
+      const candidate = current ? `${current}${joiner}${piece}` : piece;
+      if (candidate.length <= limit) {
+        current = candidate;
+        continue;
+      }
+      if (current) chunks.push(current);
+      if (piece.length <= limit) {
+        current = piece;
+      } else {
+        chunks.push(...splitOversized(piece, limit));
+        current = '';
+      }
+    }
+    if (current) chunks.push(current);
+    return chunks;
+  }
+
+  function splitByLength(text, limit) {
+    if (!text) return [''];
+    const parts = [];
+    for (let i = 0; i < text.length; i += limit) {
+      parts.push(text.slice(i, i + limit));
+    }
+    return parts;
+  }
+
+  function splitOversized(text, limit) {
+    if (text.length <= limit) return [text];
+    const lines = text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (lines.length > 1) {
+      const packed = packChunks(lines, limit, '\n');
+      if (packed.length && Math.max(...packed.map((part) => part.length)) <= limit) {
+        return packed;
+      }
+    }
+    const sentences = text
+      .split(SENTENCE_SPLIT)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (sentences.length > 1) {
+      const packed = packChunks(sentences, limit, ' ');
+      if (packed.length && Math.max(...packed.map((part) => part.length)) <= limit) {
+        return packed;
+      }
+    }
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length > 1) {
+      const packed = packChunks(words, limit, ' ');
+      if (packed.length && Math.max(...packed.map((part) => part.length)) <= limit) {
+        return packed;
+      }
+    }
+    return splitByLength(text, limit);
+  }
+
+  function splitIntoPosts(text, limit = LIMIT) {
+    const trimmed = text.trim();
+    if (!trimmed) return [];
+    if (trimmed.length <= limit) return [trimmed];
+    const paragraphs = trimmed
+      .split(/\n\s*\n/)
+      .map((block) => block.trim())
+      .filter(Boolean);
+    return packChunks(paragraphs, limit, '\n\n');
+  }
+
+  function ruPlural(n, one, few, many) {
+    const abs = Math.abs(n) % 100;
+    const d = abs % 10;
+    if (abs > 10 && abs < 20) return many;
+    if (d === 1) return one;
+    if (d >= 2 && d <= 4) return few;
+    return many;
+  }
 
   async function fetchJson(url, options) {
     const response = await fetch(url, options);
@@ -663,14 +748,72 @@
     updateActionButtons();
   }
 
+  function syncDraftMirror() {
+    const area = el('draft-text');
+    const mirror = el('draft-mirror');
+    mirror.scrollTop = area.scrollTop;
+    mirror.scrollLeft = area.scrollLeft;
+  }
+
+  function fitDraftArea() {
+    const area = el('draft-text');
+    area.style.height = 'auto';
+    area.style.height = `${Math.min(Math.max(area.scrollHeight, 256), 560)}px`;
+  }
+
+  function renderDraftSplits(raw) {
+    const wrap = el('draft-wrap');
+    const mirror = el('draft-mirror');
+    const posts = splitIntoPosts(raw);
+    if (posts.length <= 1) {
+      wrap.classList.remove('is-split');
+      mirror.replaceChildren();
+      el('draft-text').style.height = '';
+      return { count: posts.length, sizes: posts.map((post) => post.length) };
+    }
+    wrap.classList.add('is-split');
+    const frag = document.createDocumentFragment();
+    let cursor = 0;
+    const sizes = [];
+    posts.forEach((post, index) => {
+      let start = raw.indexOf(post, cursor);
+      if (start === -1) start = cursor;
+      if (start > cursor) frag.append(raw.slice(cursor, start));
+      const slice = document.createElement('span');
+      slice.className = index % 2 ? 'draft-slice is-alt' : 'draft-slice';
+      slice.textContent = raw.slice(start, start + post.length);
+      frag.append(slice);
+      sizes.push(post.length);
+      if (index < posts.length - 1) {
+        const cut = document.createElement('span');
+        cut.className = 'draft-cut';
+        cut.dataset.n = String(index + 2);
+        cut.textContent = '\u200b';
+        frag.append(cut);
+      }
+      cursor = start + post.length;
+    });
+    if (cursor < raw.length) frag.append(raw.slice(cursor));
+    mirror.replaceChildren(frag, '\n');
+    fitDraftArea();
+    syncDraftMirror();
+    return { count: posts.length, sizes };
+  }
+
   function updateCharCount() {
-    const text = el('draft-text').value.trim();
+    const raw = el('draft-text').value;
+    const text = raw.trim();
     const count = el('char-count');
-    count.textContent =
-      text.length <= LIMIT
-        ? `${text.length} / ${LIMIT}`
-        : `${text.length} символов · тред, первый пост до ${LIMIT}`;
-    count.dataset.over = text.length > LIMIT ? 'true' : 'false';
+    const parts = renderDraftSplits(raw);
+    if (text.length <= LIMIT) {
+      count.textContent = `${text.length} / ${LIMIT}`;
+      count.dataset.over = 'false';
+      return;
+    }
+    const n = Math.max(parts.count, 2);
+    const sizes = parts.sizes.length ? ` · ${parts.sizes.join(' + ')}` : '';
+    count.textContent = `${text.length} · ${n} ${ruPlural(n, 'пост', 'поста', 'постов')}${sizes}`;
+    count.dataset.over = 'false';
   }
 
   function updateActionButtons() {
@@ -937,7 +1080,12 @@
   el('refresh-insights').addEventListener('click', () => {
     void refreshInsights();
   });
-  el('draft-text').addEventListener('input', markDirty);
+  el('draft-text').addEventListener('input', () => {
+    updateCharCount();
+    markDirty();
+  });
+  el('draft-text').addEventListener('scroll', syncDraftMirror);
+  new ResizeObserver(syncDraftMirror).observe(el('draft-text'));
   el('destination-diary').addEventListener('change', markDirty);
   el('ghost').addEventListener('change', markDirty);
   el('poll-on').addEventListener('change', () => {
