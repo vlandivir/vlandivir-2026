@@ -3,7 +3,6 @@ package com.vlandivir.gpstracker.ui
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,6 +15,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -68,6 +70,7 @@ fun MapHomeScreen(recorder: LocationRecorder) {
     val points by recorder.pointCount.collectAsStateWithLifecycle()
     val error by recorder.lastError.collectAsStateWithLifecycle()
     val tracks by recorder.tracks.collectAsStateWithLifecycle()
+    val preview by recorder.previewLocation.collectAsStateWithLifecycle()
 
     var showTracks by remember { mutableStateOf(false) }
     var followUser by remember { mutableStateOf(false) }
@@ -78,7 +81,10 @@ fun MapHomeScreen(recorder: LocationRecorder) {
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) permissionTick++
+            if (event == Lifecycle.Event.ON_RESUME) {
+                permissionTick++
+                if (recorder.hasFineLocation) recorder.fetchLastLocation()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -86,9 +92,13 @@ fun MapHomeScreen(recorder: LocationRecorder) {
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
-    ) { result ->
-        if (result[Manifest.permission.ACCESS_FINE_LOCATION] == true) {
+    ) {
+        permissionTick++
+        if (recorder.hasFineLocation) {
+            recorder.fetchLastLocation()
             recorder.start()
+        } else {
+            recorder.showPermissionError()
         }
     }
 
@@ -97,8 +107,11 @@ fun MapHomeScreen(recorder: LocationRecorder) {
         selectedLocations = emptyList()
         selectedVariant = LocationRecorder.ShareVariant.Original
         val needed = buildList {
-            if (!recorder.hasFineLocation) add(Manifest.permission.ACCESS_FINE_LOCATION)
-            if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+            if (!recorder.hasFineLocation) {
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
+            if (!recorder.hasNotifications) add(Manifest.permission.POST_NOTIFICATIONS)
         }
         if (needed.isNotEmpty()) {
             permissionLauncher.launch(needed.toTypedArray())
@@ -110,6 +123,7 @@ fun MapHomeScreen(recorder: LocationRecorder) {
     Box(modifier = Modifier.fillMaxSize()) {
         OsmMapView(
             followUser = followUser && selectedTrack == null,
+            previewLocation = preview,
             liveLocations = live,
             selectedLocations = selectedLocations,
             selectedTrackId = selectedTrack?.id,
@@ -120,7 +134,9 @@ fun MapHomeScreen(recorder: LocationRecorder) {
         Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 48.dp, start = 16.dp, end = 16.dp)
+                .zIndex(1f)
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
@@ -136,6 +152,7 @@ fun MapHomeScreen(recorder: LocationRecorder) {
                     selectedTrack = null
                     selectedLocations = emptyList()
                     selectedVariant = LocationRecorder.ShareVariant.Original
+                    recorder.fetchLastLocation()
                 },
                 colors = IconButtonDefaults.iconButtonColors(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
@@ -151,7 +168,9 @@ fun MapHomeScreen(recorder: LocationRecorder) {
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 28.dp),
+                .zIndex(1f)
+                .navigationBarsPadding()
+                .padding(bottom = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {

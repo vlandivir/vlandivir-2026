@@ -1,5 +1,6 @@
 package com.vlandivir.gpstracker.ui
 
+import android.view.MotionEvent
 import android.view.ViewGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -9,9 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.vlandivir.gpstracker.gpx.GeoFix
-import org.osmdroid.events.MapListener
-import org.osmdroid.events.ScrollEvent
-import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
@@ -32,6 +30,7 @@ private val OsmTiles = XYTileSource(
 @Composable
 fun OsmMapView(
     followUser: Boolean,
+    previewLocation: GeoFix?,
     liveLocations: List<GeoFix>,
     selectedLocations: List<GeoFix>,
     selectedTrackId: String?,
@@ -46,8 +45,8 @@ fun OsmMapView(
             minZoomLevel = 3.0
             maxZoomLevel = 19.0
             isTilesScaledToDpi = true
-            controller.setZoom(12.0)
-            controller.setCenter(GeoPoint(48.2082, 16.3738))
+            controller.setZoom(5.0)
+            controller.setCenter(GeoPoint(44.8, 20.5))
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -66,18 +65,15 @@ fun OsmMapView(
         mapView.overlays.add(myLocation)
         mapView.overlays.add(liveOverlay)
         mapView.overlays.add(selectedOverlay)
-        val listener = object : MapListener {
-            override fun onScroll(event: ScrollEvent?): Boolean {
-                if (event != null) onUserPan()
-                return false
+        mapView.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_MOVE && event.pointerCount >= 1) {
+                onUserPan()
             }
-
-            override fun onZoom(event: ZoomEvent?): Boolean = false
+            false
         }
-        mapView.addMapListener(listener)
         mapView.onResume()
         onDispose {
-            mapView.removeMapListener(listener)
+            mapView.setOnTouchListener(null)
             myLocation.disableMyLocation()
             myLocation.disableFollowLocation()
             mapView.onPause()
@@ -85,8 +81,18 @@ fun OsmMapView(
         }
     }
 
-    LaunchedEffect(followUser) {
-        if (followUser) myLocation.enableFollowLocation() else myLocation.disableFollowLocation()
+    LaunchedEffect(followUser, previewLocation) {
+        if (!followUser) {
+            myLocation.disableFollowLocation()
+            return@LaunchedEffect
+        }
+        myLocation.enableFollowLocation()
+        val overlayPoint = myLocation.myLocation
+        val target = previewLocation?.toGeoPoint()
+            ?: overlayPoint?.let { GeoPoint(it.latitude, it.longitude) }
+        if (target != null) {
+            mapView.controller.animateTo(target, 16.0, 400L)
+        }
     }
 
     LaunchedEffect(liveLocations) {

@@ -79,7 +79,7 @@ Controllers sit mostly at `src/*.controller.ts` (flat), with folders for `auth`,
 
 - **telegram-app** — Vite `base` must match how Nest serves `/gtd` and `/mini-app`. Root scripts: `telegram-app:dev` / `telegram-app:build`.
 - **desktop/trip-montage** — own `package.json` + `src-tauri`. Talks to prod (or localhost) with Google JWT.
-- **mobile/** — iOS: open the `.xcodeproj`. Android: open `mobile/gps-tracker-android` in Android Studio. Do not run from Nest.
+- **mobile/** — iOS: open the `.xcodeproj`. Android: open `mobile/gps-tracker-android` in Android Studio, or sideload the APK from the rolling GitHub Release `gps-tracker-android`. Do not run from Nest.
 
 ## Do not commit / do not copy to a new repo
 

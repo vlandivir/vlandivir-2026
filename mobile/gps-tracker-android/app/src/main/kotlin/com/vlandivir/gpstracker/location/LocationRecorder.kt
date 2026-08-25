@@ -5,6 +5,9 @@ import android.app.Application
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
+import android.os.Build
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -71,16 +74,32 @@ class LocationRecorder(
     private var lastFix: GeoFix? = null
     private var pointsSinceFlush = 0
 
+    private val _previewLocation = MutableStateFlow<GeoFix?>(null)
+    val previewLocation: StateFlow<GeoFix?> = _previewLocation.asStateFlow()
+
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
             for (location in result.locations) {
-                append(location.toFix())
+                val fix = location.toFix()
+                _previewLocation.value = fix
+                append(fix)
             }
         }
     }
 
+    private val managerListener = LocationListener { location ->
+        val fix = location.toFix()
+        _previewLocation.value = fix
+        append(fix)
+    }
+
     val hasFineLocation: Boolean
         get() = ContextCompat.checkSelfPermission(app, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+
+    val hasNotifications: Boolean
+        get() = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(app, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
 
     val hasBackgroundLocation: Boolean
@@ -148,8 +167,16 @@ class LocationRecorder(
         pointsSinceFlush = 0
         _activeTrack.value = track
         _state.value = State.Recording
-        beginLocationUpdates()
-        startRecordingService()
+        try {
+            beginLocationUpdates()
+            startRecordingService()
+        } catch (error: Exception) {
+            _lastError.value = error.message ?: "Could not start recording"
+            endLocationUpdates()
+            stopRecordingService()
+            resetLive()
+            return
+        }
         flushGpx()
     }
 
@@ -253,6 +280,21 @@ class LocationRecorder(
         }
     }
 
+    fun showPermissionError() {
+        _lastError.value = "Allow location access, then tap Start again."
+    }
+
+    fun fetchLastLocation() {
+        if (!hasFineLocation) return
+        fused.lastLocation
+            .addOnSuccessListener { location ->
+                if (location != null) _previewLocation.value = location.toFix()
+            }
+            .addOnFailureListener { error ->
+                _lastError.value = error.message
+            }
+    }
+
     private fun beginLocationUpdates() {
         if (!hasFineLocation) return
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
@@ -261,10 +303,47 @@ class LocationRecorder(
             .setWaitForAccurateLocation(false)
             .build()
         fused.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
+            .addOnFailureListener { error ->
+                _lastError.value = "Fused location failed, using GPS: ${error.message}"
+                startLocationManagerFallback()
+            }
+        fused.lastLocation.addOnSuccessListener { location ->
+            if (location != null) _previewLocation.value = location.toFix()
+        }
+    }
+
+    private fun startLocationManagerFallback() {
+        val manager = app.getSystemService(LocationManager::class.java) ?: return
+        try {
+            if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                manager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    1000L,
+                    0f,
+                    managerListener,
+                    Looper.getMainLooper(),
+                )
+            }
+            if (manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                manager.requestLocationUpdates(
+                    LocationManager.NETWORK_PROVIDER,
+                    2000L,
+                    0f,
+                    managerListener,
+                    Looper.getMainLooper(),
+                )
+            }
+            manager.getLastKnownLocation(LocationManager.GPS_PROVIDER)?.let {
+                _previewLocation.value = it.toFix()
+            }
+        } catch (error: SecurityException) {
+            _lastError.value = error.message
+        }
     }
 
     private fun endLocationUpdates() {
         fused.removeLocationUpdates(locationCallback)
+        app.getSystemService(LocationManager::class.java)?.removeUpdates(managerListener)
     }
 
     private fun startRecordingService() {

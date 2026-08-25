@@ -13,9 +13,22 @@ android {
         applicationId = "com.vlandivir.gpstracker"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        val ciBuild = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+        versionCode = ciBuild ?: 1
+        versionName = if (ciBuild != null) "1.$ciBuild" else "1.0-debug"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    val keystoreFile = System.getenv("ANDROID_KEYSTORE_PATH")?.let { file(it) }
+    if (keystoreFile != null && keystoreFile.exists()) {
+        signingConfigs {
+            create("ci") {
+                storeFile = keystoreFile
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: "gps-tracker"
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -25,6 +38,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            signingConfigs.findByName("ci")?.let { signingConfig = it }
         }
     }
 

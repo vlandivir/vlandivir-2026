@@ -38,6 +38,16 @@ cd mobile/gps-tracker-android
 
 Application id is `com.vlandivir.gpstracker`.
 
+## Download (no USB)
+
+On every push to `main` that touches this folder, GitHub Actions builds a signed APK and replaces the rolling release:
+
+**https://github.com/vlandivir/vlandivir-2026/releases/download/gps-tracker-android/gps-tracker.apk**
+
+On the phone: open the link → install. Allow unknown apps for the browser. The first GitHub build will not overlay a USB/debug install — uninstall **GPS Track** once, then use the link for updates.
+
+Manual rebuild: Actions → **Android GPS Track APK** → Run workflow.
+
 On first Start, Android asks for location (While using). Background / “Allow all the time” is a second prompt; the map chip opens Settings if it is still Off.
 
 ## Notes
