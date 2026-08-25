@@ -24,6 +24,7 @@ import {
   pollAttachmentJson,
   pollDiaryLine,
   splitIntoPosts,
+  threadTextMatchesDraft,
 } from './threads-text';
 
 const THREADS_GRAPH = 'https://graph.threads.net/v1.0';
@@ -226,20 +227,60 @@ export class ThreadsService {
     let parts = 0;
 
     if (post.destination === 'threads') {
-      const posted = await this.publishToThreads({
-        text,
-        ghost: post.ghost,
-        imageUrls,
-        topicTag: post.topic || '',
-        pollOptions: post.poll,
+      const token = this.requireToken();
+      try {
+        const posted = await this.publishToThreads({
+          text,
+          ghost: post.ghost,
+          imageUrls,
+          topicTag: post.topic || '',
+          pollOptions: post.poll,
+        });
+        permalink = posted.permalink;
+        mediaId = posted.id;
+        parts = posted.parts;
+      } catch (error) {
+        let existing: Awaited<
+          ReturnType<ThreadsService['findRecentThreadByText']>
+        > = null;
+        try {
+          existing = await this.findRecentThreadByText(token, text, id);
+        } catch (lookupError) {
+          this.logger.error(
+            `Lookup after failed publish for draft ${id}`,
+            lookupError instanceof Error ? lookupError.stack : lookupError,
+          );
+        }
+        if (!existing) throw error;
+        this.logger.warn(
+          `Publish API failed for draft ${id}; adopting live Threads post ${existing.id}`,
+        );
+        permalink = existing.permalink;
+        mediaId = existing.id;
+        parts = splitIntoPosts(text).length || 1;
+      }
+
+      await this.prisma.threadsPost.update({
+        where: { id },
+        data: {
+          status: 'published',
+          url: permalink,
+          mediaId,
+          publishedAt: new Date(),
+        },
       });
-      permalink = posted.permalink;
-      mediaId = posted.id;
-      parts = posted.parts;
+
+      await this.ensureDiaryCopy(await this.requirePost(id), permalink);
+
+      const fresh = await this.requirePost(id);
+      return {
+        ...this.serialize(fresh),
+        parts,
+        diaryNoteId: fresh.diaryNoteId,
+      };
     }
 
     const diary = await this.copyToDiary(post, permalink);
-
     const updated = await this.prisma.threadsPost.update({
       where: { id },
       data: {
@@ -273,7 +314,6 @@ export class ThreadsService {
     const poll = insights.poll;
     delete insights.poll;
     const prev = (post.stats as ThreadsStats | null) || null;
-    const prevReplies = prev?.replies;
     const nextStats: ThreadsStats = {
       views: insights.views,
       likes: insights.likes,
@@ -283,24 +323,21 @@ export class ThreadsService {
       shares: insights.shares,
       updated: new Date().toISOString(),
     };
-    const repliesChanged =
-      typeof nextStats.replies === 'number' &&
-      nextStats.replies !== prevReplies &&
-      (nextStats.replies > 0 ||
-        (typeof prevReplies === 'number' && prevReplies > 0));
-    const shouldFetchReplies =
-      repliesChanged ||
-      (typeof nextStats.replies === 'number' &&
-        nextStats.replies > 0 &&
-        !post.repliesJson);
 
     let repliesJson: Prisma.InputJsonValue | typeof post.repliesJson =
       post.repliesJson;
-    if (shouldFetchReplies) {
+    let conversationUpdated = false;
+    try {
       repliesJson = (await this.dumpConversation(
         token,
         mediaId,
       )) as Prisma.InputJsonValue;
+      conversationUpdated = true;
+    } catch (error) {
+      this.logger.error(
+        `Conversation dump failed for Threads media ${mediaId}`,
+        error instanceof Error ? error.stack : error,
+      );
     }
 
     const updated = await this.prisma.threadsPost.update({
@@ -324,8 +361,52 @@ export class ThreadsService {
     });
     return {
       ...this.serialize(updated),
-      conversationUpdated: shouldFetchReplies,
+      conversationUpdated,
     };
+  }
+
+  async reconcileOrphanDrafts() {
+    const drafts = await this.prisma.threadsPost.findMany({
+      where: { status: 'draft', destination: 'threads' },
+      include: postInclude,
+      orderBy: { id: 'desc' },
+    });
+    if (!drafts.length) return [];
+    const token = this.requireToken();
+    const adopted: ReturnType<ThreadsService['serialize']>[] = [];
+    for (const draft of drafts) {
+      const text = draft.text.trim();
+      if (!text) continue;
+      let found: Awaited<ReturnType<ThreadsService['findRecentThreadByText']>>;
+      try {
+        found = await this.findRecentThreadByText(token, text, draft.id);
+      } catch (error) {
+        this.logger.error(
+          `Reconcile lookup failed for draft ${draft.id}`,
+          error instanceof Error ? error.stack : error,
+        );
+        continue;
+      }
+      if (!found) continue;
+      const liveAt = found.timestamp;
+      const publishedAt =
+        liveAt && !Number.isNaN(liveAt.getTime()) ? liveAt : new Date();
+      await this.prisma.threadsPost.update({
+        where: { id: draft.id },
+        data: {
+          status: 'published',
+          url: found.permalink,
+          mediaId: found.id,
+          publishedAt,
+        },
+      });
+      this.logger.log(
+        `Adopted draft ${draft.id} as published Threads post ${found.id}`,
+      );
+      adopted.push(this.serialize(await this.requirePost(draft.id)));
+    }
+    await this.backfillMissingDiaryCopies();
+    return Promise.all(adopted.map((post) => this.getPost(post.id)));
   }
 
   serialize(post: PostWithImages) {
@@ -466,10 +547,17 @@ export class ThreadsService {
       pollOptions: input.pollOptions,
     });
     const posts = [first];
-    for (const part of rest) {
-      await this.sleep(1000);
-      posts.push(
-        await this.createAndPublish(token, part, { replyToId: first.id }),
+    try {
+      for (const part of rest) {
+        await this.sleep(1000);
+        posts.push(
+          await this.createAndPublish(token, part, { replyToId: first.id }),
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Follow-up Threads posts failed after root ${first.id} (${posts.length}/${parts.length} parts live)`,
+        error instanceof Error ? error.stack : error,
       );
     }
     return {
@@ -747,6 +835,74 @@ export class ThreadsService {
     return null;
   }
 
+  private async findRecentThreadByText(
+    token: string,
+    text: string,
+    draftId: number,
+  ): Promise<{
+    id: string;
+    permalink: string | null;
+    timestamp: Date | null;
+  } | null> {
+    const draft = await this.prisma.threadsPost.findUnique({
+      where: { id: draftId },
+      select: { createdAt: true },
+    });
+    const createdAt = draft?.createdAt?.getTime() ?? 0;
+    let after = '';
+    for (let i = 0; i < 4; i += 1) {
+      const params: Record<string, string> = {
+        fields: 'id,permalink,text,timestamp,is_reply',
+        limit: '25',
+        access_token: token,
+      };
+      if (after) params.after = after;
+      const payload = await this.graphGet('/me/threads', params);
+      for (const item of payload.data || []) {
+        if (!item || typeof item !== 'object') continue;
+        const row = item as {
+          id?: string;
+          permalink?: string;
+          text?: string;
+          timestamp?: string;
+          is_reply?: boolean | number | string;
+        };
+        if (!row.id) continue;
+        const isReply =
+          row.is_reply === true ||
+          row.is_reply === 1 ||
+          row.is_reply === 'true';
+        if (isReply) continue;
+        if (!threadTextMatchesDraft(String(row.text || ''), text)) continue;
+        const liveAt = row.timestamp ? new Date(row.timestamp) : null;
+        if (
+          liveAt &&
+          !Number.isNaN(liveAt.getTime()) &&
+          createdAt &&
+          liveAt.getTime() < createdAt - 60_000
+        ) {
+          continue;
+        }
+        const taken = await this.prisma.threadsPost.findFirst({
+          where: { mediaId: String(row.id), NOT: { id: draftId } },
+          select: { id: true },
+        });
+        if (taken) continue;
+        return {
+          id: String(row.id),
+          permalink:
+            typeof row.permalink === 'string' ? row.permalink : null,
+          timestamp: liveAt,
+        };
+      }
+      after =
+        (payload.paging as { cursors?: { after?: string } } | undefined)
+          ?.cursors?.after || '';
+      if (!after) break;
+    }
+    return null;
+  }
+
   private async dumpConversation(token: string, mediaId: string) {
     const root = await this.graphGet(`/${mediaId}`, {
       fields: ROOT_FIELDS,
@@ -790,6 +946,41 @@ export class ThreadsService {
     };
   }
 
+  private async backfillMissingDiaryCopies() {
+    const posts = await this.prisma.threadsPost.findMany({
+      where: {
+        status: 'published',
+        destination: 'threads',
+        diaryNoteId: null,
+      },
+      include: postInclude,
+    });
+    for (const post of posts) {
+      await this.ensureDiaryCopy(post, post.url);
+    }
+  }
+
+  private async ensureDiaryCopy(
+    post: PostWithImages,
+    permalink: string | null,
+  ): Promise<number | null> {
+    if (post.diaryNoteId) return post.diaryNoteId;
+    try {
+      const diary = await this.copyToDiary(post, permalink);
+      await this.prisma.threadsPost.update({
+        where: { id: post.id },
+        data: { diaryNoteId: diary.id },
+      });
+      return diary.id;
+    } catch (error) {
+      this.logger.error(
+        `Diary copy failed for Threads post ${post.id}`,
+        error instanceof Error ? error.stack : error,
+      );
+      return null;
+    }
+  }
+
   private async copyToDiary(
     post: PostWithImages,
     permalink: string | null,
@@ -800,7 +991,7 @@ export class ThreadsService {
     const extraUrls = post.images.slice(1).map((image) => image.url);
     if (extraUrls.length) chunks.push(extraUrls.join('\n'));
     const text = chunks.join('\n\n');
-    const noteDate = new Date();
+    const noteDate = post.publishedAt ?? new Date();
     const firstImage = post.images[0];
     const note = await this.prisma.note.create({
       data: {

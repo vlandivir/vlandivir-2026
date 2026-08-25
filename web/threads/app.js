@@ -998,38 +998,60 @@
   }
 
   async function refreshInsights() {
-    const targets = state.posts.filter(
-      (post) => post.status === 'published' && (post.mediaId || post.url),
-    );
-    if (!targets.length) {
-      setStatus('Нет опубликованных постов для обновления');
-      return;
-    }
+    const btn = el('refresh-insights');
+    btn.disabled = true;
     setStatus('Обновляю данные…');
     try {
+      const adopted = await fetchJson(`${API}/reconcile`, { method: 'POST' });
+      if (Array.isArray(adopted)) {
+        for (const post of adopted) replacePost(post);
+      }
+      const targets = state.posts.filter(
+        (post) => post.status === 'published' && (post.mediaId || post.url),
+      );
+      if (!targets.length) {
+        renderList();
+        setStatus(
+          Array.isArray(adopted) && adopted.length
+            ? `Подобрано черновиков в Threads: ${adopted.length}`
+            : 'Нет опубликованных постов для обновления',
+        );
+        return;
+      }
       const fresh = {};
       let freshTotal = 0;
+      let failed = 0;
       for (const post of targets) {
         const before = replyIds(post);
-        const updated = await fetchJson(`${API}/posts/${post.id}/insights`, {
-          method: 'POST',
-        });
-        const added = [...replyIds(updated)].filter((id) => !before.has(id));
-        if (added.length) {
-          fresh[String(updated.id)] = new Set(added);
-          freshTotal += added.length;
+        try {
+          const updated = await fetchJson(`${API}/posts/${post.id}/insights`, {
+            method: 'POST',
+          });
+          const added = [...replyIds(updated)].filter((id) => !before.has(id));
+          if (added.length) {
+            fresh[String(updated.id)] = new Set(added);
+            freshTotal += added.length;
+          }
+          replacePost(updated);
+        } catch {
+          failed += 1;
         }
-        replacePost(updated);
       }
       state.freshReplyIds = fresh;
       renderList();
-      setStatus(
-        freshTotal
-          ? `Данные обновлены · новых ответов: ${freshTotal}`
-          : 'Данные обновлены',
+      const bits = [];
+      if (Array.isArray(adopted) && adopted.length) {
+        bits.push(`подобрано черновиков: ${adopted.length}`);
+      }
+      bits.push(
+        freshTotal ? `новых ответов: ${freshTotal}` : 'данные обновлены',
       );
+      if (failed) bits.push(`ошибок: ${failed}`);
+      setStatus(bits.join(' · '), failed > 0 && failed === targets.length);
     } catch (error) {
       setStatus(error.message, true);
+    } finally {
+      btn.disabled = false;
     }
   }
 
