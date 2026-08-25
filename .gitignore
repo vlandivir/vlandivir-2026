@@ -158,3 +158,9 @@ src/scripts/data/own-reels.json
 
 # Accidental local leftover (never commit)
 --version/
+
+# Android
+mobile/**/.gradle/
+mobile/**/build/
+mobile/**/local.properties
+mobile/**/.idea/

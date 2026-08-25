@@ -16,6 +16,7 @@ Read this first, then [project-overview.md](project-overview.md) only if you nee
 | `desktop/trip-montage/` | Tauri 2 + ffmpeg | CapCut-oriented trip export |
 | `mobile/gtd-ios/` | SwiftUI GTD client | iPhone GTD |
 | `mobile/gps-tracker-ios/` | SwiftUI GPS → GPX, no backend | iPhone tracker |
+| `mobile/gps-tracker-android/` | Kotlin Compose GPS → GPX, no backend | Android tracker |
 | `prisma/` | Schema + migrations | Data model. Apply `migrate deploy` from the laptop **before** shipping code that needs it (`ssh -N vlandivir-db` first) |
 | `docs/` | Living docs | You are here |
 | `assets/fonts/` | Noto Sans for PDF export | `/history pdf` |
@@ -78,7 +79,7 @@ Controllers sit mostly at `src/*.controller.ts` (flat), with folders for `auth`,
 
 - **telegram-app** — Vite `base` must match how Nest serves `/gtd` and `/mini-app`. Root scripts: `telegram-app:dev` / `telegram-app:build`.
 - **desktop/trip-montage** — own `package.json` + `src-tauri`. Talks to prod (or localhost) with Google JWT.
-- **mobile/** — open the `.xcodeproj`; do not run from Nest.
+- **mobile/** — iOS: open the `.xcodeproj`. Android: open `mobile/gps-tracker-android` in Android Studio, or sideload the APK from the rolling GitHub Release `gps-tracker-android`. Do not run from Nest.
 
 ## Do not commit / do not copy to a new repo
 
