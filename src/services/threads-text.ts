@@ -109,6 +109,33 @@ export function splitIntoPosts(
   return packChunks(paragraphs, limit, '\n\n');
 }
 
+const MIN_LIVE_TEXT_MATCH = 24;
+
+export function compactThreadText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/** True when a live Threads root post is the published first part of this draft. */
+export function threadTextMatchesDraft(
+  liveText: string,
+  draftText: string,
+): boolean {
+  const firstPart = compactThreadText(
+    splitIntoPosts(draftText)[0] || draftText,
+  );
+  const live = compactThreadText(liveText);
+  if (
+    firstPart.length < MIN_LIVE_TEXT_MATCH ||
+    live.length < MIN_LIVE_TEXT_MATCH
+  ) {
+    return firstPart.length >= 12 && live === firstPart;
+  }
+  if (live === firstPart) return true;
+  if (live.startsWith(firstPart) || firstPart.startsWith(live)) return true;
+  const needle = firstPart.slice(0, Math.min(80, firstPart.length));
+  return live.startsWith(needle);
+}
+
 export function normalizeTopicTag(raw: string): string {
   const tag = raw.trim().replace(/^#+/, '').trim();
   if (!tag) return '';

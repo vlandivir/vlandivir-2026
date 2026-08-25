@@ -105,6 +105,11 @@ export class ThreadsApiController {
     return this.threads.publish(id);
   }
 
+  @Post('reconcile')
+  reconcile() {
+    return this.threads.reconcileOrphanDrafts();
+  }
+
   @Post('posts/:id/insights')
   insights(@Param('id', ParseIntPipe) id: number) {
     return this.threads.refreshInsights(id);

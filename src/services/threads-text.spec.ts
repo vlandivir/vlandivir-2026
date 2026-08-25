@@ -3,6 +3,7 @@ import {
   normalizeTopicTag,
   parsePollOptions,
   splitIntoPosts,
+  threadTextMatchesDraft,
   ThreadsTextError,
 } from './threads-text';
 
@@ -34,6 +35,33 @@ describe('splitIntoPosts', () => {
     const parts = splitIntoPosts(`${a} ${b}`);
     expect(parts.length).toBeGreaterThan(1);
     expect(parts.every((part) => part.length <= LIMIT_CHARS)).toBe(true);
+  });
+});
+
+describe('threadTextMatchesDraft', () => {
+  it('matches a live root that is the first split part', () => {
+    const first = 'Вы доверяете SaaS сервисам? ' + 'а'.repeat(400);
+    const rest = 'Поэтому для заметок у меня есть собственный сервис. ' + 'б'.repeat(80);
+    const draft = `${first}\n\n${rest}`;
+    const parts = splitIntoPosts(draft);
+    expect(parts.length).toBeGreaterThan(1);
+    expect(threadTextMatchesDraft(parts[0], draft)).toBe(true);
+  });
+
+  it('matches truncated Graph text of the first part', () => {
+    const draft = 'Вы доверяете SaaS сервисам? Это вопрос про данные и контроль над ними, не про удобство кнопок.';
+    expect(
+      threadTextMatchesDraft('Вы доверяете SaaS сервисам? Это вопрос про данные', draft),
+    ).toBe(true);
+  });
+
+  it('does not match an unrelated post', () => {
+    expect(
+      threadTextMatchesDraft(
+        'Отвечаю на вопросы вайб-кодеров про безопасность и масштаб.',
+        'Вы доверяете SaaS сервисам? Это совсем другой текст про заметки.',
+      ),
+    ).toBe(false);
   });
 });
 
