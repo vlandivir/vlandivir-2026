@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GPS Track</string>
+    <string name="recording_notification_title">Recording track</string>
+    <string name="recording_notification_text">GPS Track is recording your location</string>
+    <string name="location_fine_rationale">GPS Track needs location access to show your position on the map and record tracks while you use the app.</string>
+    <string name="location_background_rationale">GPS Track needs Always / Allow all the time so recording continues when the screen is locked or you switch apps. Your track is saved only on this device as a GPX file.</string>
+</resources>
