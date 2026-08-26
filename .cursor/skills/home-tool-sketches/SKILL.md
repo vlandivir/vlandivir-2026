@@ -51,6 +51,12 @@ Witch character reference (pass before the style reference): [references/witch-r
 | Reels | Rear three-quarter view, sitting in a director's chair facing a portrait projection screen while blank vertical film frames arc around it |
 | Threads | Top-down craft-table view, sewing blank speech bubbles into a yarn chain |
 
+### Quote illustrations already used
+
+| Post | Composition already used |
+|---|---|
+| Free coding help | Eye-level frontal three-quarter view, cyber-warlock seated on a low stool beside a circular question-well, selecting one floating comment bubble and turning its tangled thread into a clear solution path |
+
 Forbidden default: girl kneeling in the lower-left, object in the center, magic rising up. If two sketches could be swapped and still "read" the same, regenerate.
 
 ## How to make one
