@@ -18,11 +18,16 @@ function serviceWithAllowlist(emails: string) {
 }
 
 describe('AuthService admin vs any Google user', () => {
-  const service = serviceWithAllowlist('owner@example.com');
+  const service = serviceWithAllowlist(
+    'owner@example.com, second-admin@example.com',
+  );
 
-  it('treats allowlisted emails as admin and others as regular users', () => {
+  it('treats every allowlisted email as admin and others as regular users', () => {
     expect(service.isAllowedEmail('Owner@Example.com')).toBe(true);
     expect(service.isAdminUser({ email: 'owner@example.com' })).toBe(true);
+    expect(service.isAdminUser({ email: 'second-admin@example.com' })).toBe(
+      true,
+    );
     expect(service.isAdminUser({ email: 'friend@gmail.com' })).toBe(false);
     expect(service.isAdminUser(null)).toBe(false);
   });

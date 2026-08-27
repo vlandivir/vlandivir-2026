@@ -14,7 +14,8 @@
 дневник, почту, рилсы, правку карты и админку поездок.
 
 **Админ / владелец.** Email из `ALLOWED_GOOGLE_EMAILS` (через запятую). Сейчас:
-`vladimir.rybakov@gmail.com`. Проверка: `AuthService.isAdminSession` /
+`vladimir.rybakov@gmail.com`, `vlandivir@gmail.com`. Проверка:
+`AuthService.isAdminSession` /
 `AdminSessionGuard`. Desktop handoff: после Google login браузер открывает
 `GET /auth/desktop-handoff?port=<1024–65535>` (нужна валидная сессия) → redirect на
 `http://127.0.0.1:<port>/?token=<jwt>`. Native (iOS) handoff:
@@ -136,4 +137,3 @@ Google+Telegram. Смотреть и копировать — настройки
 
 1. Добавить email в `ALLOWED_GOOGLE_EMAILS` в `.env` и `gh secret set ALLOWED_GOOGLE_EMAILS`.
 2. Задеплоить. Человек входит своим Google-аккаунтом и получает админские разделы.
-
