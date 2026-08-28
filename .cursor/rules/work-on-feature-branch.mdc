@@ -1,17 +1,20 @@
 ---
-description: Do new work on a feature branch, never commit directly to main
+description: Start every new task from latest origin/main on a feature branch
 alwaysApply: true
 ---
 
-# Feature branches, not main
+# Feature branches from fresh main
 
-Every new task must be done on a dedicated git branch. Do **not** implement, commit, or push task work directly on `main`.
+Every new task must start from up-to-date `origin/main` on a dedicated git branch. Do **not** implement, commit, or push task work directly on `main`. Do **not** continue an old feature branch unless the user says this task belongs on that branch.
 
 ## Start of a task
 
-1. Check the current branch (`git branch --show-current` / `git status`).
-2. If on `main` (or about to start fresh work), create and switch to a branch first, e.g. `git checkout -b short-topic-name`.
-3. Use a short descriptive name (`fix-trip-upload`, `add-map-nav`, …).
+1. Fetch: `git fetch origin`.
+2. Update local `main`: `git checkout main` && `git merge --ff-only origin/main` (or `git pull --ff-only origin main`).
+3. Create and switch to a new branch from that `main`, e.g. `git checkout -b short-topic-name`.
+4. Use a short descriptive name (`fix-trip-upload`, `add-map-nav`, …).
+
+Starting from stale `main` causes merge conflicts with work already merged (PRs, other chats). Always refresh first, even if you already have a local `main`.
 
 ## During the task
 
