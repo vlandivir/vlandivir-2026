@@ -96,6 +96,50 @@ describe('LlmService', () => {
       expect(body.max_completion_tokens).toBe(1600);
       expect(body.reasoning_effort).toBe('minimal');
     });
+
+    it('should retry a timed-out request with gpt-5-mini', async () => {
+      const timeoutError = Object.assign(new Error('timed out'), {
+        name: 'TimeoutError',
+      });
+      global.fetch = jest
+        .fn()
+        .mockRejectedValueOnce(timeoutError)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              choices: [
+                {
+                  finish_reason: 'stop',
+                  message: { content: 'Описание после повтора' },
+                },
+              ],
+            }),
+        });
+
+      const result = await service.describeImage(Buffer.from('test'));
+
+      expect(result).toBe('Описание после повтора');
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      const [, fallbackRequest] = (global.fetch as jest.Mock).mock.calls[1];
+      const fallbackBody = JSON.parse(fallbackRequest.body);
+      expect(fallbackBody.model).toBe('gpt-5-mini');
+      expect(fallbackBody.reasoning_effort).toBe('minimal');
+    });
+
+    it('should report a timeout when both description attempts time out', async () => {
+      const timeoutError = () =>
+        Object.assign(new Error('timed out'), { name: 'TimeoutError' });
+      global.fetch = jest
+        .fn()
+        .mockRejectedValueOnce(timeoutError())
+        .mockRejectedValueOnce(timeoutError());
+
+      const result = await service.describeImage(Buffer.from('test'));
+
+      expect(result).toBe('Превышено время ожидания ответа от OpenAI');
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('recognizeHandwriting', () => {
