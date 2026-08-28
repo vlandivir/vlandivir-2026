@@ -94,6 +94,47 @@ export class LlmService {
     noteContext?: string,
     options?: DescribeImageOptions,
   ): Promise<string> {
+    const primaryResult = await this.describeImageOnce(
+      imageBuffer,
+      comment,
+      noteContext,
+      options,
+    );
+
+    if (primaryResult !== 'Превышено время ожидания ответа от OpenAI') {
+      return primaryResult;
+    }
+
+    const primaryModel = options?.model?.trim() || 'gpt-5';
+    const fallbackModel = 'gpt-5-mini';
+    if (primaryModel === fallbackModel) {
+      return primaryResult;
+    }
+
+    this.debugLogService?.warn(
+      'llm.describeImage',
+      'Primary model timed out; retrying with fallback model',
+      {
+        primaryModel,
+        fallbackModel,
+        fallbackTimeoutMs: 20_000,
+      },
+    );
+
+    return this.describeImageOnce(imageBuffer, comment, noteContext, {
+      ...options,
+      model: fallbackModel,
+      reasoningEffort: 'minimal',
+      timeoutMs: 20_000,
+    });
+  }
+
+  private async describeImageOnce(
+    imageBuffer: Buffer,
+    comment?: string,
+    noteContext?: string,
+    options?: DescribeImageOptions,
+  ): Promise<string> {
     const handwriting = options?.handwriting ?? false;
     const reasoningEffort: ReasoningEffort =
       options?.reasoningEffort ?? 'minimal';
@@ -372,7 +413,7 @@ export class LlmService {
 
         // Handle specific error types
         if (error instanceof Error) {
-          if (error.name === 'AbortError') {
+          if (error.name === 'AbortError' || error.name === 'TimeoutError') {
             return 'Превышено время ожидания ответа от OpenAI';
           }
           if (error.message.includes('OPENAI_API_KEY')) {
