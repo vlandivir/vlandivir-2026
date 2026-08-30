@@ -13,8 +13,9 @@ import {
   Post,
   Put,
   Req,
+  Res,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { AuthService } from './auth/auth.service';
 import { PrismaService } from './prisma/prisma.service';
@@ -215,6 +216,33 @@ export class TripApiController {
       isAdmin,
       media: rows.map((row) => this.serializeMedia(row)),
     };
+  }
+
+  @Get('trips/:secret/media/:id/download')
+  async downloadMedia(
+    @Param('secret') secret: string,
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const trip = await this.findTripOrThrow(secret);
+    const isAdmin = this.authService.isAdminSession(req);
+    const media = await this.prisma.tripMedia.findFirst({
+      where: {
+        id,
+        tripId: trip.id,
+        ...(isAdmin ? {} : { deletedAt: null }),
+      },
+    });
+    if (!media) throw new NotFoundException('Media not found');
+
+    const downloadUrl = await this.storage.getTripMediaPresignedDownloadUrl(
+      trip.id,
+      media.contentHash,
+      media.originalFilename,
+    );
+    res.setHeader('Cache-Control', 'no-store');
+    res.redirect(302, downloadUrl);
   }
 
   @Post('trips/:secret/uploads/check')
