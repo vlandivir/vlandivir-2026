@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutBucketCorsCommand,
   PutObjectCommand,
@@ -184,6 +185,37 @@ export class StorageService implements OnModuleInit {
       key,
       publicUrl: this.getPublicUrl(key),
     };
+  }
+
+  async getTripMediaPresignedDownloadUrl(
+    tripId: string,
+    contentHash: string,
+    filename: string,
+    expiresInSeconds = 300,
+  ): Promise<string> {
+    const key = this.getTripMediaKey(tripId, contentHash, filename);
+    const asciiFilename =
+      Array.from(filename, (char) => {
+        const code = char.charCodeAt(0);
+        return code < 32 ||
+          code === 127 ||
+          code > 126 ||
+          char === '"' ||
+          char === '\\' ||
+          char === '/'
+          ? '_'
+          : char;
+      }).join('') || 'photo';
+    const encodedFilename = encodeURIComponent(filename).replace(
+      /[!'()*]/g,
+      (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+    );
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ResponseContentDisposition: `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`,
+    });
+    return getSignedUrl(this.s3, command, { expiresIn: expiresInSeconds });
   }
 
   async headTripMedia(

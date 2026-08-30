@@ -422,6 +422,7 @@
   overflow: hidden;
   padding: var(--v-space-6) var(--v-space-8);
   background: #000;
+  touch-action: pan-y pinch-zoom;
 }
 
 /* Fill the media pane and letterbox — max-height:% alone often fails for
@@ -435,6 +436,14 @@
   max-height: 100%;
   object-fit: contain;
   display: block;
+}
+
+.trip-lightbox__media img {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transform-origin: center center;
+  will-change: transform;
 }
 
 .trip-lightbox__side {
