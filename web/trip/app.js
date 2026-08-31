@@ -1086,10 +1086,7 @@
         lightboxBody.appendChild(video);
         if (lightboxMode === 'montage') attachMontagePlayback(video, item);
       } else {
-        const img = document.createElement('img');
-        img.src = item.url;
-        img.alt = item.originalFilename || '';
-        lightboxBody.appendChild(img);
+        showDecodedLightboxPhoto(item);
       }
     }
 
@@ -1113,6 +1110,62 @@
 
   function lightboxImage() {
     return lightboxBody.querySelector('img');
+  }
+
+  function revealDecodedLightboxPhoto(image, item, currentImage = null) {
+    if (
+      lightbox.dataset.mediaId !== item.id ||
+      (currentImage && !currentImage.isConnected)
+    ) {
+      return;
+    }
+    if (currentImage) currentImage.replaceWith(image);
+    else image.style.visibility = '';
+    setLightboxZoom(lightboxZoom.scale, lightboxZoom.x, lightboxZoom.y);
+  }
+
+  function waitForDecodedLightboxPhoto(image, item, currentImage = null) {
+    const reveal = () => revealDecodedLightboxPhoto(image, item, currentImage);
+    if (typeof image.decode === 'function') {
+      image
+        .decode()
+        .then(reveal)
+        .catch(() => {
+          if (image.complete && image.naturalWidth) reveal();
+          else image.addEventListener('load', reveal, { once: true });
+        });
+      return;
+    }
+    image.addEventListener('load', reveal, { once: true });
+  }
+
+  function showDecodedLightboxPhoto(item) {
+    const alt = item.originalFilename || '';
+    const previewUrl =
+      item.thumbUrl && item.thumbUrl !== item.url ? item.thumbUrl : null;
+
+    if (previewUrl) {
+      const preview = document.createElement('img');
+      preview.src = previewUrl;
+      preview.alt = alt;
+      preview.decoding = 'async';
+      lightboxBody.appendChild(preview);
+
+      const original = document.createElement('img');
+      original.src = item.url;
+      original.alt = alt;
+      original.decoding = 'async';
+      waitForDecodedLightboxPhoto(original, item, preview);
+      return;
+    }
+
+    const original = document.createElement('img');
+    original.src = item.url;
+    original.alt = alt;
+    original.decoding = 'async';
+    original.style.visibility = 'hidden';
+    lightboxBody.appendChild(original);
+    waitForDecodedLightboxPhoto(original, item);
   }
 
   function touchDistance(touches) {
@@ -1164,7 +1217,7 @@
     image.style.transform =
       nextScale === 1
         ? ''
-        : `translate3d(${lightboxZoom.x}px, ${lightboxZoom.y}px, 0) scale(${nextScale})`;
+        : `translate(${lightboxZoom.x}px, ${lightboxZoom.y}px) scale(${nextScale})`;
     image.classList.toggle('is-zoomed', nextScale > 1);
   }
 

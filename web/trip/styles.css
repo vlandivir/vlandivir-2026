@@ -443,7 +443,6 @@
   user-select: none;
   -webkit-user-select: none;
   transform-origin: center center;
-  will-change: transform;
 }
 
 .trip-lightbox__side {
