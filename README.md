@@ -1,16 +1,16 @@
-# vlandivir-2025
+# vlandivir-2026
 
 Personal experimental playground behind [vlandivir.com](https://vlandivir.com). One NestJS process serves a Telegram diary bot, REST APIs, and several small web apps. Native iOS and a Tauri desktop tool live in the same repo. Mixed stacks are intentional — do not unify them.
 
 | | |
 |---|---|
 | Live site | https://vlandivir.com |
-| GitHub | https://github.com/vlandivir/vlandivir-2025 |
+| GitHub | https://github.com/vlandivir/vlandivir-2026 |
 | For agents | [docs/repo-map.md](docs/repo-map.md) · [AGENTS.md](AGENTS.md) |
 | Architecture | [docs/project-overview.md](docs/project-overview.md) |
 | Who can access what | [docs/authorization.md](docs/authorization.md) |
 | Bot commands | [docs/telegram-bot.md](docs/telegram-bot.md) |
-| Move to a new repo | [docs/migrate-to-new-repo.md](docs/migrate-to-new-repo.md) |
+| Repository migration | [docs/migrate-to-new-repo.md](docs/migrate-to-new-repo.md) |
 
 ## Layout
 
@@ -39,4 +39,4 @@ npm test
 
 Static pages under `web/` can be served alone (`python3 -m http.server 3000` from `web/`) without secrets.
 
-Deploy is manual: push, then run `.github/workflows/deploy-production.yml`. Details in [AGENTS.md](AGENTS.md).
+Deploy is manual: push `main` to `vlandivir/vlandivir-2026`, then run `.github/workflows/deploy-production.yml` in that repository. Details in [AGENTS.md](AGENTS.md).
