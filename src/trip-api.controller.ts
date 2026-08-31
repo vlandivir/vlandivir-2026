@@ -22,6 +22,7 @@ import { PrismaService } from './prisma/prisma.service';
 import { StorageService } from './services/storage.service';
 import { TripProjectsService } from './services/trip-projects.service';
 import { TripThumbsService } from './services/trip-thumbs.service';
+import { TripYandexDiskService } from './services/trip-yandex-disk.service';
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024; // 2 GiB
 const MAX_TITLE_LEN = 200;
@@ -56,6 +57,10 @@ type UploadCheckBody = {
 
 type UploadCompleteBody = UploadCheckBody;
 
+type PatchYandexSyncBody = {
+  autoSync?: boolean;
+};
+
 @Controller('trip-api')
 export class TripApiController {
   constructor(
@@ -64,6 +69,7 @@ export class TripApiController {
     private readonly authService: AuthService,
     private readonly tripThumbs: TripThumbsService,
     private readonly tripProjects: TripProjectsService,
+    private readonly tripYandexDisk: TripYandexDiskService,
   ) {}
 
   @Post('trips')
@@ -291,7 +297,12 @@ export class TripApiController {
       ensureThumb: true,
       lightRestore: true,
     });
-    if (resolved) return resolved;
+    if (resolved) {
+      if (resolved.status === 'restored') {
+        this.tripYandexDisk.scheduleNewMedia(trip.id);
+      }
+      return resolved;
+    }
 
     const head = await this.storage.headTripMedia(
       trip.id,
@@ -333,6 +344,7 @@ export class TripApiController {
       const fresh = await this.prisma.tripMedia.findUniqueOrThrow({
         where: { id: created.id },
       });
+      this.tripYandexDisk.scheduleNewMedia(trip.id);
       return {
         status: 'created' as const,
         media: this.serializeMedia(fresh),
@@ -396,6 +408,45 @@ export class TripApiController {
       status: 'deleted' as const,
       media: this.serializeMedia(updated),
     };
+  }
+
+  // --- Yandex Disk archive sync (Google admin only) ---
+
+  @Get('trips/:secret/yandex-sync')
+  async getYandexSyncStatus(
+    @Param('secret') secret: string,
+    @Req() req: Request,
+  ) {
+    const trip = await this.requireAdminTrip(secret, req);
+    return this.tripYandexDisk.getStatus(trip.id);
+  }
+
+  @Post('trips/:secret/yandex-sync/create')
+  async createYandexSyncFolder(
+    @Param('secret') secret: string,
+    @Req() req: Request,
+  ) {
+    const trip = await this.requireAdminTrip(secret, req);
+    return this.tripYandexDisk.createFolderAndSync(trip.id, trip.title);
+  }
+
+  @Post('trips/:secret/yandex-sync/run')
+  async runYandexSync(@Param('secret') secret: string, @Req() req: Request) {
+    const trip = await this.requireAdminTrip(secret, req);
+    return this.tripYandexDisk.runManualSync(trip.id);
+  }
+
+  @Patch('trips/:secret/yandex-sync')
+  async patchYandexSync(
+    @Param('secret') secret: string,
+    @Body() body: PatchYandexSyncBody,
+    @Req() req: Request,
+  ) {
+    const trip = await this.requireAdminTrip(secret, req);
+    if (typeof body.autoSync !== 'boolean') {
+      throw new BadRequestException('autoSync must be boolean');
+    }
+    return this.tripYandexDisk.setAutoSync(trip.id, body.autoSync);
   }
 
   // --- Montage projects (Google admin only) ---

@@ -499,6 +499,13 @@ model Trip {
   secret             String        @unique
   title              String
   ownerContributorId String
+  yandexDiskPath String?
+  yandexDiskPublicUrl String?
+  yandexDiskAutoSync Boolean @default(false)
+  yandexDiskSyncStatus String @default("idle") // idle | running | complete | error
+  yandexDiskSyncStartedAt DateTime?
+  yandexDiskSyncedAt DateTime?
+  yandexDiskSyncError String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
   media              TripMedia[]
@@ -526,6 +533,9 @@ model TripMedia {
   cameraModel      String?
   /// Full EXIF (photos) or ffprobe tags (videos); `{}` = inspected, none.
   exif             Json?
+  yandexDiskPath String?
+  yandexDiskSyncedAt DateTime?
+  yandexDiskSyncError String?
   createdAt        DateTime          @default(now())
   deletedAt        DateTime?
   projectClips     TripProjectClip[]

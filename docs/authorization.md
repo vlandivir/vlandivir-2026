@@ -50,6 +50,7 @@ loopback `http://127.0.0.1|localhost` (для отладки).
 | API альбомов поездок | `POST/GET/PATCH /trip-api/trips…`, `GET /trip-api/my-trips`, uploads check/complete, `GET /trip-api/trips/:secret/media/:id/download`, soft-delete media | `src/trip-api.controller.ts` — доступ по `secret` в URL; download выдаёт короткую подписанную ссылку на оригинал с `Content-Disposition: attachment`; авторство через `contributorId` (клиент) / `X-Contributor-Id`; `GET /my-trips` — список созданных альбомов по `X-Contributor-Id`; админы (Google allowlist) видят soft-deleted |
 | Список всех альбомов (admin) | `GET /trip-api/admin/trips` | `src/trip-api.controller.ts` — **только Google admin** (`isAdminSession` / Bearer JWT) |
 | Монтаж видео поездки | `GET/POST/PATCH/DELETE /trip-api/trips/:secret/projects…`, клипы (order/trim), `POST …/export` (фоновая сборка ZIP → Spaces), `GET …/export` (статус) | `src/trip-api.controller.ts` — **только Google admin** (`isAdminSession`); проекты в рамках одной поездки. Trim/ZIP UI — в desktop; web оставляет create project + выбор клипов |
+| Синхронизация поездки с Яндекс Диском | `GET /trip-api/trips/:secret/yandex-sync`, `POST …/create`, `POST …/run`, `PATCH …/yandex-sync` | `src/trip-api.controller.ts` — **только Google admin** (`isAdminSession`); OAuth-токен остаётся на сервере, клиент получает только путь папки, публичную ссылку и состояние синхронизации |
 | Чтение карты | `GET /map-api/points`, `/tracks`, `/tags`, `/resolve-google-link` | `src/map-api.controller.ts` (без guard) |
 | Семантический поиск по карте | `GET /map-api/search?q=` | `src/map-api.controller.ts` (без авторизации, но с rate-limit `MapSearchThrottleGuard` — 30 запросов/мин на IP, `src/common/rate-limit.guard.ts`); ищет по точкам/трекам с прикреплённым рилсом через эмбеддинги рилсов, при гео-запросе фильтрует по расстоянию (геокодинг Nominatim) |
 | Обновление Instagram-меты (без force) | `POST /map-api/{points,tracks}/:id/instagram-meta` | там же; окно 24 ч защищает от злоупотребления |
@@ -136,4 +137,3 @@ Google+Telegram. Смотреть и копировать — настройки
 
 1. Добавить email в `ALLOWED_GOOGLE_EMAILS` в `.env` и `gh secret set ALLOWED_GOOGLE_EMAILS`.
 2. Задеплоить. Человек входит своим Google-аккаунтом и получает админские разделы.
-

@@ -19,6 +19,7 @@ import { EmailClassifierService } from './email-classifier.service';
 import { EmailRulesRunnerService } from './email-rules-runner.service';
 import { TripThumbsService } from './trip-thumbs.service';
 import { ToolPagesService } from './tool-pages.service';
+import { TripYandexDiskService } from './trip-yandex-disk.service';
 import { GtdModule } from '../gtd/gtd.module';
 
 @Module({
@@ -43,6 +44,7 @@ import { GtdModule } from '../gtd/gtd.module';
     EmailRulesRunnerService,
     TripThumbsService,
     ToolPagesService,
+    TripYandexDiskService,
   ],
   exports: [
     DateParserService,
@@ -64,6 +66,7 @@ import { GtdModule } from '../gtd/gtd.module';
     EmailRulesRunnerService,
     TripThumbsService,
     ToolPagesService,
+    TripYandexDiskService,
   ],
 })
 export class ServicesModule {}
