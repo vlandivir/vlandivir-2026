@@ -8,7 +8,7 @@ This is a **personal experimental monorepo** for https://vlandivir.com. NestJS, 
 2. [docs/project-overview.md](docs/project-overview.md) — controllers, bot, data model
 3. [docs/authorization.md](docs/authorization.md) — who can hit which routes; keep it updated when touching guards or keys
 
-Bot command examples: [docs/telegram-bot.md](docs/telegram-bot.md). Planned GitHub move without history: [docs/migrate-to-new-repo.md](docs/migrate-to-new-repo.md).
+Bot command examples: [docs/telegram-bot.md](docs/telegram-bot.md). The completed GitHub migration and identifiers that intentionally retain `2025` are documented in [docs/migrate-to-new-repo.md](docs/migrate-to-new-repo.md).
 
 - Do not run Puppeteer in this repository. For frontend checks, use simpler static/HTTP verification unless the user explicitly asks otherwise.
 
@@ -69,9 +69,10 @@ All public pages under `web/` share one visual language, defined by `web/shared/
 
 Production (https://vlandivir.com) deploys via GitHub Actions.
 
-- Workflow: `.github/workflows/deploy-production.yml`, manual trigger only (`workflow_dispatch`) — run it from the Actions tab or with `gh workflow run deploy-production.yml`. Deploys the pushed state of the repo, so commit and push first.
+- Repository: `vlandivir/vlandivir-2026`. Treat it as the source of truth for `main`, Actions, and repository secrets.
+- Workflow: `.github/workflows/deploy-production.yml`, manual trigger only (`workflow_dispatch`) — run it from the Actions tab or with `gh workflow run deploy-production.yml --repo vlandivir/vlandivir-2026 --ref main`. Deploys the pushed state of the repo, so commit and push first.
 - The workflow builds the Docker image (multi-stage: prisma generate → telegram-app Vite build → nest build), pushes it to the DigitalOcean registry, then over SSH restarts the container on the droplet. TLS certs are mounted from the host (`/etc/letsencrypt/live/vlandivir.com/`).
-- All runtime secrets are passed into the container at `docker run` (`-e` in `deploy-production.yml`) from GitHub repo secrets (`gh secret list --repo vlandivir/vlandivir-2025`). They are **not** baked into the image. When code starts using a new env var: add it to `.env` locally, to the `docker run -e` list in `deploy-production.yml`, and create the GitHub secret (`gh secret set NAME`).
+- All runtime secrets are passed into the container at `docker run` (`-e` in `deploy-production.yml`) from GitHub repo secrets (`gh secret list --repo vlandivir/vlandivir-2026`). They are **not** baked into the image. When code starts using a new env var: add it to `.env` locally, to the `docker run -e` list in `deploy-production.yml`, and create it with `gh secret set NAME --repo vlandivir/vlandivir-2026`.
 - Database: DigitalOcean managed Postgres, shared between local dev and prod. Trusted sources allow **only the production droplet** (not the public internet, not the laptop IP). The prod container gets `POSTGRES_CONNECTION_STRING` at runtime; local `.env` uses `127.0.0.1:25060` via an SSH tunnel.
 - **Local DB access:** in a separate terminal run `ssh -N vlandivir-db` (host alias in `~/.ssh/config`, LocalForward to the private DB hostname) and leave it open. Then `npx prisma migrate deploy`, `npx prisma studio`, `npm run start:dev`, and `src/scripts/*` work as before. `npx prisma generate` does not need the tunnel. If Prisma says it can't reach the database, start the tunnel — do **not** add IPs to trusted sources (the laptop has no static IP).
 - Migrations are not run during deploy; apply them from the local machine with `npx prisma migrate deploy` **before** deploying code that needs them (tunnel must be up). Never run `prisma migrate reset` or other destructive commands against this database.

@@ -1,4 +1,4 @@
-# Project Overview — vlandivir-2025
+# Project Overview — vlandivir-2026
 
 Architecture for agents and humans. Folder map: [repo-map.md](repo-map.md). Design and deploy: [AGENTS.md](../AGENTS.md). Bot usage: [telegram-bot.md](telegram-bot.md). Access control: [authorization.md](authorization.md).
 
