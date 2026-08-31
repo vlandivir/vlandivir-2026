@@ -34,6 +34,14 @@
   const montageNameInput = document.getElementById('montageNameInput');
   const montageProjectsList = document.getElementById('montageProjectsList');
   const montageDetail = document.getElementById('montageDetail');
+  const yandexSyncPanel = document.getElementById('yandexSyncPanel');
+  const yandexSyncFolder = document.getElementById('yandexSyncFolder');
+  const yandexSyncStatus = document.getElementById('yandexSyncStatus');
+  const yandexSyncCreate = document.getElementById('yandexSyncCreate');
+  const yandexSyncRun = document.getElementById('yandexSyncRun');
+  const yandexSyncOpen = document.getElementById('yandexSyncOpen');
+  const yandexSyncAutoLabel = document.getElementById('yandexSyncAutoLabel');
+  const yandexSyncAuto = document.getElementById('yandexSyncAuto');
   const retryFailedBtn = document.getElementById('retryFailedBtn');
   const nameModal = document.getElementById('nameModal');
   const nameForm = document.getElementById('nameForm');
@@ -77,6 +85,7 @@
   /** @type {number | null} */
   let selectedMontageClipId = null;
   let montageOpen = false;
+  let yandexSyncTimer = 0;
 
   const ICON = {
     markStart:
@@ -1312,6 +1321,7 @@
     trip.isAdmin = data.isAdmin;
     media = data.media || [];
     montageToggleBtn.hidden = !trip.isAdmin;
+    yandexSyncPanel.hidden = !trip.isAdmin;
     if (!trip.isAdmin) setMontageOpen(false);
     albumMeta.textContent = [
       trip.ownerContributorId === getContributorId() ? t('youAreOwner') : null,
@@ -1320,6 +1330,8 @@
       .filter(Boolean)
       .join(' · ');
     renderGallery();
+    if (trip.isAdmin) void loadYandexSync();
+    else window.clearTimeout(yandexSyncTimer);
     if (montageOpen && trip.isAdmin) void loadMontageProjects();
     // Thumbs / EXIF are filled in the background — refresh a few times.
     const pendingMeta = media.some(
@@ -1337,6 +1349,108 @@
       loadMedia._thumbTries = 0;
     }
   }
+
+  function yandexSyncBase() {
+    return `/trip-api/trips/${encodeURIComponent(trip.secret)}/yandex-sync`;
+  }
+
+  function renderYandexSync(status) {
+    const hasFolder = Boolean(status.folderPath);
+    const hasPublicUrl = Boolean(status.publicUrl);
+    const running = status.status === 'running';
+    yandexSyncFolder.hidden = !hasFolder;
+    yandexSyncFolder.textContent = hasFolder
+      ? `${t('yandexSyncFolder')}: ${status.folderPath}`
+      : '';
+    yandexSyncOpen.hidden = !hasPublicUrl;
+    if (status.publicUrl) yandexSyncOpen.href = status.publicUrl;
+    yandexSyncCreate.hidden = hasFolder;
+    yandexSyncRun.hidden = !hasFolder;
+    yandexSyncAutoLabel.hidden = !hasFolder;
+    yandexSyncAuto.checked = Boolean(status.autoSync);
+    yandexSyncCreate.disabled = !status.configured || running;
+    yandexSyncRun.disabled = running;
+    yandexSyncAuto.disabled = running;
+
+    if (!status.configured) {
+      yandexSyncStatus.textContent = t('yandexSyncNotConfigured');
+      yandexSyncStatus.dataset.state = 'error';
+    } else if (running) {
+      yandexSyncStatus.textContent = t('yandexSyncRunning', {
+        synced: status.synced,
+        total: status.total,
+      });
+      yandexSyncStatus.dataset.state = 'running';
+    } else if (status.status === 'error') {
+      yandexSyncStatus.textContent = t('yandexSyncFailed', {
+        synced: status.synced,
+        total: status.total,
+        failed: status.failed,
+      });
+      yandexSyncStatus.dataset.state = 'error';
+    } else if (hasFolder && status.syncedAt) {
+      yandexSyncStatus.textContent = t('yandexSyncComplete', {
+        synced: status.synced,
+        total: status.total,
+        date: new Date(status.syncedAt).toLocaleString(),
+      });
+      yandexSyncStatus.dataset.state = 'complete';
+    } else {
+      yandexSyncStatus.textContent = t('yandexSyncReady');
+      yandexSyncStatus.dataset.state = 'idle';
+    }
+  }
+
+  async function loadYandexSync() {
+    if (!trip?.isAdmin) return;
+    window.clearTimeout(yandexSyncTimer);
+    try {
+      const status = await api(yandexSyncBase());
+      renderYandexSync(status);
+      if (status.status === 'running') {
+        yandexSyncTimer = window.setTimeout(() => {
+          void loadYandexSync();
+        }, 3000);
+      }
+    } catch (error) {
+      yandexSyncStatus.textContent = error.message || t('failed');
+      yandexSyncStatus.dataset.state = 'error';
+    }
+  }
+
+  async function runYandexSyncAction(path, options = {}) {
+    yandexSyncCreate.disabled = true;
+    yandexSyncRun.disabled = true;
+    yandexSyncAuto.disabled = true;
+    try {
+      const status = await api(`${yandexSyncBase()}${path}`, options);
+      renderYandexSync(status);
+      if (status.status === 'running') {
+        yandexSyncTimer = window.setTimeout(() => {
+          void loadYandexSync();
+        }, 1000);
+      }
+    } catch (error) {
+      yandexSyncStatus.textContent = error.message || t('failed');
+      yandexSyncStatus.dataset.state = 'error';
+      await loadYandexSync();
+    }
+  }
+
+  yandexSyncCreate.addEventListener('click', () => {
+    void runYandexSyncAction('/create', { method: 'POST' });
+  });
+
+  yandexSyncRun.addEventListener('click', () => {
+    void runYandexSyncAction('/run', { method: 'POST' });
+  });
+
+  yandexSyncAuto.addEventListener('change', () => {
+    void runYandexSyncAction('', {
+      method: 'PATCH',
+      body: JSON.stringify({ autoSync: yandexSyncAuto.checked }),
+    });
+  });
 
   function showCreate() {
     createView.hidden = false;

@@ -107,12 +107,13 @@ jobs:
         TELEGRAM_OWNER_CHAT_ID: ${{ secrets.TELEGRAM_OWNER_CHAT_ID }}
         TELEGRAM_CHANNEL_IDS: ${{ secrets.TELEGRAM_CHANNEL_IDS }}
         THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+        YANDEX_DISK_OAUTH_TOKEN: ${{ secrets.YANDEX_DISK_OAUTH_TOKEN }}
       with:
         host: ${{ secrets.DIGITAL_OCEAN_IP }}
         username: root
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         command_timeout: 10m
-        envs: IMAGE_TAG,TELEGRAM_BOT_TOKEN,POSTGRES_CONNECTION_STRING,DO_SPACES_ACCESS_KEY,DO_SPACES_SECRET_KEY,OPENAI_API_KEY,VLANDIVIR_2025_WEBHOOK_URL,NOTE_API_KEY,MAP_API_KEY,MCP_API_KEY,EMAIL_ACCOUNTS,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,SESSION_SECRET,ALLOWED_GOOGLE_EMAILS,TELEGRAM_OWNER_CHAT_ID,TELEGRAM_CHANNEL_IDS,THREADS_ACCESS_TOKEN
+        envs: IMAGE_TAG,TELEGRAM_BOT_TOKEN,POSTGRES_CONNECTION_STRING,DO_SPACES_ACCESS_KEY,DO_SPACES_SECRET_KEY,OPENAI_API_KEY,VLANDIVIR_2025_WEBHOOK_URL,NOTE_API_KEY,MAP_API_KEY,MCP_API_KEY,EMAIL_ACCOUNTS,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,SESSION_SECRET,ALLOWED_GOOGLE_EMAILS,TELEGRAM_OWNER_CHAT_ID,TELEGRAM_CHANNEL_IDS,THREADS_ACCESS_TOKEN,YANDEX_DISK_OAUTH_TOKEN
         script: |
           docker pull registry.digitalocean.com/vlandivir-main/vlandivir-2025:"$IMAGE_TAG"
           docker stop vlandivir-2025 || true
@@ -138,6 +139,7 @@ jobs:
             -e TELEGRAM_OWNER_CHAT_ID="$TELEGRAM_OWNER_CHAT_ID" \
             -e TELEGRAM_CHANNEL_IDS="$TELEGRAM_CHANNEL_IDS" \
             -e THREADS_ACCESS_TOKEN="$THREADS_ACCESS_TOKEN" \
+            -e YANDEX_DISK_OAUTH_TOKEN="$YANDEX_DISK_OAUTH_TOKEN" \
             -e YTDLP_COOKIES_FILE=/usr/src/app/.secret/cookies/instagram-cookies.txt \
             -v /etc/letsencrypt/live/vlandivir.com/fullchain.pem:/usr/src/app/.secret/fullchain.pem:ro \
             -v /etc/letsencrypt/live/vlandivir.com/privkey.pem:/usr/src/app/.secret/privkey.pem:ro \

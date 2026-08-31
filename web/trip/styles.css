@@ -134,6 +134,63 @@
   align-items: center;
 }
 
+.trip-yandex-sync {
+  display: grid;
+  gap: var(--v-space-3);
+  margin-bottom: var(--v-space-5);
+}
+
+.trip-yandex-sync__head,
+.trip-yandex-sync__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--v-space-3);
+}
+
+.trip-yandex-sync__title {
+  margin: var(--v-space-1) 0 0;
+}
+
+.trip-yandex-sync__folder,
+.trip-yandex-sync__status,
+.trip-yandex-sync__hint {
+  margin: 0;
+}
+
+.trip-yandex-sync__folder {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.trip-yandex-sync__status,
+.trip-yandex-sync__hint {
+  color: var(--v-muted);
+}
+
+.trip-yandex-sync__status[data-state='error'] {
+  color: hsl(var(--destructive));
+}
+
+.trip-yandex-sync__auto {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--v-space-2);
+  font-weight: 600;
+}
+
+.trip-yandex-sync__auto input {
+  width: 1.1rem;
+  min-height: auto;
+  height: 1.1rem;
+}
+
+.trip-yandex-sync__hint {
+  font-size: 0.9rem;
+}
+
 .trip-upload-panel {
   position: sticky;
   top: var(--v-space-3);

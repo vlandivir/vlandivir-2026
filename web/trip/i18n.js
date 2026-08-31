@@ -110,6 +110,23 @@ window.PAGE_I18N = {
     montageRemoveClipConfirm: 'Убрать «{name}» из проекта?',
     montagePreviewTitle: 'Превью проекта',
     montageClipStatus: 'Клип',
+    yandexSyncKicker: 'Резервная копия',
+    yandexSyncTitle: 'Яндекс Диск',
+    yandexSyncOpen: 'Открыть публичную копию',
+    yandexSyncFolder: 'Папка',
+    yandexSyncCreate: 'Создать папку и загрузить всё',
+    yandexSyncRun: 'Обновить сейчас',
+    yandexSyncAuto: 'Автоматически добавлять новые файлы',
+    yandexSyncHint:
+      'Синхронизация копирует оригиналы в папку Яндекс Диска. Удаление из альбома не удаляет резервную копию.',
+    yandexSyncNotConfigured:
+      'Интеграция ещё не настроена: нужен серверный OAuth-токен Яндекс Диска.',
+    yandexSyncReady: 'Папка ещё не создана.',
+    yandexSyncRunning: 'Синхронизация: {synced} из {total}',
+    yandexSyncComplete:
+      'Синхронизировано {synced} из {total} · {date}',
+    yandexSyncFailed:
+      'Синхронизировано {synced} из {total}, ошибок: {failed}',
   },
   en: {
     title: 'Trip photos',
@@ -223,5 +240,20 @@ window.PAGE_I18N = {
     montageRemoveClipConfirm: 'Remove “{name}” from the project?',
     montagePreviewTitle: 'Project preview',
     montageClipStatus: 'Clip',
+    yandexSyncKicker: 'Backup',
+    yandexSyncTitle: 'Yandex Disk',
+    yandexSyncOpen: 'Open public copy',
+    yandexSyncFolder: 'Folder',
+    yandexSyncCreate: 'Create folder and upload all',
+    yandexSyncRun: 'Sync now',
+    yandexSyncAuto: 'Automatically add new files',
+    yandexSyncHint:
+      'Sync copies originals to Yandex Disk. Removing a file from the album does not remove its backup.',
+    yandexSyncNotConfigured:
+      'The integration is not configured yet: a server-side Yandex Disk OAuth token is required.',
+    yandexSyncReady: 'The folder has not been created yet.',
+    yandexSyncRunning: 'Syncing: {synced} of {total}',
+    yandexSyncComplete: 'Synced {synced} of {total} · {date}',
+    yandexSyncFailed: 'Synced {synced} of {total}, failed: {failed}',
   },
 };
