@@ -48,6 +48,11 @@
 
 .month-card {
   padding: var(--v-card-padding);
+  scroll-margin-top: var(--v-space-4);
+}
+
+.current-month-button {
+  display: none;
 }
 
 .month-name {
@@ -344,6 +349,19 @@
 }
 
 @media (max-width: 600px) {
+  #calendar-view {
+    padding-bottom: var(--v-space-8);
+  }
+
+  .current-month-button {
+    position: fixed;
+    right: var(--v-space-3);
+    bottom: calc(var(--v-space-3) + env(safe-area-inset-bottom));
+    z-index: 4;
+    display: inline-flex;
+    box-shadow: var(--v-shadow);
+  }
+
   .diary-top {
     flex-direction: column;
     align-items: flex-start;

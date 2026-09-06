@@ -180,6 +180,7 @@
     for (let month = 1; month <= 12; month += 1) {
       const card = document.createElement('div');
       card.className = 'editor-card month-card';
+      card.dataset.month = String(month);
 
       const title = document.createElement('h2');
       title.className = 'month-name';
@@ -225,6 +226,7 @@
 
     container.replaceChildren(frag);
     container.dataset.loaded = '1';
+    el('current-month-button').disabled = false;
   }
 
   // --- Day view ---
@@ -823,6 +825,11 @@
   el('archive-link').addEventListener('click', (event) => {
     event.preventDefault();
     navigate(`${BASE_PATH}/archive`);
+  });
+  el('current-month-button').addEventListener('click', () => {
+    const currentMonth = new Date().getMonth() + 1;
+    const card = el('months').querySelector(`[data-month="${currentMonth}"]`);
+    card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   window.addEventListener('popstate', render);
