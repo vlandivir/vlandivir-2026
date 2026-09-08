@@ -10,6 +10,8 @@ import { StorageService } from './storage.service';
 
 const YANDEX_API = 'https://cloud-api.yandex.net/v1/disk';
 const DEFAULT_ROOT = 'disk:/Фото поездок';
+const UPLOAD_ATTEMPTS = 3;
+const UPLOAD_RETRY_DELAYS_MS = [1_000, 3_000];
 
 type SyncStatus = {
   configured: boolean;
@@ -47,6 +49,46 @@ export function buildYandexFilename(
   const base = hasExtension ? cleaned.slice(0, dot) : cleaned;
   const extension = hasExtension ? cleaned.slice(dot) : '';
   return `${base.slice(0, 180)}__${contentHash.slice(0, 8)}${extension}`;
+}
+
+export function buildYandexUploadHeaders(
+  mimeType: string,
+  size: bigint,
+): Record<string, string> {
+  return {
+    'Content-Type': mimeType,
+    'Content-Length': size.toString(),
+  };
+}
+
+export function describeYandexSyncError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const parts = [error.message];
+  let cause = (error as Error & { cause?: unknown }).cause;
+  const seen = new Set<unknown>();
+  while (cause instanceof Error && !seen.has(cause)) {
+    seen.add(cause);
+    const code = (cause as NodeJS.ErrnoException).code;
+    const detail = [code, cause.message].filter(Boolean).join(': ');
+    if (detail && !parts.includes(detail)) parts.push(detail);
+    cause = (cause as Error & { cause?: unknown }).cause;
+  }
+  return parts.join(' — ');
+}
+
+export function isRetryableYandexUploadError(error: unknown): boolean {
+  const message = describeYandexSyncError(error);
+  const status = message.match(/\((\d{3})\)/)?.[1];
+  if (status) {
+    const code = Number(status);
+    return code === 408 || code === 429 || code >= 500;
+  }
+  return (
+    error instanceof TypeError ||
+    /fetch failed|timeout|timed out|socket|connection|ECONNRESET|EPIPE/i.test(
+      message,
+    )
+  );
 }
 
 @Injectable()
@@ -263,7 +305,7 @@ export class TripYandexDiskService {
         );
         const path = `${trip.yandexDiskPath}/${filename}`;
         try {
-          if (fullCheck && (await this.resourceExists(path))) {
+          if (await this.resourceMatches(path, item.size)) {
             await this.markMediaSynced(item.id, path);
             continue;
           }
@@ -324,17 +366,55 @@ export class TripYandexDiskService {
       contentHash: string;
       originalFilename: string;
       mimeType: string;
+      size: bigint;
+    },
+    path: string,
+  ): Promise<void> {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= UPLOAD_ATTEMPTS; attempt += 1) {
+      try {
+        await this.uploadMediaOnce(media, path);
+        return;
+      } catch (error) {
+        lastError = error;
+        if (
+          attempt === UPLOAD_ATTEMPTS ||
+          !isRetryableYandexUploadError(error)
+        ) {
+          break;
+        }
+        this.logger.warn(
+          `Yandex Disk upload retry ${attempt + 1}/${UPLOAD_ATTEMPTS} for ${media.originalFilename}: ${describeYandexSyncError(error)}`,
+        );
+        await new Promise((resolve) =>
+          setTimeout(resolve, UPLOAD_RETRY_DELAYS_MS[attempt - 1]),
+        );
+      }
+    }
+    const failure = new Error('Загрузка не удалась после повторных попыток');
+    if (lastError instanceof Error) {
+      (failure as Error & { cause?: unknown }).cause = lastError;
+    }
+    throw failure;
+  }
+
+  private async uploadMediaOnce(
+    media: {
+      tripId: string;
+      contentHash: string;
+      originalFilename: string;
+      mimeType: string;
+      size: bigint;
     },
     path: string,
   ): Promise<void> {
     const upload = await this.apiJson<{ href: string; method?: string }>(
       'GET',
       '/resources/upload',
-      { path, overwrite: 'false' },
+      { path, overwrite: 'true' },
       [200],
-      [409],
     );
-    if (!upload) return;
+    if (!upload) throw new Error('Яндекс Диск не вернул URL для загрузки');
 
     const sourceUrl = await this.storage.getTripMediaPresignedDownloadUrl(
       media.tripId,
@@ -347,12 +427,18 @@ export class TripYandexDiskService {
       throw new Error(`Не удалось прочитать оригинал (${source.status})`);
     }
     const body = Readable.fromWeb(source.body as never);
-    const response = await fetch(upload.href, {
-      method: upload.method || 'PUT',
-      headers: { 'Content-Type': media.mimeType },
-      body: body as never,
-      duplex: 'half',
-    } as RequestInit & { duplex: 'half' });
+    let response: Response;
+    try {
+      response = await fetch(upload.href, {
+        method: upload.method || 'PUT',
+        headers: buildYandexUploadHeaders(media.mimeType, media.size),
+        body: body as never,
+        duplex: 'half',
+      } as RequestInit & { duplex: 'half' });
+    } catch (error) {
+      body.destroy();
+      throw error;
+    }
     if (!response.ok) {
       throw new Error(
         `Яндекс Диск отклонил файл (${response.status}): ${(
@@ -362,15 +448,22 @@ export class TripYandexDiskService {
     }
   }
 
-  private async resourceExists(path: string): Promise<boolean> {
-    const result = await this.apiJson<Record<string, unknown>>(
+  private async resourceMatches(
+    path: string,
+    expectedSize: bigint,
+  ): Promise<boolean> {
+    const result = await this.apiJson<{ type?: string; size?: number }>(
       'GET',
       '/resources',
       { path, fields: 'path,type,size' },
       [200],
       [404],
     );
-    return Boolean(result);
+    return (
+      result?.type === 'file' &&
+      typeof result.size === 'number' &&
+      BigInt(result.size) === expectedSize
+    );
   }
 
   private async publishFolder(path: string): Promise<string> {
@@ -469,6 +562,6 @@ export class TripYandexDiskService {
   }
 
   private errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
+    return describeYandexSyncError(error);
   }
 }
