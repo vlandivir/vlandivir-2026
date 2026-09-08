@@ -4,7 +4,6 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Readable } from 'stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from './storage.service';
 
@@ -12,6 +11,8 @@ const YANDEX_API = 'https://cloud-api.yandex.net/v1/disk';
 const DEFAULT_ROOT = 'disk:/Фото поездок';
 const UPLOAD_ATTEMPTS = 3;
 const UPLOAD_RETRY_DELAYS_MS = [1_000, 3_000];
+const OPERATION_POLL_MS = 2_000;
+const OPERATION_TIMEOUT_MS = 2 * 60 * 60 * 1_000;
 
 type SyncStatus = {
   configured: boolean;
@@ -51,16 +52,6 @@ export function buildYandexFilename(
   return `${base.slice(0, 180)}__${contentHash.slice(0, 8)}${extension}`;
 }
 
-export function buildYandexUploadHeaders(
-  mimeType: string,
-  size: bigint,
-): Record<string, string> {
-  return {
-    'Content-Type': mimeType,
-    'Content-Length': size.toString(),
-  };
-}
-
 export function describeYandexSyncError(error: unknown): string {
   if (!(error instanceof Error)) return String(error);
   const parts = [error.message];
@@ -85,7 +76,7 @@ export function isRetryableYandexUploadError(error: unknown): boolean {
   }
   return (
     error instanceof TypeError ||
-    /fetch failed|timeout|timed out|socket|connection|ECONNRESET|EPIPE/i.test(
+    /fetch failed|timeout|timed out|socket|connection|ECONNRESET|EPIPE|Операция Яндекс Диска завершилась ошибкой|Истекло время ожидания/i.test(
       message,
     )
   );
@@ -408,44 +399,66 @@ export class TripYandexDiskService {
     },
     path: string,
   ): Promise<void> {
-    const upload = await this.apiJson<{ href: string; method?: string }>(
-      'GET',
-      '/resources/upload',
-      { path, overwrite: 'true' },
-      [200],
-    );
-    if (!upload) throw new Error('Яндекс Диск не вернул URL для загрузки');
-
     const sourceUrl = await this.storage.getTripMediaPresignedDownloadUrl(
       media.tripId,
       media.contentHash,
       media.originalFilename,
       3600,
     );
-    const source = await fetch(sourceUrl);
-    if (!source.ok || !source.body) {
-      throw new Error(`Не удалось прочитать оригинал (${source.status})`);
+    const operation = await this.apiJson<{
+      href?: string;
+      method?: string;
+    }>(
+      'POST',
+      '/resources/upload',
+      {
+        url: sourceUrl,
+        path,
+        disable_redirects: 'false',
+      },
+      [202],
+    );
+    if (!operation?.href) {
+      throw new Error('Яндекс Диск не вернул операцию загрузки');
     }
-    const body = Readable.fromWeb(source.body as never);
-    let response: Response;
-    try {
-      response = await fetch(upload.href, {
-        method: upload.method || 'PUT',
-        headers: buildYandexUploadHeaders(media.mimeType, media.size),
-        body: body as never,
-        duplex: 'half',
-      } as RequestInit & { duplex: 'half' });
-    } catch (error) {
-      body.destroy();
-      throw error;
-    }
-    if (!response.ok) {
+    await this.waitForOperation(operation.href);
+    if (!(await this.resourceMatches(path, media.size))) {
       throw new Error(
-        `Яндекс Диск отклонил файл (${response.status}): ${(
-          await response.text()
-        ).slice(0, 240)}`,
+        'Яндекс Диск завершил загрузку, но размер файла не совпал с оригиналом',
       );
     }
+  }
+
+  private async waitForOperation(href: string): Promise<void> {
+    const deadline = Date.now() + OPERATION_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const response = await fetch(href, {
+        headers: {
+          Accept: 'application/json',
+          Authorization: `OAuth ${this.requireToken()}`,
+        },
+      });
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(
+          `Яндекс Диск не вернул статус операции (${response.status}): ${text.slice(0, 240)}`,
+        );
+      }
+      const operation = (text ? JSON.parse(text) : {}) as {
+        status?: string;
+        error?: { message?: string; description?: string };
+      };
+      if (operation.status === 'success') return;
+      if (operation.status === 'failed') {
+        const detail =
+          operation.error?.message ||
+          operation.error?.description ||
+          'неизвестная ошибка';
+        throw new Error(`Операция Яндекс Диска завершилась ошибкой: ${detail}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, OPERATION_POLL_MS));
+    }
+    throw new Error('Истекло время ожидания загрузки файла на Яндекс Диск');
   }
 
   private async resourceMatches(

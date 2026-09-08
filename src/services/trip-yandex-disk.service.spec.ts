@@ -1,6 +1,5 @@
 import {
   buildYandexFilename,
-  buildYandexUploadHeaders,
   describeYandexSyncError,
   isRetryableYandexUploadError,
   sanitizeYandexPathPart,
@@ -29,13 +28,6 @@ describe('TripYandexDiskService path helpers', () => {
     expect(first).not.toBe(second);
   });
 
-  it('sends an exact content length for streamed originals', () => {
-    expect(buildYandexUploadHeaders('video/mp4', 569_191_939n)).toEqual({
-      'Content-Type': 'video/mp4',
-      'Content-Length': '569191939',
-    });
-  });
-
   it('keeps the underlying network error code in diagnostics', () => {
     const cause = Object.assign(new Error('other side closed'), {
       code: 'UND_ERR_SOCKET',
@@ -50,9 +42,16 @@ describe('TripYandexDiskService path helpers', () => {
         new Error('Яндекс Диск отклонил файл (400): bad request'),
       ),
     ).toBe(false);
+    expect(
+      isRetryableYandexUploadError(
+        new Error(
+          'Операция Яндекс Диска завершилась ошибкой: source temporarily unavailable',
+        ),
+      ),
+    ).toBe(true);
   });
 
-  it('gets fresh source and upload URLs when a streamed upload is retried', async () => {
+  it('gets a fresh source URL when a remote upload operation is retried', async () => {
     const storage = {
       getTripMediaPresignedDownloadUrl: jest
         .fn()
@@ -74,18 +73,28 @@ describe('TripYandexDiskService path helpers', () => {
       .spyOn(global, 'fetch')
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ href: 'https://yandex.test/upload-1' }), {
-          status: 200,
+          status: 202,
         }),
       )
-      .mockResolvedValueOnce(new Response(Uint8Array.of(1, 2, 3)))
       .mockRejectedValueOnce(networkError)
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ href: 'https://yandex.test/upload-2' }), {
+          status: 202,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: 'in-progress' }), {
           status: 200,
         }),
       )
-      .mockResolvedValueOnce(new Response(Uint8Array.of(1, 2, 3)))
-      .mockResolvedValueOnce(new Response(null, { status: 201 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: 'success' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ type: 'file', size: 3 }), {
+          status: 200,
+        }),
+      );
     const timeoutMock = jest.spyOn(global, 'setTimeout').mockImplementation(((
       callback: () => void,
     ) => {
@@ -119,15 +128,16 @@ describe('TripYandexDiskService path helpers', () => {
       );
       expect(storage.getTripMediaPresignedDownloadUrl).toHaveBeenCalledTimes(2);
       expect(fetchMock).toHaveBeenCalledTimes(6);
-      expect(fetchMock.mock.calls[2][1]).toEqual(
-        expect.objectContaining({
-          headers: {
-            'Content-Type': 'video/mp4',
-            'Content-Length': '3',
-          },
-        }),
+      const firstSubmitUrl = String(fetchMock.mock.calls[0][0]);
+      expect(firstSubmitUrl).toContain('/resources/upload?');
+      expect(firstSubmitUrl).toContain(
+        'url=https%3A%2F%2Fspaces.test%2Fsource-1',
       );
-      expect(fetchMock.mock.calls[5][0]).toBe('https://yandex.test/upload-2');
+      expect(firstSubmitUrl).toContain('path=disk%3A%2Flarge.mp4');
+      expect(fetchMock.mock.calls[0][1]).toEqual(
+        expect.objectContaining({ method: 'POST' }),
+      );
+      expect(fetchMock.mock.calls[4][0]).toBe('https://yandex.test/upload-2');
     } finally {
       fetchMock.mockRestore();
       timeoutMock.mockRestore();
