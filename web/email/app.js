@@ -12,6 +12,7 @@
     importantCollapsed: false,
     // Thread keys (`account:threadId`) the user has expanded to see older mail.
     expandedThreads: new Set(),
+    undo: null,
   };
 
   const el = (id) => document.getElementById(id);
@@ -280,10 +281,74 @@
         important: res.important,
         labels: res.labels,
       });
+      void loadUndoState();
     } catch (error) {
       if (snapshot) patchLocal(id, snapshot);
       console.error(error);
       alert('Не удалось применить действие');
+    }
+  }
+
+  const ACTION_LABELS = {
+    mark_read: 'пометку прочитанным',
+    mark_unread: 'пометку непрочитанным',
+    archive: 'перенос в архив',
+    unarchive: 'возврат во входящие',
+    hide: 'скрытие письма',
+    unhide: 'возврат скрытого письма',
+    mark_important: 'добавление в важное',
+    unmark_important: 'удаление из важного',
+    label: 'добавление ярлыка',
+    unlabel: 'удаление ярлыка',
+  };
+
+  function renderUndoButton() {
+    const button = el('undo-button');
+    const undo = state.undo;
+    button.disabled = !undo?.available;
+    button.textContent = '↶ Отменить';
+    if (!undo?.available) {
+      button.title = 'Нет действий, которые можно отменить';
+      return;
+    }
+    const label = ACTION_LABELS[undo.action] || undo.action;
+    const subject = undo.message?.subject || '(без темы)';
+    const param = undo.param ? ` «${undo.param}»` : '';
+    button.title = `Отменить ${label}${param}: ${subject}`;
+  }
+
+  async function loadUndoState() {
+    try {
+      state.undo = await fetchJson(`${API_BASE}/undo-last`);
+    } catch (error) {
+      console.error(error);
+      state.undo = null;
+    }
+    renderUndoButton();
+  }
+
+  async function undoLastAction() {
+    const button = el('undo-button');
+    if (!state.undo?.available) return;
+    button.disabled = true;
+    button.textContent = 'Отменяю…';
+    try {
+      const data = await fetchJson(`${API_BASE}/undo-last`, {
+        method: 'POST',
+      });
+      patchLocal(data.message.id, {
+        seen: data.message.seen,
+        archived: data.message.archived,
+        hidden: data.message.hidden,
+        important: data.message.important,
+        labels: data.message.labels,
+      });
+      await Promise.all([loadStats(), loadUndoState()]);
+      if (!el('log-panel').classList.contains('hidden')) await loadLog();
+    } catch (error) {
+      console.error(error);
+      alert('Не удалось отменить последнее действие');
+      await loadUndoState();
     }
   }
 
@@ -1219,8 +1284,11 @@ a{color:#1a73e8;}
         const action = document.createElement('span');
         action.className = 'log-action';
         const param =
-          entry.param && entry.source !== 'sync' ? ` ${entry.param}` : '';
-        action.textContent = entry.action + param;
+          entry.param && entry.source !== 'sync' && entry.action !== 'undo'
+            ? ` ${entry.param}`
+            : '';
+        action.textContent =
+          entry.action === 'undo' ? '↶ отмена' : entry.action + param;
 
         const src = document.createElement('span');
         src.className = 'meta-chip log-source';
@@ -1288,6 +1356,7 @@ a{color:#1a73e8;}
         { method: 'POST' },
       );
       patchLocal(state.detail.id, { gtdTaskId: data.task?.id || true });
+      void loadUndoState();
       const resultLine = el('test-rules-result');
       resultLine.className = 'test-rules-result matched';
       resultLine.textContent = data.created
@@ -1325,6 +1394,7 @@ a{color:#1a73e8;}
     renderList();
   });
   el('sync-button').addEventListener('click', () => void syncNow());
+  el('undo-button').addEventListener('click', () => void undoLastAction());
 
   async function loadLabels() {
     const data = await fetchJson(`${API_BASE}/labels`);
@@ -1336,6 +1406,7 @@ a{color:#1a73e8;}
     loadMessages(),
     loadLabels(),
     loadRules(),
+    loadUndoState(),
   ]).catch((error) => {
     console.error(error);
     el('list-empty').textContent = 'Не удалось загрузить данные';

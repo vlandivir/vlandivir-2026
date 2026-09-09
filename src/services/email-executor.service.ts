@@ -26,6 +26,19 @@ export type EmailAction =
 
 const GMAIL_INBOX = '\\Inbox';
 
+const UNDOABLE_ACTIONS: EmailAction[] = [
+  'mark_read',
+  'mark_unread',
+  'archive',
+  'unarchive',
+  'hide',
+  'unhide',
+  'mark_important',
+  'unmark_important',
+  'label',
+  'unlabel',
+];
+
 // Structured effects a rule can carry. Chosen explicitly by the owner, not
 // inferred — the executor only ever runs this whitelisted set.
 export type EmailRuleEffects = {
@@ -201,6 +214,159 @@ export class EmailExecutorService {
     }
   }
 
+  async getLastUndoableAction() {
+    const entry = await this.prisma.emailActionLog.findFirst({
+      where: { source: 'manual', result: 'ok' },
+      orderBy: { id: 'desc' },
+      select: {
+        id: true,
+        action: true,
+        param: true,
+        prevState: true,
+        message: {
+          select: {
+            id: true,
+            account: true,
+            uid: true,
+            subject: true,
+            seen: true,
+            archived: true,
+            hidden: true,
+            important: true,
+            labels: true,
+          },
+        },
+      },
+    });
+    if (!entry || !UNDOABLE_ACTIONS.includes(entry.action as EmailAction)) {
+      return null;
+    }
+    return entry;
+  }
+
+  async undoLastManualAction() {
+    const target = await this.getLastUndoableAction();
+    if (!target) throw new NotFoundException('No action to undo');
+
+    const message = target.message;
+    const data: Record<string, unknown> = {};
+    const undoPrevState: Record<string, unknown> = {};
+
+    try {
+      const prevState = this.asState(target.prevState);
+      switch (target.action as EmailAction) {
+        case 'mark_read':
+        case 'mark_unread': {
+          const seen = this.booleanState(prevState, 'seen');
+          undoPrevState.seen = message.seen;
+          if (seen !== message.seen) {
+            await this.setSeen(message.account, message.uid, seen);
+          }
+          data.seen = seen;
+          break;
+        }
+        case 'archive':
+        case 'unarchive': {
+          const archived = this.booleanState(prevState, 'archived');
+          undoPrevState.archived = message.archived;
+          undoPrevState.labels = message.labels;
+          const shouldBeInInbox = !archived;
+          const isInInbox = message.labels.includes(GMAIL_INBOX);
+          if (shouldBeInInbox !== isInInbox) {
+            await this.setLabel(
+              message.account,
+              message.uid,
+              GMAIL_INBOX,
+              shouldBeInInbox,
+            );
+          }
+          data.archived = archived;
+          data.labels = shouldBeInInbox
+            ? [...new Set([...message.labels, GMAIL_INBOX])]
+            : message.labels.filter((label) => label !== GMAIL_INBOX);
+
+          if (typeof prevState.seen === 'boolean') {
+            undoPrevState.seen = message.seen;
+            if (prevState.seen !== message.seen) {
+              await this.setSeen(message.account, message.uid, prevState.seen);
+            }
+            data.seen = prevState.seen;
+          }
+          break;
+        }
+        case 'label':
+        case 'unlabel': {
+          const label = target.param?.trim();
+          if (!label) throw new Error('Undo log has no label');
+          const previousLabels = this.stringArrayState(prevState, 'labels');
+          const shouldHaveLabel = previousLabels.includes(label);
+          const hasLabel = message.labels.includes(label);
+          undoPrevState.labels = message.labels;
+          if (shouldHaveLabel !== hasLabel) {
+            await this.setLabel(
+              message.account,
+              message.uid,
+              label,
+              shouldHaveLabel,
+            );
+          }
+          data.labels = shouldHaveLabel
+            ? [...new Set([...message.labels, label])]
+            : message.labels.filter((item) => item !== label);
+          break;
+        }
+        case 'hide':
+        case 'unhide': {
+          const hidden = this.booleanState(prevState, 'hidden');
+          undoPrevState.hidden = message.hidden;
+          data.hidden = hidden;
+          break;
+        }
+        case 'mark_important':
+        case 'unmark_important': {
+          const important = this.booleanState(prevState, 'important');
+          undoPrevState.important = message.important;
+          data.important = important;
+          break;
+        }
+      }
+
+      const updated = await this.prisma.emailMessage.update({
+        where: { id: message.id },
+        data,
+      });
+      await this.prisma.emailActionLog.create({
+        data: {
+          messageId: message.id,
+          action: 'undo',
+          param: String(target.id),
+          source: 'manual',
+          prevState: undoPrevState as object,
+          result: 'ok',
+        },
+      });
+      return { target, message: updated };
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : String(error);
+      await this.prisma.emailActionLog.create({
+        data: {
+          messageId: message.id,
+          action: 'undo',
+          param: String(target.id),
+          source: 'manual',
+          prevState: undoPrevState as object,
+          result: 'error',
+          error: messageText,
+        },
+      });
+      this.logger.warn(
+        `Undo action ${target.id} on message ${message.id} failed: ${messageText}`,
+      );
+      throw error;
+    }
+  }
+
   // Runs a rule's effects on a message as a sequence of whitelisted actions.
   // `archive` already marks read, so mark_read is only issued on its own.
   async applyEffects(
@@ -220,6 +386,56 @@ export class EmailExecutorService {
       await this.apply(messageId, 'label', effects.label, 'rule', ruleId);
     }
     return this.prisma.emailMessage.findUnique({ where: { id: messageId } });
+  }
+
+  private asState(value: unknown): Record<string, unknown> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error('Undo log has no previous state');
+    }
+    return value as Record<string, unknown>;
+  }
+
+  private booleanState(state: Record<string, unknown>, key: string): boolean {
+    if (typeof state[key] !== 'boolean') {
+      throw new Error(`Undo log has no ${key} state`);
+    }
+    return state[key];
+  }
+
+  private stringArrayState(
+    state: Record<string, unknown>,
+    key: string,
+  ): string[] {
+    const value = state[key];
+    if (
+      !Array.isArray(value) ||
+      value.some((item) => typeof item !== 'string')
+    ) {
+      throw new Error(`Undo log has no ${key} state`);
+    }
+    return value as string[];
+  }
+
+  private setSeen(account: string, uid: bigint, seen: boolean) {
+    return this.imap(account, (client) =>
+      seen
+        ? client.messageFlagsAdd(String(uid), ['\\Seen'], { uid: true })
+        : client.messageFlagsRemove(String(uid), ['\\Seen'], { uid: true }),
+    );
+  }
+
+  private setLabel(account: string, uid: bigint, label: string, add: boolean) {
+    return this.imap(account, (client) =>
+      add
+        ? client.messageFlagsAdd(String(uid), [label], {
+            uid: true,
+            useLabels: true,
+          })
+        : client.messageFlagsRemove(String(uid), [label], {
+            uid: true,
+            useLabels: true,
+          }),
+    );
   }
 
   private async imap<T>(

@@ -185,6 +185,44 @@ export class EmailApiController {
     };
   }
 
+  @Get('undo-last')
+  async undoLastStatus() {
+    const entry = await this.emailExecutorService.getLastUndoableAction();
+    return {
+      available: Boolean(entry),
+      actionLogId: entry?.id ?? null,
+      action: entry?.action ?? null,
+      param: entry?.param ?? null,
+      message: entry
+        ? {
+            id: entry.message.id,
+            subject: entry.message.subject,
+            account: entry.message.account,
+          }
+        : null,
+    };
+  }
+
+  @Post('undo-last')
+  async undoLast() {
+    const result = await this.emailExecutorService.undoLastManualAction();
+    return {
+      undone: {
+        actionLogId: result.target.id,
+        action: result.target.action,
+        param: result.target.param,
+      },
+      message: {
+        id: result.message.id,
+        seen: result.message.seen,
+        archived: result.message.archived,
+        hidden: result.message.hidden,
+        important: result.message.important,
+        labels: result.message.labels,
+      },
+    };
+  }
+
   @Get('messages/:id')
   async message(@Param('id', ParseIntPipe) id: number) {
     const message = await this.prisma.emailMessage.findUnique({
