@@ -8,7 +8,11 @@ This is a **personal experimental monorepo** for https://vlandivir.com. NestJS, 
 2. [docs/project-overview.md](docs/project-overview.md) — controllers, bot, data model
 3. [docs/authorization.md](docs/authorization.md) — who can hit which routes; keep it updated when touching guards or keys
 
-Bot command examples: [docs/telegram-bot.md](docs/telegram-bot.md). The completed GitHub migration and identifiers that intentionally retain `2025` are documented in [docs/migrate-to-new-repo.md](docs/migrate-to-new-repo.md).
+OpenAI model assignments and update rules:
+[docs/openai-models.md](docs/openai-models.md). Bot command examples:
+[docs/telegram-bot.md](docs/telegram-bot.md). The completed GitHub migration
+and identifiers that intentionally retain `2025` are documented in
+[docs/migrate-to-new-repo.md](docs/migrate-to-new-repo.md).
 
 - Do not run Puppeteer in this repository. For frontend checks, use simpler static/HTTP verification unless the user explicitly asks otherwise.
 

@@ -36,7 +36,9 @@ describe('SubsController', () => {
         .mockReturnValue(
           'https://fra1.digitaloceanspaces.com/vlandivir-2025/subs/videos/hash/source',
         ),
-      uploadFileWithKey: jest.fn().mockResolvedValue('https://example.com/file'),
+      uploadFileWithKey: jest
+        .fn()
+        .mockResolvedValue('https://example.com/file'),
       publicUrl: jest.fn(
         (key) => `https://fra1.digitaloceanspaces.com/vlandivir-2025/${key}`,
       ),
@@ -74,9 +76,7 @@ describe('SubsController', () => {
         toUserPage: jest.fn((manifest) => manifest),
         getManifest: jest.fn().mockResolvedValue(null),
         upsertArtifact: jest.fn(),
-        artifactKey: jest.fn(
-          (_kind, hash, id) => `subs/videos/${hash}/${id}`,
-        ),
+        artifactKey: jest.fn((_kind, hash, id) => `subs/videos/${hash}/${id}`),
       } as never,
     );
     jest
@@ -257,7 +257,7 @@ describe('SubsController', () => {
       expect.objectContaining({
         sourceLanguage: 'ru',
         targetLanguage: 'en',
-        model: 'gpt-5',
+        model: 'gpt-5.6-terra',
         text: '0.00 I rode\n0.80 along the shore',
       }),
     );

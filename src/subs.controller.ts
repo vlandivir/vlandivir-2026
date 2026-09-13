@@ -31,6 +31,7 @@ import {
 import { ToolPagesService } from './services/tool-pages.service';
 import type { ToolPageManifest } from './services/tool-pages.types';
 import { getDiaryChatIdNumber } from './diary.constants';
+import { OPENAI_MODELS } from './openai-models';
 import { TelegramBotService } from './telegram-bot/telegram-bot.service';
 
 type UploadedVideo = {
@@ -128,7 +129,7 @@ type VideoDimensions = {
 const MAX_SUBS_VIDEO_SIZE_BYTES = 200 * 1024 * 1024;
 const REQUIRED_SUBS_VIDEO_WIDTH = 1080;
 const REQUIRED_SUBS_VIDEO_HEIGHT = 1920;
-const SUBS_TRANSLATION_MODEL = 'gpt-5';
+const SUBS_TRANSLATION_MODEL = OPENAI_MODELS.balanced;
 const MAX_TRANSLATION_TEXT_LENGTH = 30000;
 const MAX_TRANSLATION_LINE_COUNT = 2000;
 const TRANSLATION_LANGUAGE_NAMES: Record<string, string> = {
@@ -377,7 +378,7 @@ export class SubsController {
     const transcript = {
       hash,
       language,
-      model: 'whisper-1',
+      model: OPENAI_MODELS.timestampedTranscription,
       text: (response.text || words.map((word) => word.word).join(' ')).trim(),
       cues,
       words,
@@ -466,11 +467,7 @@ export class SubsController {
     const translationUrl = await this.storageService.uploadFileWithKey(
       Buffer.from(JSON.stringify(translation), 'utf8'),
       'application/json',
-      this.toolPages.artifactKey(
-        'subs',
-        hash,
-        `translation-${targetLanguage}`,
-      ),
+      this.toolPages.artifactKey('subs', hash, `translation-${targetLanguage}`),
     );
     await this.rememberSubsFiles(hash, [
       this.toolPages.artifactFromUpload({
@@ -947,7 +944,7 @@ export class SubsController {
         new Blob([new Uint8Array(audioBuffer)], { type: 'audio/mpeg' }),
         `${hash}.mp3`,
       );
-      formData.append('model', 'whisper-1');
+      formData.append('model', OPENAI_MODELS.timestampedTranscription);
       formData.append('response_format', 'verbose_json');
       formData.append('timestamp_granularities[]', 'segment');
       formData.append('timestamp_granularities[]', 'word');
@@ -1057,7 +1054,7 @@ export class SubsController {
               12000,
               Math.max(1200, Math.ceil(sourceTextLength * 1.8)),
             ),
-            reasoning_effort: 'minimal',
+            reasoning_effort: 'none',
           }),
           signal: timeoutSignal,
         },

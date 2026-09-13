@@ -7,6 +7,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { getDiaryChatId } from '../diary.constants';
 import { Prisma } from '../generated/prisma-client';
+import { OPENAI_MODELS } from '../openai-models';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from './storage.service';
 import { EmbeddingsService } from './embeddings.service';
@@ -760,7 +761,8 @@ export class ReelsService {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (!apiKey) return;
     const model =
-      this.configService.get<string>('REELS_LLM_MODEL') || 'gpt-5-mini';
+      this.configService.get<string>('REELS_LLM_MODEL') ||
+      OPENAI_MODELS.balanced;
 
     const prompt = [
       'Придумай короткое название для записи о коротком видео (Instagram reel) в личной записной книжке.',
@@ -779,7 +781,7 @@ export class ReelsService {
         model,
         messages: [{ role: 'user', content: prompt }],
         max_completion_tokens: 500,
-        reasoning_effort: 'minimal',
+        reasoning_effort: 'none',
       }),
       signal: AbortSignal.timeout(60 * 1000),
     });
@@ -1056,7 +1058,8 @@ export class ReelsService {
     if (!apiKey) throw new Error('OPENAI_API_KEY is not configured');
 
     const model =
-      this.configService.get<string>('REELS_LLM_MODEL') || 'gpt-5-mini';
+      this.configService.get<string>('REELS_LLM_MODEL') ||
+      OPENAI_MODELS.balanced;
     const transcript = reel.transcriptClean || reel.transcript;
 
     const prompt = [
@@ -1094,7 +1097,7 @@ export class ReelsService {
         model,
         messages: [{ role: 'user', content }],
         max_completion_tokens: 4000,
-        reasoning_effort: 'minimal',
+        reasoning_effort: 'none',
       }),
       signal: AbortSignal.timeout(5 * 60 * 1000),
     });
@@ -1198,7 +1201,8 @@ export class ReelsService {
     if (!apiKey) return null;
 
     const model =
-      this.configService.get<string>('REELS_LLM_MODEL') || 'gpt-5-mini';
+      this.configService.get<string>('REELS_LLM_MODEL') ||
+      OPENAI_MODELS.balanced;
 
     const prompt = [
       'Ниже автоматическая расшифровка аудиодорожки короткого видео (Instagram reel).',
@@ -1223,7 +1227,7 @@ export class ReelsService {
         model,
         messages: [{ role: 'user', content: prompt }],
         max_completion_tokens: 4000,
-        reasoning_effort: 'minimal',
+        reasoning_effort: 'none',
       }),
       signal: AbortSignal.timeout(2 * 60 * 1000),
     });
@@ -1257,7 +1261,7 @@ export class ReelsService {
       new Blob([new Uint8Array(audioBuffer)], { type: 'audio/mpeg' }),
       `${shortcode}.mp3`,
     );
-    formData.append('model', 'whisper-1');
+    formData.append('model', OPENAI_MODELS.timestampedTranscription);
     formData.append('response_format', 'verbose_json');
     formData.append('temperature', '0');
 

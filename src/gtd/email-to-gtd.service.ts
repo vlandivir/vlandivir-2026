@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GtdIdentityProvider } from '../generated/prisma-client';
+import { OPENAI_MODELS } from '../openai-models';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailRuleEffects } from '../services/email-executor.service';
 import { GtdAuthService } from './gtd-auth.service';
@@ -151,7 +152,9 @@ export class EmailToGtdService {
       );
       if (identity) return identity.workspaceId;
     }
-    const chatId = (this.config.get<string>('TELEGRAM_OWNER_CHAT_ID') || '').trim();
+    const chatId = (
+      this.config.get<string>('TELEGRAM_OWNER_CHAT_ID') || ''
+    ).trim();
     if (/^\d+$/.test(chatId)) {
       const identity = await this.gtdAuth.findIdentity(
         GtdIdentityProvider.TELEGRAM,
@@ -174,7 +177,7 @@ export class EmailToGtdService {
     if (!apiKey) return fallback;
 
     const model =
-      this.config.get<string>('EMAIL_LLM_MODEL') || 'gpt-5-mini';
+      this.config.get<string>('EMAIL_LLM_MODEL') || OPENAI_MODELS.balanced;
     const body = (message.bodyText || '').slice(0, BODY_LIMIT);
     const prompt = [
       'Сформулируй одну GTD-задачу по письму.',
@@ -201,7 +204,7 @@ export class EmailToGtdService {
             model,
             messages: [{ role: 'user', content: prompt }],
             max_completion_tokens: 800,
-            reasoning_effort: 'minimal',
+            reasoning_effort: 'none',
             response_format: { type: 'json_object' },
           }),
           signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -217,7 +220,9 @@ export class EmailToGtdService {
       if (!content) throw new Error('empty LLM content');
       return this.parseFormulation(content);
     } catch (error) {
-      this.logger.warn(`Email→GTD LLM failed, using fallback: ${String(error)}`);
+      this.logger.warn(
+        `Email→GTD LLM failed, using fallback: ${String(error)}`,
+      );
       return fallback;
     }
   }
@@ -230,7 +235,8 @@ export class EmailToGtdService {
     bodyText: string | null;
   }): FormulatedTask {
     const subject = (message.subject || '').trim() || 'Письмо без темы';
-    const from = `${message.fromName || ''} <${message.fromAddress || ''}>`.trim();
+    const from =
+      `${message.fromName || ''} <${message.fromAddress || ''}>`.trim();
     return {
       content: subject.slice(0, GTD_EMAIL_TITLE_MAX),
       context: [

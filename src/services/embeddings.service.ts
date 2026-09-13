@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '../generated/prisma-client';
+import { OPENAI_MODELS } from '../openai-models';
 import { PrismaService } from '../prisma/prisma.service';
 
 export type EmbeddingKind = 'reel' | 'note' | 'image';
@@ -21,7 +22,7 @@ export class EmbeddingsService {
   private get model(): string {
     return (
       this.configService.get<string>('EMBEDDING_MODEL') ||
-      'text-embedding-3-small'
+      OPENAI_MODELS.embeddings
     );
   }
 

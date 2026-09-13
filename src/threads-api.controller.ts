@@ -21,6 +21,10 @@ import {
   ThreadsService,
   ThreadsStatus,
 } from './services/threads.service';
+import {
+  ThreadsAiActionInput,
+  ThreadsAiService,
+} from './services/threads-ai.service';
 import { MAX_IMAGE_BYTES, MAX_IMAGES } from './services/threads-text';
 
 type DraftBody = {
@@ -41,7 +45,41 @@ type UploadedMemoryFile = {
 @UseGuards(AdminSessionGuard)
 @Controller('threads-api')
 export class ThreadsApiController {
-  constructor(private readonly threads: ThreadsService) {}
+  constructor(
+    private readonly threads: ThreadsService,
+    private readonly threadsAi: ThreadsAiService,
+  ) {}
+
+  @Get('ai-actions')
+  aiActions() {
+    return this.threadsAi.listActions();
+  }
+
+  @Post('ai-actions')
+  createAiAction(@Body() body: ThreadsAiActionInput) {
+    return this.threadsAi.createAction(body);
+  }
+
+  @Patch('ai-actions/:id')
+  updateAiAction(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: ThreadsAiActionInput,
+  ) {
+    return this.threadsAi.updateAction(id, body);
+  }
+
+  @Delete('ai-actions/:id')
+  deleteAiAction(@Param('id', ParseIntPipe) id: number) {
+    return this.threadsAi.deleteAction(id);
+  }
+
+  @Post('ai-actions/:id/run')
+  runAiAction(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { text?: string },
+  ) {
+    return this.threadsAi.runAction(id, body?.text);
+  }
 
   @Get('posts')
   list(@Query('status') status?: string) {
