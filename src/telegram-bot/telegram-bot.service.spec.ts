@@ -14,6 +14,8 @@ import { CollageCommandsService } from './collage-commands.service';
 import { Context } from 'telegraf';
 import { DebugLogService } from '../services/debug-log.service';
 import { ReelsService } from '../services/reels.service';
+import { GtdAuthService } from '../gtd/gtd-auth.service';
+import { GtdService } from '../gtd/gtd.service';
 
 describe('TelegramBotService', () => {
   let service: TelegramBotService;
@@ -206,6 +208,19 @@ describe('TelegramBotService', () => {
             processInBackground: jest.fn(),
           },
         },
+        {
+          provide: GtdAuthService,
+          useValue: {
+            ensureIdentity: jest.fn(),
+          },
+        },
+        {
+          provide: GtdService,
+          useValue: {
+            mcpCredentials: jest.fn(),
+            rotateMcpToken: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -384,6 +399,7 @@ describe('TelegramBotService', () => {
       '/d or /dairy - Dairy Notes',
       '/dl or /debuglog - Export in-memory debug log',
       '/f or /find - Semantic search over notes',
+      '/gtdkey - GTD MCP key for Cursor',
       '/help - Show this help message',
       '/history - Chat History',
       '/p or /phrase - Translate between RU/EN/SR',

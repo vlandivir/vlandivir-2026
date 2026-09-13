@@ -94,10 +94,10 @@ describe('LlmService', () => {
       const [, request] = (global.fetch as jest.Mock).mock.calls[0];
       const body = JSON.parse(request.body);
       expect(body.max_completion_tokens).toBe(1600);
-      expect(body.reasoning_effort).toBe('minimal');
+      expect(body.reasoning_effort).toBe('none');
     });
 
-    it('should retry a timed-out request with gpt-5-mini', async () => {
+    it('should retry a timed-out request with gpt-5.6-terra', async () => {
       const timeoutError = Object.assign(new Error('timed out'), {
         name: 'TimeoutError',
       });
@@ -123,8 +123,8 @@ describe('LlmService', () => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
       const [, fallbackRequest] = (global.fetch as jest.Mock).mock.calls[1];
       const fallbackBody = JSON.parse(fallbackRequest.body);
-      expect(fallbackBody.model).toBe('gpt-5-mini');
-      expect(fallbackBody.reasoning_effort).toBe('minimal');
+      expect(fallbackBody.model).toBe('gpt-5.6-terra');
+      expect(fallbackBody.reasoning_effort).toBe('none');
     });
 
     it('should report a timeout when both description attempts time out', async () => {
@@ -158,15 +158,15 @@ describe('LlmService', () => {
 
       expect(describe).toHaveBeenCalledTimes(3);
       expect(describe.mock.calls.map((call) => call[3]?.model)).toEqual([
-        'gpt-5',
-        'gpt-5-mini',
-        'gpt-4o',
+        'gpt-5.6-sol',
+        'gpt-5.6-terra',
+        'gpt-5.6-luna',
       ]);
       expect(service.refineHandwrittenText).toHaveBeenCalledWith(
         [
-          '--- Вариант (gpt-5) ---\nвариант один',
-          '--- Вариант (gpt-5-mini) ---\nвариант два',
-          '--- Вариант (gpt-4o) ---\nвариант три',
+          '--- Вариант (gpt-5.6-sol) ---\nвариант один',
+          '--- Вариант (gpt-5.6-terra) ---\nвариант два',
+          '--- Вариант (gpt-5.6-luna) ---\nвариант три',
         ],
         'контекст',
       );

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Context } from 'telegraf';
 import { ConfigService } from '@nestjs/config';
+import { OPENAI_MODELS } from '../openai-models';
 
 @Injectable()
 export class SerbianCommandsService {
@@ -72,7 +73,7 @@ export class SerbianCommandsService {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-5',
+            model: OPENAI_MODELS.balanced,
             messages: [
               {
                 role: 'user',

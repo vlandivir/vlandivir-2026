@@ -72,7 +72,7 @@ loopback `http://127.0.0.1|localhost` (для отладки).
 | Записная книжка рилсов (страницы) | `GET /reels`, `GET /reels/:id` | `src/reels-pages.controller.ts` |
 | Дашборд почты (страница) | `GET /email` | `src/email-pages.controller.ts` |
 | Композер Threads (страница) | `GET /threads` | `src/threads-pages.controller.ts` |
-| API Threads | `GET/POST/PATCH/DELETE /threads-api/*` | `src/threads-api.controller.ts` (guard на классе) |
+| API Threads | `GET/POST/PATCH/DELETE /threads-api/*`, включая CRUD `/ai-actions` и `POST /ai-actions/:id/run` | `src/threads-api.controller.ts` (`AdminSessionGuard` на классе; промпты и LLM-вызовы доступны только админу) |
 | API почты | `GET/POST /email-api/*` (stats, messages, sync, `POST /messages/:id/to-gtd`) | `src/email-api.controller.ts` (guard на классе) |
 | Дневник (страницы) | `GET /diary`, `GET /diary/:MM-DD`, `GET /diary/archive` | `src/diary-pages.controller.ts`; записи скоупятся к личному чату владельца |
 | API дневника | `GET /diary-api/calendar`, `GET /diary-api/day`, `GET /diary-api/archive`, `PATCH/DELETE /diary-api/notes/:id`, `POST /diary-api/notes/:id/restore`, `POST /diary-api/notes/:id/videos`, `PATCH /diary-api/images/:id`, `POST /diary-api/images/:id/describe`, `PATCH /diary-api/videos/:id`, `POST /diary-api/videos/:id/send` | `src/diary-api.controller.ts` (guard на классе); soft-delete через `Note.deletedAt` |

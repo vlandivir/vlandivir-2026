@@ -617,3 +617,20 @@ model ThreadsImage {
 
   @@index([postId])
 }
+
+// Configurable AI buttons shown in the Threads draft composer.
+model ThreadsAiAction {
+  id              Int      @id @default(autoincrement())
+  label           String
+  prompt          String   @db.Text
+  responseMode    String   @default("analysis") // replace_text | analysis
+  model           String   @default("gpt-5.6-terra")
+  reasoningEffort String   @default("none") // none | low | medium | high
+  webSearch       Boolean  @default(false)
+  enabled         Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
+}

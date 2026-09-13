@@ -14,6 +14,10 @@
     dirty: false,
     pollOn: false,
     freshReplyIds: {},
+    aiActions: [],
+    aiRunning: false,
+    aiEditingId: null,
+    aiUndo: null,
   };
 
   const STAT_ICONS = {
@@ -136,6 +140,338 @@
     line.hidden = false;
     line.textContent = message;
     line.classList.toggle('muted', !isError);
+  }
+
+  function safeExternalUrl(value) {
+    try {
+      const url = new URL(String(value || ''));
+      return url.protocol === 'http:' || url.protocol === 'https:'
+        ? url.href
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function clearAiResult() {
+    state.aiUndo = null;
+    el('ai-result').hidden = true;
+    el('ai-result-title').textContent = '';
+    el('ai-result-body').replaceChildren();
+    el('ai-result-sources').replaceChildren();
+    el('ai-result-sources').hidden = true;
+    updateAiUndo();
+  }
+
+  function updateAiUndo() {
+    const undo = state.aiUndo;
+    const available =
+      Boolean(undo) &&
+      undo.draftId === state.selectedId &&
+      el('draft-text').value === undo.after;
+    el('ai-undo').hidden = !available;
+  }
+
+  function appendAnalysisText(container, text, citations) {
+    const items = Array.isArray(citations)
+      ? citations
+          .filter(
+            (item) =>
+              Number.isInteger(item.startIndex) &&
+              Number.isInteger(item.endIndex) &&
+              item.endIndex > item.startIndex &&
+              safeExternalUrl(item.url),
+          )
+          .sort((a, b) => a.startIndex - b.startIndex)
+      : [];
+    let cursor = 0;
+    for (const item of items) {
+      const start = Math.max(cursor, Math.min(text.length, item.startIndex));
+      const end = Math.max(start, Math.min(text.length, item.endIndex));
+      if (start > cursor) container.append(text.slice(cursor, start));
+      if (end <= cursor) continue;
+      const link = document.createElement('a');
+      link.href = safeExternalUrl(item.url);
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = text.slice(start, end);
+      link.title = item.title || item.url;
+      container.append(link);
+      cursor = end;
+    }
+    if (cursor < text.length) container.append(text.slice(cursor));
+  }
+
+  function renderAiSources(sources) {
+    const box = el('ai-result-sources');
+    box.replaceChildren();
+    const valid = (Array.isArray(sources) ? sources : []).filter((source) =>
+      safeExternalUrl(source.url),
+    );
+    if (!valid.length) {
+      box.hidden = true;
+      return;
+    }
+    const label = document.createElement('p');
+    label.className = 'field-label';
+    label.textContent = 'Источники';
+    const list = document.createElement('ul');
+    for (const source of valid) {
+      const item = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = safeExternalUrl(source.url);
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = source.title || source.url;
+      item.append(link);
+      list.append(item);
+    }
+    box.append(label, list);
+    box.hidden = false;
+  }
+
+  function renderAiResult(action, result, textChanged) {
+    const panel = el('ai-result');
+    const body = el('ai-result-body');
+    el('ai-result-title').textContent = action.label;
+    body.replaceChildren();
+    if (result.kind === 'analysis') {
+      appendAnalysisText(body, result.text || '', result.citations);
+      renderAiSources(result.sources);
+    } else {
+      body.textContent =
+        result.message ||
+        (textChanged
+          ? 'Текст исправлен.'
+          : 'Орфографических изменений не найдено.');
+      el('ai-result-sources').replaceChildren();
+      el('ai-result-sources').hidden = true;
+    }
+    panel.hidden = false;
+    updateAiUndo();
+  }
+
+  function renderAiButtons() {
+    const box = el('ai-action-buttons');
+    box.replaceChildren();
+    for (const action of state.aiActions.filter((item) => item.enabled)) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'ghost-btn';
+      button.textContent = action.label;
+      button.disabled =
+        state.aiRunning || !selected() || selected()?.status === 'published';
+      button.addEventListener('click', () => {
+        void runAiAction(action);
+      });
+      box.append(button);
+    }
+    const undo = state.aiUndo;
+    if (
+      undo &&
+      undo.draftId === state.selectedId &&
+      el('draft-text').value === undo.after
+    ) {
+      const undoButton = document.createElement('button');
+      undoButton.type = 'button';
+      undoButton.className = 'mini-btn';
+      undoButton.textContent = 'Вернуть текст';
+      undoButton.addEventListener('click', undoAiText);
+      box.append(undoButton);
+    }
+    if (!box.childElementCount) {
+      const empty = document.createElement('span');
+      empty.className = 'muted';
+      empty.textContent = 'Нет включённых кнопок';
+      box.append(empty);
+    }
+  }
+
+  function aiMeta(action) {
+    const bits = [
+      action.responseMode === 'replace_text' ? 'замена текста' : 'ответ',
+      action.model,
+      action.reasoningEffort,
+    ];
+    if (action.webSearch) bits.push('web search');
+    if (!action.enabled) bits.push('выключена');
+    return bits.join(' · ');
+  }
+
+  function renderAiActionList() {
+    const list = el('ai-action-list');
+    list.replaceChildren();
+    el('ai-action-empty').hidden = state.aiActions.length > 0;
+    for (const action of state.aiActions) {
+      const row = document.createElement('article');
+      row.className = 'ai-action-row';
+      if (!action.enabled) row.classList.add('is-disabled');
+      const copy = document.createElement('div');
+      const title = document.createElement('p');
+      title.className = 'field-label';
+      title.textContent = action.label;
+      const meta = document.createElement('p');
+      meta.className = 'muted';
+      meta.textContent = aiMeta(action);
+      copy.append(title, meta);
+      const controls = document.createElement('div');
+      controls.className = 'ai-action-row-controls';
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'mini-btn';
+      edit.textContent = 'Изменить';
+      edit.addEventListener('click', () => openAiActionForm(action));
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'mini-btn';
+      remove.textContent = 'Удалить';
+      remove.addEventListener('click', () => void deleteAiAction(action));
+      controls.append(edit, remove);
+      row.append(copy, controls);
+      list.append(row);
+    }
+  }
+
+  async function loadAiActions() {
+    state.aiActions = await fetchJson(`${API}/ai-actions`);
+    renderAiButtons();
+    renderAiActionList();
+  }
+
+  function aiFormField(name) {
+    return el('ai-action-form').elements.namedItem(name);
+  }
+
+  function openAiActionForm(action) {
+    const form = el('ai-action-form');
+    state.aiEditingId = action?.id || null;
+    aiFormField('label').value = action?.label || '';
+    aiFormField('prompt').value = action?.prompt || '';
+    aiFormField('responseMode').value = action?.responseMode || 'analysis';
+    aiFormField('model').value = action?.model || 'gpt-5.6-terra';
+    aiFormField('reasoningEffort').value =
+      action?.reasoningEffort || 'none';
+    aiFormField('sortOrder').value = String(action?.sortOrder ?? 0);
+    aiFormField('webSearch').checked = Boolean(action?.webSearch);
+    aiFormField('enabled').checked = action?.enabled ?? true;
+    form.hidden = false;
+    aiFormField('label').focus();
+  }
+
+  function closeAiActionForm() {
+    state.aiEditingId = null;
+    el('ai-action-form').hidden = true;
+    el('ai-action-form').reset();
+  }
+
+  async function saveAiAction(event) {
+    event.preventDefault();
+    const payload = {
+      label: aiFormField('label').value.trim(),
+      prompt: aiFormField('prompt').value.trim(),
+      responseMode: aiFormField('responseMode').value,
+      model: aiFormField('model').value,
+      reasoningEffort: aiFormField('reasoningEffort').value,
+      sortOrder: Number(aiFormField('sortOrder').value || 0),
+      webSearch: aiFormField('webSearch').checked,
+      enabled: aiFormField('enabled').checked,
+    };
+    const id = state.aiEditingId;
+    try {
+      await fetchJson(id ? `${API}/ai-actions/${id}` : `${API}/ai-actions`, {
+        method: id ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      await loadAiActions();
+      closeAiActionForm();
+      setStatus('AI-кнопка сохранена');
+    } catch (error) {
+      setStatus(error.message, true);
+    }
+  }
+
+  async function deleteAiAction(action) {
+    const dialog = window.AppDialog;
+    const ok = dialog
+      ? await dialog.confirm(`Удалить кнопку «${action.label}»?`, {
+          confirmLabel: 'Удалить',
+          danger: true,
+        })
+      : window.confirm(`Удалить кнопку «${action.label}»?`);
+    if (!ok) return;
+    try {
+      await fetchJson(`${API}/ai-actions/${action.id}`, { method: 'DELETE' });
+      if (state.aiEditingId === action.id) closeAiActionForm();
+      await loadAiActions();
+      setStatus('AI-кнопка удалена');
+    } catch (error) {
+      setStatus(error.message, true);
+    }
+  }
+
+  async function runAiAction(action) {
+    const post = selected();
+    const area = el('draft-text');
+    if (!post || post.status === 'published' || state.aiRunning) return;
+    if (!area.value.trim()) {
+      setStatus('Сначала напишите текст черновика', true);
+      area.focus();
+      return;
+    }
+    state.aiRunning = true;
+    renderAiButtons();
+    setStatus(`${action.label}…`);
+    try {
+      const result = await fetchJson(`${API}/ai-actions/${action.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: area.value }),
+      });
+      let textChanged = false;
+      if (result.kind === 'replace_text' && typeof result.text === 'string') {
+        const before = area.value;
+        const after = result.text;
+        textChanged = before !== after;
+        if (textChanged) {
+          area.value = after;
+          state.aiUndo = { draftId: post.id, before, after };
+          markDirty();
+        } else {
+          state.aiUndo = null;
+        }
+      } else {
+        state.aiUndo = null;
+      }
+      updateCharCount();
+      renderAiResult(action, result, textChanged);
+      setStatus(textChanged ? 'Текст исправлен' : 'Проверка завершена');
+    } catch (error) {
+      setStatus(error.message, true);
+    } finally {
+      state.aiRunning = false;
+      renderAiButtons();
+      updateActionButtons();
+    }
+  }
+
+  function undoAiText() {
+    const undo = state.aiUndo;
+    if (
+      !undo ||
+      undo.draftId !== state.selectedId ||
+      el('draft-text').value !== undo.after
+    ) {
+      state.aiUndo = null;
+      updateAiUndo();
+      return;
+    }
+    el('draft-text').value = undo.before;
+    state.aiUndo = null;
+    markDirty();
+    updateCharCount();
+    updateAiUndo();
+    setStatus('Предыдущий текст возвращён');
   }
 
   function preview(text) {
@@ -737,6 +1073,7 @@
     updateCharCount();
     renderPoll(post);
     renderImages(post);
+    renderAiButtons();
     updateActionButtons();
   }
 
@@ -745,6 +1082,8 @@
     state.dirty = false;
     state.pollOn = false;
     el('editor').hidden = true;
+    clearAiResult();
+    renderAiButtons();
     updateActionButtons();
   }
 
@@ -822,6 +1161,7 @@
     el('save-draft').disabled = !editing || !state.dirty || state.saving;
     el('publish').disabled = !editing || state.saving;
     el('close-editor').disabled = state.saving;
+    renderAiButtons();
   }
 
   function markDirty() {
@@ -905,6 +1245,7 @@
       state.expandedId = null;
       state.selectedId = id;
       state.pollOn = (post.poll || []).filter(Boolean).length >= 2;
+      clearAiResult();
       renderList();
       renderEditor();
       scrollEditorIntoView();
@@ -948,6 +1289,7 @@
     state.expandedId = null;
     state.selectedId = created.id;
     state.pollOn = false;
+    clearAiResult();
     renderList();
     renderEditor();
     el('draft-text').focus();
@@ -1102,7 +1444,28 @@
   el('refresh-insights').addEventListener('click', () => {
     void refreshInsights();
   });
+  el('ai-settings-toggle').addEventListener('click', () => {
+    el('ai-settings').hidden = !el('ai-settings').hidden;
+  });
+  el('ai-settings-close').addEventListener('click', () => {
+    el('ai-settings').hidden = true;
+    closeAiActionForm();
+  });
+  el('ai-action-new').addEventListener('click', () => openAiActionForm(null));
+  el('ai-action-cancel').addEventListener('click', closeAiActionForm);
+  el('ai-action-form').addEventListener('submit', (event) => {
+    void saveAiAction(event);
+  });
+  el('ai-undo').addEventListener('click', undoAiText);
+  el('ai-result-close').addEventListener('click', () => {
+    el('ai-result').hidden = true;
+  });
   el('draft-text').addEventListener('input', () => {
+    if (state.aiUndo && el('draft-text').value !== state.aiUndo.after) {
+      state.aiUndo = null;
+      updateAiUndo();
+      renderAiButtons();
+    }
     updateCharCount();
     markDirty();
   });
@@ -1131,5 +1494,7 @@
   });
 
   updateActionButtons();
-  void loadPosts().catch((error) => setStatus(error.message, true));
+  void Promise.all([loadPosts(), loadAiActions()]).catch((error) =>
+    setStatus(error.message, true),
+  );
 })();

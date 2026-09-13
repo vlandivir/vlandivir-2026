@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { OPENAI_MODELS } from '../openai-models';
 
 export type ClassifierRule = {
   id: number;
@@ -44,7 +45,8 @@ export class EmailClassifierService {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (!apiKey) throw new Error('OPENAI_API_KEY is not defined');
     const model =
-      this.configService.get<string>('EMAIL_LLM_MODEL') || 'gpt-5-mini';
+      this.configService.get<string>('EMAIL_LLM_MODEL') ||
+      OPENAI_MODELS.balanced;
 
     // Rules are passed highest-priority first; the model returns the first
     // (highest-priority) one whose condition matches.
@@ -84,7 +86,7 @@ export class EmailClassifierService {
         model,
         messages: [{ role: 'user', content: prompt }],
         max_completion_tokens: 500,
-        reasoning_effort: 'minimal',
+        reasoning_effort: 'none',
         response_format: { type: 'json_object' },
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { OPENAI_MODELS } from '../openai-models';
 import { DiarySearchService } from './diary-search.service';
 
 // Enough for ~8 long video notes without blowing up the prompt
@@ -43,7 +44,8 @@ export class DiaryQaService {
       throw new Error('OPENAI_API_KEY is not defined');
     }
     const model =
-      this.configService.get<string>('DIARY_LLM_MODEL') || 'gpt-5-mini';
+      this.configService.get<string>('DIARY_LLM_MODEL') ||
+      OPENAI_MODELS.balanced;
 
     const prompt = [
       'Ты помощник по личному дневнику. Ниже выдержки из заметок пользователя с датами, отобранные поиском по его вопросу.',

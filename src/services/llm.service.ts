@@ -1,5 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { OPENAI_MODELS } from '../openai-models';
 import { DebugLogService } from './debug-log.service';
 
 /** OpenAI assistant message.content may be a string or an array of text/refusal parts. */
@@ -35,11 +36,15 @@ function extractTextFromAssistantContent(content: unknown): {
 const IMAGE_DESCRIPTION_MAX_COMPLETION_TOKENS = 1600;
 const TEXT_REFINE_MAX_COMPLETION_TOKENS = 1600;
 
-type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
+type ReasoningEffort = 'none' | 'low' | 'medium' | 'high';
 
 // Three OpenAI vision models with different error patterns — consensus beats
-// three identical gpt-5 draws. Override via HANDWRITING_LLM_MODELS=a,b,c.
-const DEFAULT_HANDWRITING_MODELS = ['gpt-5', 'gpt-5-mini', 'gpt-4o'] as const;
+// three identical draws. Override via HANDWRITING_LLM_MODELS=a,b,c.
+const DEFAULT_HANDWRITING_MODELS = [
+  OPENAI_MODELS.highAccuracy,
+  OPENAI_MODELS.balanced,
+  OPENAI_MODELS.economical,
+] as const;
 
 function supportsReasoningEffort(model: string): boolean {
   return /^(gpt-5|o[0-9])/i.test(model);
@@ -52,12 +57,12 @@ export interface DescribeImageOptions {
   reasoningEffort?: ReasoningEffort;
   // Override the default 30s fetch abort (handwriting + medium effort needs more).
   timeoutMs?: number;
-  // Chat-completions model id (default gpt-5).
+  // Chat-completions model id (default: current high-accuracy model).
   model?: string;
 }
 
 export interface RecognizeHandwritingOptions {
-  // Vision models for independent passes (default: gpt-5, gpt-5-mini, gpt-4o).
+  // Vision models for independent passes (default: Sol, Terra and Luna).
   models?: string[];
   reasoningEffort?: ReasoningEffort;
 }
@@ -105,8 +110,8 @@ export class LlmService {
       return primaryResult;
     }
 
-    const primaryModel = options?.model?.trim() || 'gpt-5';
-    const fallbackModel = 'gpt-5-mini';
+    const primaryModel = options?.model?.trim() || OPENAI_MODELS.highAccuracy;
+    const fallbackModel = OPENAI_MODELS.balanced;
     if (primaryModel === fallbackModel) {
       return primaryResult;
     }
@@ -124,7 +129,7 @@ export class LlmService {
     return this.describeImageOnce(imageBuffer, comment, noteContext, {
       ...options,
       model: fallbackModel,
-      reasoningEffort: 'minimal',
+      reasoningEffort: 'none',
       timeoutMs: 20_000,
     });
   }
@@ -136,10 +141,9 @@ export class LlmService {
     options?: DescribeImageOptions,
   ): Promise<string> {
     const handwriting = options?.handwriting ?? false;
-    const reasoningEffort: ReasoningEffort =
-      options?.reasoningEffort ?? 'minimal';
+    const reasoningEffort: ReasoningEffort = options?.reasoningEffort ?? 'none';
     const timeoutMs = options?.timeoutMs ?? 30_000;
-    const model = options?.model?.trim() || 'gpt-5';
+    const model = options?.model?.trim() || OPENAI_MODELS.highAccuracy;
     try {
       const apiKey = this.configService.get<string>('OPENAI_API_KEY');
       if (!apiKey) {
@@ -574,7 +578,7 @@ export class LlmService {
             Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: 'gpt-5',
+            model: OPENAI_MODELS.highAccuracy,
             messages: [
               { role: 'system', content: instructions },
               { role: 'user', content: userContent },

@@ -9,7 +9,7 @@ Architecture for agents and humans. Folder map: [repo-map.md](repo-map.md). Desi
 - **Backend:** NestJS 11 (Express), TypeScript, webhook-based Telegram bot via `telegraf`
 - **DB:** PostgreSQL via Prisma 6 (`prisma/schema.prisma`; client generated into `src/generated/`)
 - **Storage:** DigitalOcean Spaces, bucket `vlandivir-2025` (S3 SDK)
-- **LLM:** OpenAI (image description, Whisper transcription, translation, reels tags/titles)
+- **LLM:** OpenAI (image description, timestamped Whisper transcription, translation, reels tags/titles, configurable Threads actions). Model map: [openai-models.md](openai-models.md)
 - **Media:** ffmpeg (audio extraction, subtitle rendering), yt-dlp (Instagram download), sharp + canvas (images, collages)
 - **Frontends:** vanilla JS/HTML/CSS in `web/` (no bundler); `telegram-app/` — React + Vite (GTD + Telegram Mini App); `mobile/gtd-ios/` and `mobile/gps-tracker-ios/` — SwiftUI; `desktop/trip-montage/` — Tauri 2
 
@@ -31,7 +31,7 @@ Root module: [src/app.module.ts](../src/app.module.ts) — ConfigModule (global)
 | [reels-api.controller.ts](../src/reels-api.controller.ts) | `/reels-api` | Instagram reels archive: create/retry/delete, transcribe (Whisper), vision (frame extraction + LLM), tag/title generation, semantic search (`GET /search`), Q&A (`GET /ask`) + embeddings backfill (`POST /embed-all`). Reads: `x-reels-page-key`, writes: `x-reels-api-key` |
 | [reels-pages.controller.ts](../src/reels-pages.controller.ts) | `/reels/:secret`, `/reels/:secret/:id` | Unlisted reels catalog (secret = `REELS_PAGE_KEY`); per-reel OG tags |
 | [email-api.controller.ts](../src/email-api.controller.ts) | `/email-api` | IMAP mail dashboard (Google admin) |
-| [threads-api.controller.ts](../src/threads-api.controller.ts) | `/threads-api` | Threads composer: drafts, image upload, publish to Threads Graph API + diary copy, Insights/replies. Google admin |
+| [threads-api.controller.ts](../src/threads-api.controller.ts) | `/threads-api` | Threads composer: drafts, image upload, publish to Threads Graph API + diary copy, Insights/replies, configurable AI actions and action execution. Google admin |
 | [threads-pages.controller.ts](../src/threads-pages.controller.ts) | `/threads` | Owner-only composer page; serves `web/threads/index.html` |
 | [mcp/mcp.controller.ts](../src/mcp/mcp.controller.ts) | `/mcp` | Stateless MCP server (Streamable HTTP). Public tools: map search/get/tags. `Authorization: Bearer <MCP_API_KEY>` adds reels tools (search/get/ask) and Threads tools (list/get/create/update/publish/insights); plus `X-Chat-Id` adds diary tools (search/get note/get day/ask). GTD tools (`gtd_now`, `gtd_search`, `gtd_get`, `gtd_capture`, `gtd_add_context`) use `Authorization: Bearer <workspace mcpToken>` from GTD settings or Telegram `/gtdkey` — no `X-Chat-Id`. Tools live in [mcp/mcp-tools.service.ts](../src/mcp/mcp-tools.service.ts) |
 | [subs.controller.ts](../src/subs.controller.ts) | `/subs-api` | Subtitle pipeline: upload vertical video → extract MP3 + waveform manifest → Whisper transcript → LLM translation → ffmpeg render with ASS subtitles → download. Everything cached in Spaces under `subs/*` by video hash |
@@ -69,6 +69,7 @@ Root module: [src/app.module.ts](../src/app.module.ts) — ConfigModule (global)
 
 - [storage.service.ts](../src/services/storage.service.ts) — all Spaces uploads/downloads (chat media, subs artifacts, arbitrary keys)
 - [llm.service.ts](../src/services/llm.service.ts) — OpenAI wrapper (image description in Russian)
+- [threads-ai.service.ts](../src/services/threads-ai.service.ts) — configurable Threads composer actions via the OpenAI Responses API; strict structured rewrites and analysis with optional required web search/citations
 - [reels.service.ts](../src/services/reels.service.ts) — reels pipeline: yt-dlp download, cover/audio extraction, Whisper, frame vision, tag/title generation, search-embedding upsert; fire-and-forget background processing with status fields on the `Reel` model
 - [trip-projects.service.ts](../src/services/trip-projects.service.ts) — per-trip CapCut montage (`TripProject` / `TripProjectClip`): order videos, optional stream-copy trim to Spaces, background ZIP export (legacy; desktop app exports a local folder instead). API gated to Google admin
 - [trip-yandex-disk.service.ts](../src/services/trip-yandex-disk.service.ts) — admin-only one-way archive of trip originals to a published per-album Yandex Disk folder; initial/manual reconciliation plus optional background sync after new uploads. Setup and behavior: [yandex-disk-sync.md](yandex-disk-sync.md)
@@ -77,8 +78,8 @@ Root module: [src/app.module.ts](../src/app.module.ts) — ConfigModule (global)
 - [embeddings.service.ts](../src/services/embeddings.service.ts) — semantic search: OpenAI `text-embedding-3-small` (override via `EMBEDDING_MODEL`) + pgvector; unified `Embedding` table (`kind`: reel | note | image, `chatId` scopes private kinds), raw-SQL upsert and cosine search; optional `refIds` allowlist restricts a search to a subset of rows
 - [map-search.service.ts](../src/services/map-search.service.ts) — `GET /map-api/search` backend: semantic search over map points/tracks that have an attached Instagram reel; reuses the reel embeddings (restricted via `refIds` to reels linked from the map), dedupes to unique features ranked by similarity. A geographic constraint in the query (parsed by [map-geo-query.ts](../src/services/map-geo-query.ts): place + radius like "в часе езды от Белграда") is geocoded via Nominatim and used to filter results by haversine distance. The endpoint is rate-limited by [rate-limit.guard.ts](../src/common/rate-limit.guard.ts) (30 req/min per IP, in-memory)
 - [diary-search.service.ts](../src/services/diary-search.service.ts) — `/f` bot command backend: lazily indexes missing notes/image descriptions (per chat) before each search, merges note+image hits per note, strictly chatId-scoped
-- [reels-qa.service.ts](../src/services/reels-qa.service.ts) — `GET /reels-api/ask` backend: RAG over the reels notebook (top-10 reels → `gpt-5-mini` via `REELS_LLM_MODEL`), answers strictly from excerpts, references reels as `[#id]` for the UI to link
-- [diary-qa.service.ts](../src/services/diary-qa.service.ts) — `/q` bot command backend: RAG answer over retrieved notes (top-12 → `gpt-5-mini`, override via `DIARY_LLM_MODEL`); answers strictly from excerpts, cites note dates
+- [reels-qa.service.ts](../src/services/reels-qa.service.ts) — `GET /reels-api/ask` backend: RAG over the reels notebook (top-10 reels → `gpt-5.6-terra` via `REELS_LLM_MODEL`), answers strictly from excerpts, references reels as `[#id]` for the UI to link
+- [diary-qa.service.ts](../src/services/diary-qa.service.ts) — `/q` bot command backend: RAG answer over retrieved notes (top-12 → `gpt-5.6-terra`, override via `DIARY_LLM_MODEL`); answers strictly from excerpts, cites note dates
 - [instagram-meta.service.ts](../src/services/instagram-meta.service.ts) — scrape Instagram post metadata (author, counters, caption, cover)
 - [date-parser.service.ts](../src/services/date-parser.service.ts) — extract date from a note's first line
 - [pdf.service.ts](../src/services/pdf.service.ts) — renders `/history pdf` export with pdfkit (works in prod; Cyrillic via the bundled `assets/fonts/NotoSans-Regular.ttf`)
@@ -92,7 +93,7 @@ Root module: [src/app.module.ts](../src/app.module.ts) — ConfigModule (global)
 - **Trip / TripMedia** — shared trip albums: unlisted `secret` URL, original media on Spaces keyed by content hash, JPEG `thumbUrl` (~480px via sharp/ffmpeg) for cheap gallery previews, uploader metadata (`contributorId`, display name, user-agent, optional dimensions/`takenAt`/`cameraModel`), full capture tags in `exif` JSONB (EXIF for photos, ffprobe tags for videos), soft-delete via `deletedAt`
 - **ChatSettings / Todo / Question / Answer / TaskNote / TaskImage** — defined in the schema but not referenced anywhere in `src/` (planned features); the tables may contain data, check before dropping
 - **GtdWorkspace / GtdIdentity / GtdProject / GtdTask / GtdTaskEvent / GtdAttachment / GtdLinkRequest / GtdEmbedding** — isolated GTD model. Google and Telegram identities start with independent workspaces and can optionally be merged 1:1; none of the legacy todo tables are reused. `GtdEmbedding` is a workspace-scoped pgvector index (cuid task ids), separate from diary/reels `Embedding`.
-- **ThreadsPost / ThreadsImage** — Threads composer: draft or published post, optional poll/topic/ghost, Spaces images under `threads/YYYY/MM/`, Insights JSONB and reply dump
+- **ThreadsPost / ThreadsImage / ThreadsAiAction** — Threads composer: draft or published post, optional poll/topic/ghost, Spaces images under `threads/YYYY/MM/`, Insights JSONB/reply dump and browser-editable AI button configuration
 
 ## Web apps (`web/`)
 
@@ -103,7 +104,7 @@ Root module: [src/app.module.ts](../src/app.module.ts) — ConfigModule (global)
 | `reels/` | Reels catalog | Vanilla JS; Google session (old `/reels/<secret>` URLs redirect) |
 | `diary/` | Diary calendar + note editor | Vanilla JS SPA behind Google sign-in; year-agnostic calendar → `/diary/MM-DD` day view, inline note editing, soft-delete archive (`/diary/archive`), video upload + send-to-Telegram, enlarged images with an editable/regenerable description |
 | `email/` | Mail UI | Google session; IMAP ingest on the server; кнопка «В GTD» и эффект правила `createGtdTask` |
-| `threads/` | Threads composer | Google session; drafts, images, poll, publish to @vlandivir + diary copy |
+| `threads/` | Threads composer | Admin Google session; drafts, images, poll, publish to @vlandivir + diary copy; configurable spelling/fact-check and other AI buttons |
 | `subs/` | Vertical-video subtitle editor | Vanilla JS; dark workbench palette allowed; bilingual |
 | `gpx-route-png/` | GPX → PNG route renderer | Fully client-side; bilingual |
 | `gpx-track-demo/` | GPS smoothing demo | Client-side; `/gpx-track-demo` |

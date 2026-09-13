@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { OPENAI_MODELS } from '../openai-models';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmbeddingsService } from './embeddings.service';
 
@@ -76,7 +77,8 @@ export class ReelsQaService {
       throw new Error('OPENAI_API_KEY is not defined');
     }
     const model =
-      this.configService.get<string>('REELS_LLM_MODEL') || 'gpt-5-mini';
+      this.configService.get<string>('REELS_LLM_MODEL') ||
+      OPENAI_MODELS.balanced;
 
     const prompt = [
       'Ты помощник по личной записной книжке коротких видео (Instagram reels). Ниже выдержки из сохранённых роликов, отобранные поиском по вопросу пользователя.',
@@ -99,7 +101,7 @@ export class ReelsQaService {
         model,
         messages: [{ role: 'user', content: prompt }],
         max_completion_tokens: 1500,
-        reasoning_effort: 'minimal',
+        reasoning_effort: 'none',
       }),
       signal: AbortSignal.timeout(QA_TIMEOUT_MS),
     });
