@@ -42,6 +42,14 @@ type UploadedMemoryFile = {
   size: number;
 };
 
+type PrepareMediaBody = {
+  files?: {
+    name?: string;
+    mimeType?: string;
+    size?: number;
+  }[];
+};
+
 @UseGuards(AdminSessionGuard)
 @Controller('threads-api')
 export class ThreadsApiController {
@@ -130,12 +138,36 @@ export class ThreadsApiController {
     );
   }
 
+  @Post('posts/:id/media/uploads')
+  prepareMediaUploads(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: PrepareMediaBody,
+  ) {
+    return this.threads.prepareMediaUploads(id, body.files || []);
+  }
+
+  @Post('posts/:id/media/:mediaId/complete')
+  completeMediaUpload(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('mediaId', ParseIntPipe) mediaId: number,
+  ) {
+    return this.threads.completeMediaUpload(id, mediaId);
+  }
+
+  @Delete('posts/:id/media/:mediaId')
+  removeMedia(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('mediaId', ParseIntPipe) mediaId: number,
+  ) {
+    return this.threads.removeMedia(id, mediaId);
+  }
+
   @Delete('posts/:id/images/:imageId')
   removeImage(
     @Param('id', ParseIntPipe) id: number,
     @Param('imageId', ParseIntPipe) imageId: number,
   ) {
-    return this.threads.removeImage(id, imageId);
+    return this.threads.removeMedia(id, imageId);
   }
 
   @Post('posts/:id/publish')

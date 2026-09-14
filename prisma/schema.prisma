@@ -209,23 +209,23 @@ model GtdProject {
 }
 
 model GtdTask {
-  id           String          @id @default(cuid())
-  workspaceId  String
-  workspace    GtdWorkspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  projectId    String?
-  project      GtdProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  content      String          @db.Text
-  status       GtdTaskStatus   @default(ACTIVE)
-  orderKey     BigInt
-  dueDate      DateTime?
-  snoozedUntil DateTime?
-  completedAt  DateTime?
-  canceledAt   DateTime?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  events       GtdTaskEvent[]
-  attachments  GtdAttachment[]
-  embedding    GtdEmbedding?
+  id            String          @id @default(cuid())
+  workspaceId   String
+  workspace     GtdWorkspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId     String?
+  project       GtdProject?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  content       String          @db.Text
+  status        GtdTaskStatus   @default(ACTIVE)
+  orderKey      BigInt
+  dueDate       DateTime?
+  snoozedUntil  DateTime?
+  completedAt   DateTime?
+  canceledAt    DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  events        GtdTaskEvent[]
+  attachments   GtdAttachment[]
+  embedding     GtdEmbedding?
   emailMessages EmailMessage[]
 
   @@index([workspaceId, status, snoozedUntil, orderKey])
@@ -262,14 +262,14 @@ model GtdAttachment {
 // Semantic search over GTD tasks (cuid ids, workspace scope). Separate from
 // Embedding because that table uses integer refId + optional chatId.
 model GtdEmbedding {
-  taskId      String                         @id
-  task        GtdTask                        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId      String                      @id
+  task        GtdTask                     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   workspaceId String
-  workspace   GtdWorkspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  content     String                         @db.Text
+  workspace   GtdWorkspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  content     String                      @db.Text
   embedding   Unsupported("vector(1536)")
-  createdAt   DateTime                       @default(now())
-  updatedAt   DateTime                       @updatedAt
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
 
   @@index([workspaceId])
 }
@@ -495,50 +495,50 @@ model EmailActionLog {
 
 // Shared trip photo/video album accessible via an unlisted secret URL.
 model Trip {
-  id                 String        @id @default(cuid())
-  secret             String        @unique
-  title              String
-  ownerContributorId String
-  yandexDiskPath String?
-  yandexDiskPublicUrl String?
-  yandexDiskAutoSync Boolean @default(false)
-  yandexDiskSyncStatus String @default("idle") // idle | running | complete | error
+  id                      String        @id @default(cuid())
+  secret                  String        @unique
+  title                   String
+  ownerContributorId      String
+  yandexDiskPath          String?
+  yandexDiskPublicUrl     String?
+  yandexDiskAutoSync      Boolean       @default(false)
+  yandexDiskSyncStatus    String        @default("idle") // idle | running | complete | error
   yandexDiskSyncStartedAt DateTime?
-  yandexDiskSyncedAt DateTime?
-  yandexDiskSyncError String?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  media              TripMedia[]
-  projects           TripProject[]
+  yandexDiskSyncedAt      DateTime?
+  yandexDiskSyncError     String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  media                   TripMedia[]
+  projects                TripProject[]
 }
 
 model TripMedia {
-  id               String            @id @default(cuid())
-  tripId           String
-  trip             Trip              @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  contentHash      String
-  url              String
-  thumbUrl         String?
-  mimeType         String
-  size             BigInt
-  originalFilename String
-  kind             String // photo | video
-  contributorId    String
-  displayName      String
-  userAgent        String?
-  width            Int?
-  height           Int?
-  durationMs       Int?
-  takenAt          DateTime?
-  cameraModel      String?
+  id                  String            @id @default(cuid())
+  tripId              String
+  trip                Trip              @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  contentHash         String
+  url                 String
+  thumbUrl            String?
+  mimeType            String
+  size                BigInt
+  originalFilename    String
+  kind                String // photo | video
+  contributorId       String
+  displayName         String
+  userAgent           String?
+  width               Int?
+  height              Int?
+  durationMs          Int?
+  takenAt             DateTime?
+  cameraModel         String?
   /// Full EXIF (photos) or ffprobe tags (videos); `{}` = inspected, none.
-  exif             Json?
-  yandexDiskPath String?
-  yandexDiskSyncedAt DateTime?
+  exif                Json?
+  yandexDiskPath      String?
+  yandexDiskSyncedAt  DateTime?
   yandexDiskSyncError String?
-  createdAt        DateTime          @default(now())
-  deletedAt        DateTime?
-  projectClips     TripProjectClip[]
+  createdAt           DateTime          @default(now())
+  deletedAt           DateTime?
+  projectClips        TripProjectClip[]
 
   @@unique([tripId, contentHash])
   @@index([tripId, createdAt])
@@ -583,37 +583,42 @@ model TripProjectClip {
 
 // Threads composer drafts and published posts (@vlandivir).
 model ThreadsPost {
-  id          Int      @id @default(autoincrement())
-  canvasId    String?  @unique // original threads-poster canvas id, for import
-  text        String   @db.Text
-  status      String   @default("draft") // draft | published
-  destination String   @default("threads") // threads | diary
-  ghost       Boolean  @default(false)
+  id          Int            @id @default(autoincrement())
+  canvasId    String?        @unique // original threads-poster canvas id, for import
+  text        String         @db.Text
+  status      String         @default("draft") // draft | published
+  destination String         @default("threads") // threads | diary
+  ghost       Boolean        @default(false)
   topic       String?
-  poll        String[] @default([])
+  poll        String[]       @default([])
   url         String?
   mediaId     String?
   diaryNoteId Int?
-  stats       Json?    @db.JsonB
-  statsPrev   Json?    @db.JsonB
-  pollResults Json?    @db.JsonB
-  repliesJson Json?    @db.JsonB
+  stats       Json?          @db.JsonB
+  statsPrev   Json?          @db.JsonB
+  pollResults Json?          @db.JsonB
+  repliesJson Json?          @db.JsonB
   publishedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  images      ThreadsImage[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  media       ThreadsMedia[]
 
   @@index([status, updatedAt])
 }
 
-model ThreadsImage {
-  id        Int         @id @default(autoincrement())
-  postId    Int
-  url       String
-  key       String
-  sortOrder Int         @default(0)
-  createdAt DateTime    @default(now())
-  post      ThreadsPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+model ThreadsMedia {
+  id               Int         @id @default(autoincrement())
+  postId           Int
+  kind             String      @default("image") // image | video
+  mimeType         String      @default("image/jpeg")
+  size             BigInt?
+  originalFilename String?
+  url              String
+  key              String
+  sortOrder        Int         @default(0)
+  uploadStatus     String      @default("ready") // uploading | ready
+  createdAt        DateTime    @default(now())
+  post             ThreadsPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId])
 }

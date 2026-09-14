@@ -1,186 +1,244 @@
 <!doctype html>
 <html lang="ru">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Threads</title>
-  <meta name="robots" content="noindex, nofollow" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/shared/site-theme.css?v=20260816-1" />
-  <link rel="stylesheet" href="/shared/site-header.css?v=20260816-2" />
-  <link rel="stylesheet" href="/shared/app-dialog.css?v=20260805-1" />
-  <link rel="stylesheet" href="/threads/styles.css?v=20260913-1" />
-  <script src="/shared/app-dialog.js?v=20260805-1"></script>
-  <script src="/shared/site-header.js?v=20260816-1" defer></script>
-  <script src="/threads/app.js?v=20260913-1" defer></script>
-</head>
-<body>
-  <header data-site-header data-active="threads" data-lang-none data-lang-ru="/threads" data-lang-en="/threads"></header>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Threads</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/shared/site-theme.css?v=20260816-1" />
+    <link rel="stylesheet" href="/shared/site-header.css?v=20260816-2" />
+    <link rel="stylesheet" href="/shared/app-dialog.css?v=20260805-1" />
+    <link rel="stylesheet" href="/threads/styles.css?v=20260914-1" />
+    <script src="/shared/app-dialog.js?v=20260805-1"></script>
+    <script src="/shared/site-header.js?v=20260816-1" defer></script>
+    <script src="/threads/app.js?v=20260914-1" defer></script>
+  </head>
+  <body>
+    <header
+      data-site-header
+      data-active="threads"
+      data-lang-none
+      data-lang-ru="/threads"
+      data-lang-en="/threads"
+    ></header>
 
-  <main class="page-shell threads-page">
-    <section class="threads-top">
-      <div>
-        <p class="eyebrow">@vlandivir</p>
-        <h1 class="page-title">Threads</h1>
-      </div>
-      <div class="threads-actions">
-        <button id="ai-settings-toggle" class="ghost-btn" type="button">AI-кнопки</button>
-        <button id="new-draft" class="ghost-btn" type="button">Новый черновик</button>
-        <button id="refresh-insights" class="ghost-btn" type="button">Обновить данные</button>
-      </div>
-    </section>
-
-    <p id="status-line" class="muted" hidden></p>
-
-    <section id="ai-settings" class="editor-card ai-settings" hidden>
-      <div class="ai-settings-head">
+    <main class="page-shell threads-page">
+      <section class="threads-top">
         <div>
-          <p class="eyebrow">Настройки</p>
-          <h2>AI-кнопки</h2>
+          <p class="eyebrow">@vlandivir</p>
+          <h1 class="page-title">Threads</h1>
         </div>
-        <div class="ai-settings-head-actions">
-          <button id="ai-action-new" class="primary-btn" type="button">Добавить кнопку</button>
-          <button id="ai-settings-close" class="ghost-btn" type="button">Закрыть</button>
+        <div class="threads-actions">
+          <button id="ai-settings-toggle" class="ghost-btn" type="button">
+            AI-кнопки
+          </button>
+          <button id="new-draft" class="ghost-btn" type="button">
+            Новый черновик
+          </button>
+          <button id="refresh-insights" class="ghost-btn" type="button">
+            Обновить данные
+          </button>
         </div>
-      </div>
-      <form id="ai-action-form" class="ai-action-form" hidden>
-        <div class="ai-action-grid">
-          <label>
-            <span class="field-label">Название кнопки</span>
-            <input name="label" type="text" maxlength="80" required />
-          </label>
-          <label>
-            <span class="field-label">Результат</span>
-            <select name="responseMode">
-              <option value="analysis">Показать ответ</option>
-              <option value="replace_text">Заменить текст + рекомендации</option>
-            </select>
-          </label>
-          <label>
-            <span class="field-label">Модель</span>
-            <select name="model">
-              <option value="gpt-5.6-terra">GPT-5.6 Terra</option>
-              <option value="gpt-5.6-sol">GPT-5.6 Sol</option>
-              <option value="gpt-5.6-luna">GPT-5.6 Luna</option>
-            </select>
-          </label>
-          <label>
-            <span class="field-label">Рассуждение</span>
-            <select name="reasoningEffort">
-              <option value="none">Без reasoning</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          </label>
-          <label>
-            <span class="field-label">Порядок</span>
-            <input name="sortOrder" type="number" step="1" value="0" />
-          </label>
-        </div>
-        <label class="ai-prompt-field">
-          <span class="field-label">Промпт</span>
-          <textarea name="prompt" rows="8" maxlength="12000" required></textarea>
-          <span class="muted">Текст черновика добавляется к промпту отдельно.</span>
-        </label>
-        <div class="ai-action-flags">
-          <label class="check">
-            <input name="webSearch" type="checkbox" />
-            Обязательный поиск в интернете
-          </label>
-          <label class="check">
-            <input name="enabled" type="checkbox" checked />
-            Кнопка включена
-          </label>
-        </div>
-        <div class="ai-form-actions">
-          <button class="primary-btn" type="submit">Сохранить</button>
-          <button id="ai-action-cancel" class="ghost-btn" type="button">Отмена</button>
-        </div>
-      </form>
-      <div id="ai-action-list" class="ai-action-list"></div>
-      <p id="ai-action-empty" class="muted" hidden>AI-кнопок пока нет</p>
-    </section>
-
-    <section id="editor" class="editor-card composer" hidden>
-      <div class="composer-head">
-        <p id="editor-kicker" class="eyebrow">Черновик</p>
-        <span id="char-count" class="muted char-count"></span>
-      </div>
-
-      <div class="ai-toolbar">
-        <span class="field-label">AI</span>
-        <div id="ai-action-buttons" class="ai-action-buttons"></div>
-      </div>
-
-      <div class="draft-wrap" id="draft-wrap">
-        <div class="draft-mirror" id="draft-mirror" aria-hidden="true"></div>
-        <textarea id="draft-text" rows="6" placeholder="Текст поста…"></textarea>
-      </div>
-
-      <section id="ai-result" class="ai-result" aria-live="polite" hidden>
-        <div class="ai-result-head">
-          <p id="ai-result-title" class="field-label"></p>
-          <div class="ai-result-actions">
-            <button id="ai-undo" class="mini-btn" type="button" hidden>Вернуть текст</button>
-            <button id="ai-result-close" class="mini-btn icon-btn" type="button" aria-label="Закрыть результат">×</button>
-          </div>
-        </div>
-        <div id="ai-result-body" class="ai-result-body"></div>
-        <div id="ai-result-sources" class="ai-result-sources" hidden></div>
       </section>
 
-      <div class="composer-tools">
-        <label class="check">
-          <input id="destination-diary" type="checkbox" />
-          Только дневник
-        </label>
-        <label class="check">
-          <input id="ghost" type="checkbox" />
-          Ghost-пост
-        </label>
-        <label class="check">
-          <input id="poll-on" type="checkbox" />
-          Опрос
-        </label>
-        <label class="ghost-btn file-btn" id="file-btn">
-          Прикрепить
-          <input id="image-input" type="file" accept="image/jpeg,image/png" multiple hidden />
-        </label>
-      </div>
+      <p id="status-line" class="muted" hidden></p>
 
-      <div id="poll-options" class="poll-options" hidden></div>
-      <div id="image-list" class="image-list"></div>
-
-      <div class="composer-actions">
-        <button id="close-editor" class="ghost-btn" type="button">Закрыть</button>
-        <div class="composer-actions-main">
-          <button id="save-draft" class="ghost-btn" type="button">Сохранить</button>
-          <button id="publish" class="primary-btn" type="button">Отправить</button>
+      <section id="ai-settings" class="editor-card ai-settings" hidden>
+        <div class="ai-settings-head">
+          <div>
+            <p class="eyebrow">Настройки</p>
+            <h2>AI-кнопки</h2>
+          </div>
+          <div class="ai-settings-head-actions">
+            <button id="ai-action-new" class="primary-btn" type="button">
+              Добавить кнопку
+            </button>
+            <button id="ai-settings-close" class="ghost-btn" type="button">
+              Закрыть
+            </button>
+          </div>
         </div>
-      </div>
-    </section>
+        <form id="ai-action-form" class="ai-action-form" hidden>
+          <div class="ai-action-grid">
+            <label>
+              <span class="field-label">Название кнопки</span>
+              <input name="label" type="text" maxlength="80" required />
+            </label>
+            <label>
+              <span class="field-label">Результат</span>
+              <select name="responseMode">
+                <option value="analysis">Показать ответ</option>
+                <option value="replace_text">
+                  Заменить текст + рекомендации
+                </option>
+              </select>
+            </label>
+            <label>
+              <span class="field-label">Модель</span>
+              <select name="model">
+                <option value="gpt-5.6-terra">GPT-5.6 Terra</option>
+                <option value="gpt-5.6-sol">GPT-5.6 Sol</option>
+                <option value="gpt-5.6-luna">GPT-5.6 Luna</option>
+              </select>
+            </label>
+            <label>
+              <span class="field-label">Рассуждение</span>
+              <select name="reasoningEffort">
+                <option value="none">Без reasoning</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+            <label>
+              <span class="field-label">Порядок</span>
+              <input name="sortOrder" type="number" step="1" value="0" />
+            </label>
+          </div>
+          <label class="ai-prompt-field">
+            <span class="field-label">Промпт</span>
+            <textarea
+              name="prompt"
+              rows="8"
+              maxlength="12000"
+              required
+            ></textarea>
+            <span class="muted"
+              >Текст черновика добавляется к промпту отдельно.</span
+            >
+          </label>
+          <div class="ai-action-flags">
+            <label class="check">
+              <input name="webSearch" type="checkbox" />
+              Обязательный поиск в интернете
+            </label>
+            <label class="check">
+              <input name="enabled" type="checkbox" checked />
+              Кнопка включена
+            </label>
+          </div>
+          <div class="ai-form-actions">
+            <button class="primary-btn" type="submit">Сохранить</button>
+            <button id="ai-action-cancel" class="ghost-btn" type="button">
+              Отмена
+            </button>
+          </div>
+        </form>
+        <div id="ai-action-list" class="ai-action-list"></div>
+        <p id="ai-action-empty" class="muted" hidden>AI-кнопок пока нет</p>
+      </section>
 
-    <section class="editor-card list-card" aria-label="Посты">
-      <div class="table-wrap">
-        <table class="threads-table">
-          <thead>
-            <tr>
-              <th scope="col">Превью</th>
-              <th scope="col">Статус</th>
-              <th scope="col">Дата</th>
-              <th scope="col">Текст</th>
-              <th scope="col">Ссылка</th>
-              <th scope="col">Статистика</th>
-            </tr>
-          </thead>
-          <tbody id="post-list"></tbody>
-        </table>
-      </div>
-      <p id="list-empty" class="muted">Постов пока нет</p>
-    </section>
-  </main>
-</body>
+      <section id="editor" class="editor-card composer" hidden>
+        <div class="composer-head">
+          <p id="editor-kicker" class="eyebrow">Черновик</p>
+          <span id="char-count" class="muted char-count"></span>
+        </div>
+
+        <div class="ai-toolbar">
+          <span class="field-label">AI</span>
+          <div id="ai-action-buttons" class="ai-action-buttons"></div>
+        </div>
+
+        <div class="draft-wrap" id="draft-wrap">
+          <div class="draft-mirror" id="draft-mirror" aria-hidden="true"></div>
+          <textarea
+            id="draft-text"
+            rows="6"
+            placeholder="Текст поста…"
+          ></textarea>
+        </div>
+
+        <section id="ai-result" class="ai-result" aria-live="polite" hidden>
+          <div class="ai-result-head">
+            <p id="ai-result-title" class="field-label"></p>
+            <div class="ai-result-actions">
+              <button id="ai-undo" class="mini-btn" type="button" hidden>
+                Вернуть текст
+              </button>
+              <button
+                id="ai-result-close"
+                class="mini-btn icon-btn"
+                type="button"
+                aria-label="Закрыть результат"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          <div id="ai-result-body" class="ai-result-body"></div>
+          <div id="ai-result-sources" class="ai-result-sources" hidden></div>
+        </section>
+
+        <div class="composer-tools">
+          <label class="check">
+            <input id="destination-diary" type="checkbox" />
+            Только дневник
+          </label>
+          <label class="check">
+            <input id="ghost" type="checkbox" />
+            Ghost-пост
+          </label>
+          <label class="check">
+            <input id="poll-on" type="checkbox" />
+            Опрос
+          </label>
+          <label class="ghost-btn file-btn" id="file-btn">
+            Прикрепить
+            <input
+              id="media-input"
+              type="file"
+              accept="image/jpeg,image/png,video/mp4,video/quicktime,.mov"
+              multiple
+              hidden
+            />
+          </label>
+        </div>
+
+        <div id="poll-options" class="poll-options" hidden></div>
+        <div id="media-list" class="media-list"></div>
+
+        <div class="composer-actions">
+          <button id="close-editor" class="ghost-btn" type="button">
+            Закрыть
+          </button>
+          <div class="composer-actions-main">
+            <button id="save-draft" class="ghost-btn" type="button">
+              Сохранить
+            </button>
+            <button id="publish" class="primary-btn" type="button">
+              Отправить
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="editor-card list-card" aria-label="Посты">
+        <div class="table-wrap">
+          <table class="threads-table">
+            <thead>
+              <tr>
+                <th scope="col">Превью</th>
+                <th scope="col">Статус</th>
+                <th scope="col">Дата</th>
+                <th scope="col">Текст</th>
+                <th scope="col">Ссылка</th>
+                <th scope="col">Статистика</th>
+              </tr>
+            </thead>
+            <tbody id="post-list"></tbody>
+          </table>
+        </div>
+        <p id="list-empty" class="muted">Постов пока нет</p>
+      </section>
+    </main>
+  </body>
 </html>

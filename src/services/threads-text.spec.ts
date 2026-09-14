@@ -1,4 +1,5 @@
 import {
+  extForMime,
   LIMIT_CHARS,
   normalizeTopicTag,
   parsePollOptions,
@@ -6,6 +7,17 @@ import {
   threadTextMatchesDraft,
   ThreadsTextError,
 } from './threads-text';
+
+describe('extForMime', () => {
+  it.each([
+    ['image/jpeg', '.jpg'],
+    ['image/png', '.png'],
+    ['video/mp4', '.mp4'],
+    ['video/quicktime', '.mov'],
+  ])('maps %s to %s', (mimeType, expected) => {
+    expect(extForMime(mimeType)).toBe(expected);
+  });
+});
 
 describe('splitIntoPosts', () => {
   it('returns empty for blank text', () => {
@@ -41,7 +53,8 @@ describe('splitIntoPosts', () => {
 describe('threadTextMatchesDraft', () => {
   it('matches a live root that is the first split part', () => {
     const first = 'Вы доверяете SaaS сервисам? ' + 'а'.repeat(400);
-    const rest = 'Поэтому для заметок у меня есть собственный сервис. ' + 'б'.repeat(80);
+    const rest =
+      'Поэтому для заметок у меня есть собственный сервис. ' + 'б'.repeat(80);
     const draft = `${first}\n\n${rest}`;
     const parts = splitIntoPosts(draft);
     expect(parts.length).toBeGreaterThan(1);
@@ -49,9 +62,13 @@ describe('threadTextMatchesDraft', () => {
   });
 
   it('matches truncated Graph text of the first part', () => {
-    const draft = 'Вы доверяете SaaS сервисам? Это вопрос про данные и контроль над ними, не про удобство кнопок.';
+    const draft =
+      'Вы доверяете SaaS сервисам? Это вопрос про данные и контроль над ними, не про удобство кнопок.';
     expect(
-      threadTextMatchesDraft('Вы доверяете SaaS сервисам? Это вопрос про данные', draft),
+      threadTextMatchesDraft(
+        'Вы доверяете SaaS сервисам? Это вопрос про данные',
+        draft,
+      ),
     ).toBe(true);
   });
 

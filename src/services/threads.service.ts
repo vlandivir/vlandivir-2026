@@ -14,8 +14,10 @@ import { TelegramBotService } from '../telegram-bot/telegram-bot.service';
 import { StorageService } from './storage.service';
 import {
   ALLOWED_IMAGE_MIME,
+  ALLOWED_VIDEO_MIME,
   MAX_IMAGE_BYTES,
-  MAX_IMAGES,
+  MAX_MEDIA,
+  MAX_VIDEO_BYTES,
   POLL_KEYS,
   ThreadsTextError,
   extForMime,
@@ -101,11 +103,17 @@ export type ThreadsPollResults = {
   expires?: string;
 };
 
-const postInclude = { images: { orderBy: { sortOrder: 'asc' as const } } };
+const postInclude = { media: { orderBy: { sortOrder: 'asc' as const } } };
 
-type PostWithImages = Prisma.ThreadsPostGetPayload<{
+type PostWithMedia = Prisma.ThreadsPostGetPayload<{
   include: typeof postInclude;
 }>;
+
+type ThreadsMediaUploadInput = {
+  name?: string;
+  mimeType?: string;
+  size?: number;
+};
 
 @Injectable()
 export class ThreadsService {
@@ -165,19 +173,24 @@ export class ThreadsService {
     if (!files.length) {
       throw new BadRequestException('No images uploaded');
     }
-    if (post.images.length + files.length > MAX_IMAGES) {
-      throw new BadRequestException(`Too many images, max ${MAX_IMAGES}`);
+    if (post.media.length + files.length > MAX_MEDIA) {
+      throw new BadRequestException(`Too many media files, max ${MAX_MEDIA}`);
     }
-    let sortOrder = post.images.length;
+    let sortOrder = post.media.length;
     for (const file of files) {
       this.assertImage(file);
       const { url, key } = await this.uploadImage(file);
-      await this.prisma.threadsImage.create({
+      await this.prisma.threadsMedia.create({
         data: {
           postId: id,
+          kind: 'image',
+          mimeType: file.mimetype,
+          size: BigInt(file.size),
+          originalFilename: file.originalname,
           url,
           key,
           sortOrder,
+          uploadStatus: 'ready',
         },
       });
       sortOrder += 1;
@@ -185,21 +198,112 @@ export class ThreadsService {
     return this.serialize(await this.requirePost(id));
   }
 
-  async removeImage(id: number, imageId: number) {
+  async prepareMediaUploads(id: number, inputs: ThreadsMediaUploadInput[]) {
     const post = await this.requirePost(id);
     if (post.status === 'published') {
       throw new BadRequestException('Published posts cannot be edited');
     }
-    const image = post.images.find((item) => item.id === imageId);
-    if (!image) throw new NotFoundException('Image not found');
-    await this.prisma.threadsImage.delete({ where: { id: imageId } });
-    const remaining = await this.prisma.threadsImage.findMany({
+    if (post.poll.length) {
+      throw new BadRequestException('poll is text-only; omit media');
+    }
+    if (!inputs.length) {
+      throw new BadRequestException('No media files selected');
+    }
+    if (post.media.length + inputs.length > MAX_MEDIA) {
+      throw new BadRequestException(`Too many media files, max ${MAX_MEDIA}`);
+    }
+
+    const files = inputs.map((input) => this.normalizeMediaUpload(input));
+    const uploads: {
+      mediaId: number;
+      uploadUrl: string;
+      publicUrl: string;
+      headers: Record<string, string>;
+    }[] = [];
+    let sortOrder = post.media.length;
+    for (const file of files) {
+      const signed = await this.storage.getThreadsMediaPresignedPutUrl(
+        file.name,
+        file.mimeType,
+      );
+      const media = await this.prisma.threadsMedia.create({
+        data: {
+          postId: id,
+          kind: file.kind,
+          mimeType: file.mimeType,
+          size: BigInt(file.size),
+          originalFilename: file.name,
+          url: signed.publicUrl,
+          key: signed.key,
+          sortOrder,
+          uploadStatus: 'uploading',
+        },
+      });
+      uploads.push({
+        mediaId: media.id,
+        uploadUrl: signed.uploadUrl,
+        publicUrl: signed.publicUrl,
+        headers: {
+          'Content-Type': file.mimeType,
+          'x-amz-acl': 'public-read',
+        },
+      });
+      sortOrder += 1;
+    }
+    return {
+      uploads,
+      post: this.serialize(await this.requirePost(id)),
+    };
+  }
+
+  async completeMediaUpload(id: number, mediaId: number) {
+    const post = await this.requirePost(id);
+    if (post.status === 'published') {
+      throw new BadRequestException('Published posts cannot be edited');
+    }
+    const media = post.media.find((item) => item.id === mediaId);
+    if (!media) throw new NotFoundException('Media not found');
+    if (media.uploadStatus === 'ready') return this.serialize(post);
+
+    const stored = await this.storage.headByKey(media.key);
+    if (!stored) {
+      throw new BadRequestException(
+        'File not found in storage; upload may have failed',
+      );
+    }
+    if (media.size !== null && stored.size !== Number(media.size)) {
+      throw new BadRequestException(
+        `Uploaded file size mismatch: expected ${media.size}, got ${stored.size}`,
+      );
+    }
+    if (stored.contentType && stored.contentType !== media.mimeType) {
+      throw new BadRequestException(
+        `Uploaded file type mismatch: expected ${media.mimeType}, got ${stored.contentType}`,
+      );
+    }
+    await this.prisma.threadsMedia.update({
+      where: { id: mediaId },
+      data: { uploadStatus: 'ready' },
+    });
+    return this.serialize(await this.requirePost(id));
+  }
+
+  async removeMedia(id: number, mediaId: number) {
+    const post = await this.requirePost(id);
+    if (post.status === 'published') {
+      throw new BadRequestException('Published posts cannot be edited');
+    }
+    const media = post.media.find((item) => item.id === mediaId);
+    if (!media) throw new NotFoundException('Media not found');
+    await this.prisma.threadsMedia.delete({ where: { id: mediaId } });
+    await this.storage.deleteByPublicUrl(media.url);
+    const remaining = await this.prisma.threadsMedia.findMany({
       where: { postId: id },
       orderBy: { sortOrder: 'asc' },
     });
     await Promise.all(
       remaining.map((item, index) =>
-        this.prisma.threadsImage.update({
+        this.prisma.threadsMedia.update({
           where: { id: item.id },
           data: { sortOrder: index },
         }),
@@ -214,12 +318,15 @@ export class ThreadsService {
       throw new BadRequestException('Post is already published');
     }
     const text = post.text.trim();
-    const imageUrls = post.images.map((image) => image.url);
-    if (!text && !imageUrls.length) {
-      throw new BadRequestException('Text and images are empty');
+    const pending = post.media.filter((item) => item.uploadStatus !== 'ready');
+    if (pending.length) {
+      throw new BadRequestException('Wait for all media uploads to finish');
     }
-    if (post.poll.length && imageUrls.length) {
-      throw new BadRequestException('poll is text-only; omit images');
+    if (!text && !post.media.length) {
+      throw new BadRequestException('Text and media are empty');
+    }
+    if (post.poll.length && post.media.length) {
+      throw new BadRequestException('poll is text-only; omit media');
     }
 
     let permalink: string | null = null;
@@ -232,7 +339,10 @@ export class ThreadsService {
         const posted = await this.publishToThreads({
           text,
           ghost: post.ghost,
-          imageUrls,
+          media: post.media.map((item) => ({
+            kind: item.kind as 'image' | 'video',
+            url: item.url,
+          })),
           topicTag: post.topic || '',
           pollOptions: post.poll,
         });
@@ -409,7 +519,18 @@ export class ThreadsService {
     return Promise.all(adopted.map((post) => this.getPost(post.id)));
   }
 
-  serialize(post: PostWithImages) {
+  serialize(post: PostWithMedia) {
+    const media = post.media.map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      mimeType: item.mimeType,
+      size: item.size === null ? null : Number(item.size),
+      originalFilename: item.originalFilename,
+      url: item.url,
+      key: item.key,
+      sortOrder: item.sortOrder,
+      uploadStatus: item.uploadStatus,
+    }));
     return {
       id: post.id,
       canvasId: post.canvasId,
@@ -429,16 +550,12 @@ export class ThreadsService {
       publishedAt: post.publishedAt?.toISOString() ?? null,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString(),
-      images: post.images.map((image) => ({
-        id: image.id,
-        url: image.url,
-        key: image.key,
-        sortOrder: image.sortOrder,
-      })),
+      media,
+      images: media.filter((item) => item.kind === 'image'),
     };
   }
 
-  private async requirePost(id: number): Promise<PostWithImages> {
+  private async requirePost(id: number): Promise<PostWithMedia> {
     const post = await this.prisma.threadsPost.findUnique({
       where: { id },
       include: postInclude,
@@ -449,7 +566,7 @@ export class ThreadsService {
 
   private normalizeDraft(
     input: ThreadsDraftInput,
-    existing?: PostWithImages,
+    existing?: PostWithMedia,
   ): Prisma.ThreadsPostUpdateInput & Prisma.ThreadsPostCreateInput {
     let topic: string | null | undefined;
     if (input.topic !== undefined) {
@@ -472,9 +589,9 @@ export class ThreadsService {
       throw new BadRequestException('destination must be threads or diary');
     }
     const nextPoll = poll ?? existing?.poll ?? [];
-    const nextImages = existing?.images.length ?? 0;
-    if (nextPoll.length && nextImages) {
-      throw new BadRequestException('poll is text-only; omit images');
+    const nextMedia = existing?.media.length ?? 0;
+    if (nextPoll.length && nextMedia) {
+      throw new BadRequestException('poll is text-only; omit media');
     }
     return {
       text: input.text !== undefined ? input.text : (existing?.text ?? ''),
@@ -501,6 +618,40 @@ export class ThreadsService {
     }
   }
 
+  private normalizeMediaUpload(input: ThreadsMediaUploadInput): {
+    name: string;
+    mimeType: string;
+    size: number;
+    kind: 'image' | 'video';
+  } {
+    const name = String(input.name || '')
+      .trim()
+      .slice(0, 255);
+    const mimeType = String(input.mimeType || '')
+      .trim()
+      .toLowerCase();
+    const size = Number(input.size);
+    if (!name) throw new BadRequestException('Media filename is required');
+    if (!Number.isSafeInteger(size) || size <= 0) {
+      throw new BadRequestException('Media size must be a positive integer');
+    }
+    if (ALLOWED_IMAGE_MIME.has(mimeType)) {
+      if (size > MAX_IMAGE_BYTES) {
+        throw new BadRequestException(`${name}: image is larger than 8 MB`);
+      }
+      return { name, mimeType, size, kind: 'image' };
+    }
+    if (ALLOWED_VIDEO_MIME.has(mimeType)) {
+      if (size > MAX_VIDEO_BYTES) {
+        throw new BadRequestException(`${name}: video is larger than 1 GB`);
+      }
+      return { name, mimeType, size, kind: 'video' };
+    }
+    throw new BadRequestException(
+      `${name}: only JPEG, PNG, MP4 and MOV files are supported`,
+    );
+  }
+
   private async uploadImage(
     file: ThreadsUploadedFile,
   ): Promise<{ url: string; key: string }> {
@@ -516,8 +667,7 @@ export class ThreadsService {
   }
 
   private requireToken(): string {
-    const token =
-      this.config.get<string>('THREADS_ACCESS_TOKEN')?.trim() || '';
+    const token = this.config.get<string>('THREADS_ACCESS_TOKEN')?.trim() || '';
     if (!token) {
       throw new InternalServerErrorException(
         'THREADS_ACCESS_TOKEN is not configured',
@@ -529,20 +679,20 @@ export class ThreadsService {
   private async publishToThreads(input: {
     text: string;
     ghost: boolean;
-    imageUrls: string[];
+    media: { kind: 'image' | 'video'; url: string }[];
     topicTag: string;
     pollOptions: string[];
   }) {
     const token = this.requireToken();
     const parts = splitIntoPosts(input.text);
-    if (!parts.length && !input.imageUrls.length) {
-      throw new BadRequestException('Text and images are empty');
+    if (!parts.length && !input.media.length) {
+      throw new BadRequestException('Text and media are empty');
     }
     const firstText = parts[0] ?? '';
     const rest = parts.slice(1);
     const first = await this.createAndPublish(token, firstText, {
       ghost: input.ghost,
-      imageUrls: input.imageUrls,
+      media: input.media,
       topicTag: input.topicTag,
       pollOptions: input.pollOptions,
     });
@@ -575,12 +725,12 @@ export class ThreadsService {
     options: {
       ghost?: boolean;
       replyToId?: string;
-      imageUrls?: string[];
+      media?: { kind: 'image' | 'video'; url: string }[];
       topicTag?: string;
       pollOptions?: string[];
     } = {},
   ) {
-    const urls = options.imageUrls || [];
+    const media = options.media || [];
     const pollOptions = options.pollOptions || [];
     const extra: Record<string, string> = {};
     if (options.ghost) extra.is_ghost_post = 'true';
@@ -589,8 +739,8 @@ export class ThreadsService {
       extra.topic_tag = options.topicTag;
     }
     if (pollOptions.length) {
-      if (urls.length) {
-        throw new BadRequestException('poll is text-only; omit images');
+      if (media.length) {
+        throw new BadRequestException('poll is text-only; omit media');
       }
       if (options.replyToId) {
         throw new BadRequestException(
@@ -602,31 +752,38 @@ export class ThreadsService {
 
     let containerId: string;
     let wait = false;
-    if (urls.length === 0) {
+    let waitTimeoutMs = 60_000;
+    if (media.length === 0) {
       if (!text) throw new BadRequestException('Text is empty');
       containerId = await this.createContainer(token, {
         media_type: 'TEXT',
         text,
         ...extra,
       });
-    } else if (urls.length === 1) {
+    } else if (media.length === 1) {
+      const item = media[0];
       const data: Record<string, string> = {
-        media_type: 'IMAGE',
-        image_url: urls[0],
+        media_type: item.kind === 'video' ? 'VIDEO' : 'IMAGE',
+        [item.kind === 'video' ? 'video_url' : 'image_url']: item.url,
         ...extra,
       };
       if (text) data.text = text;
       containerId = await this.createContainer(token, data);
       wait = true;
-    } else if (urls.length <= MAX_IMAGES) {
+      if (item.kind === 'video') waitTimeoutMs = 300_000;
+    } else if (media.length <= MAX_MEDIA) {
       const children: string[] = [];
-      for (const url of urls) {
+      for (const item of media) {
         const childId = await this.createContainer(token, {
-          media_type: 'IMAGE',
-          image_url: url,
+          media_type: item.kind === 'video' ? 'VIDEO' : 'IMAGE',
+          [item.kind === 'video' ? 'video_url' : 'image_url']: item.url,
           is_carousel_item: 'true',
         });
-        await this.waitForContainer(token, childId);
+        await this.waitForContainer(
+          token,
+          childId,
+          item.kind === 'video' ? 300_000 : 60_000,
+        );
         children.push(childId);
       }
       const data: Record<string, string> = {
@@ -639,11 +796,11 @@ export class ThreadsService {
       wait = true;
     } else {
       throw new BadRequestException(
-        `Too many images (${urls.length}), max ${MAX_IMAGES}`,
+        `Too many media files (${media.length}), max ${MAX_MEDIA}`,
       );
     }
 
-    return this.publishContainer(token, containerId, wait);
+    return this.publishContainer(token, containerId, wait, waitTimeoutMs);
   }
 
   private async createContainer(
@@ -667,8 +824,11 @@ export class ThreadsService {
     token: string,
     containerId: string,
     wait: boolean,
+    waitTimeoutMs = 60_000,
   ) {
-    if (wait) await this.waitForContainer(token, containerId);
+    if (wait) {
+      await this.waitForContainer(token, containerId, waitTimeoutMs);
+    }
     const published = await this.graphPost(
       '/me/threads_publish',
       { creation_id: containerId, access_token: token },
@@ -712,7 +872,6 @@ export class ThreadsService {
       }
       await this.sleep(3000);
     }
-    if (lastStatus === '' || lastStatus === 'IN_PROGRESS') return;
     throw new InternalServerErrorException(
       `Threads container ${containerId} not ready after ${timeoutMs / 1000}s (${lastStatus || 'unknown'})`,
     );
@@ -821,15 +980,19 @@ export class ThreadsService {
       const payload = await this.graphGet('/me/threads', params);
       for (const item of payload.data || []) {
         if (!item || typeof item !== 'object') continue;
-        const row = item as { id?: string; permalink?: string; shortcode?: string };
+        const row = item as {
+          id?: string;
+          permalink?: string;
+          shortcode?: string;
+        };
         if (this.permalinkKey(row.permalink || '') === want) {
           return row.id || null;
         }
         if ((row.shortcode || '') === want) return row.id || null;
       }
       after =
-        (payload.paging as { cursors?: { after?: string } } | undefined)?.cursors
-          ?.after || '';
+        (payload.paging as { cursors?: { after?: string } } | undefined)
+          ?.cursors?.after || '';
       if (!after) break;
     }
     return null;
@@ -890,8 +1053,7 @@ export class ThreadsService {
         if (taken) continue;
         return {
           id: String(row.id),
-          permalink:
-            typeof row.permalink === 'string' ? row.permalink : null,
+          permalink: typeof row.permalink === 'string' ? row.permalink : null,
           timestamp: liveAt,
         };
       }
@@ -925,8 +1087,8 @@ export class ThreadsService {
         }
       }
       after =
-        (payload.paging as { cursors?: { after?: string } } | undefined)?.cursors
-          ?.after || '';
+        (payload.paging as { cursors?: { after?: string } } | undefined)
+          ?.cursors?.after || '';
       if (!after) break;
     }
     const counts: Record<string, number> = { total: replies.length };
@@ -961,7 +1123,7 @@ export class ThreadsService {
   }
 
   private async ensureDiaryCopy(
-    post: PostWithImages,
+    post: PostWithMedia,
     permalink: string | null,
   ): Promise<number | null> {
     if (post.diaryNoteId) return post.diaryNoteId;
@@ -982,17 +1144,16 @@ export class ThreadsService {
   }
 
   private async copyToDiary(
-    post: PostWithImages,
+    post: PostWithMedia,
     permalink: string | null,
   ): Promise<{ id: number }> {
     const chunks = [post.text.trim()].filter(Boolean);
     if (permalink) chunks.push(permalink);
     if (post.poll.length) chunks.push(pollDiaryLine(post.poll));
-    const extraUrls = post.images.slice(1).map((image) => image.url);
-    if (extraUrls.length) chunks.push(extraUrls.join('\n'));
     const text = chunks.join('\n\n');
     const noteDate = post.publishedAt ?? new Date();
-    const firstImage = post.images[0];
+    const images = post.media.filter((item) => item.kind === 'image');
+    const videos = post.media.filter((item) => item.kind === 'video');
     const note = await this.prisma.note.create({
       data: {
         content: text,
@@ -1004,13 +1165,26 @@ export class ThreadsService {
           permalink,
           poll: post.poll,
           threadsPostId: post.id,
+          media: post.media.map((item) => ({
+            kind: item.kind,
+            url: item.url,
+            sortOrder: item.sortOrder,
+          })),
         } satisfies Prisma.InputJsonValue,
-        images: firstImage
+        images: images.length
           ? {
-              create: {
-                url: firstImage.url,
+              create: images.map((image) => ({
+                url: image.url,
                 description: null,
-              },
+              })),
+            }
+          : undefined,
+        videos: videos.length
+          ? {
+              create: videos.map((video) => ({
+                url: video.url,
+                description: null,
+              })),
             }
           : undefined,
       },
@@ -1042,7 +1216,11 @@ export class ThreadsService {
     timeoutMs = 30_000,
   ): Promise<GraphPayload> {
     const query = new URLSearchParams(params).toString();
-    return this.graphRequest('GET', `${THREADS_GRAPH}${path}?${query}`, timeoutMs);
+    return this.graphRequest(
+      'GET',
+      `${THREADS_GRAPH}${path}?${query}`,
+      timeoutMs,
+    );
   }
 
   private async graphPost(

@@ -387,7 +387,9 @@ export class McpToolsService {
   // --- Threads (API key required) ---
 
   private registerThreadsTools(server: McpServer): void {
-    const withHttp = async (fn: () => Promise<unknown>): Promise<ToolResult> => {
+    const withHttp = async (
+      fn: () => Promise<unknown>,
+    ): Promise<ToolResult> => {
       try {
         return this.jsonResult(await fn());
       } catch (error) {
@@ -396,9 +398,7 @@ export class McpToolsService {
           const text =
             typeof message === 'string'
               ? message
-              : typeof message === 'object' &&
-                  message &&
-                  'message' in message
+              : typeof message === 'object' && message && 'message' in message
                 ? String((message as { message: string | string[] }).message)
                 : error.message;
           return this.errorResult(text);
@@ -436,6 +436,9 @@ export class McpToolsService {
               topic: post.topic,
               poll: post.poll,
               imageCount: post.images.length,
+              videoCount: post.media.filter((item) => item.kind === 'video')
+                .length,
+              mediaCount: post.media.length,
               stats: post.stats,
               updatedAt: post.updatedAt,
             })),
@@ -742,12 +745,8 @@ export class McpToolsService {
           const text =
             typeof message === 'string'
               ? message
-              : typeof message === 'object' &&
-                  message &&
-                  'message' in message
-                ? String(
-                    (message as { message: string | string[] }).message,
-                  )
+              : typeof message === 'object' && message && 'message' in message
+                ? String((message as { message: string | string[] }).message)
                 : error.message;
           return this.errorResult(text);
         }
@@ -832,7 +831,10 @@ export class McpToolsService {
           'Полная задача по id: текст, проект, события, текстовый контекст ' +
           'и описания картинок.',
         inputSchema: {
-          taskId: z.string().min(1).describe('Id задачи из gtd_search / gtd_now'),
+          taskId: z
+            .string()
+            .min(1)
+            .describe('Id задачи из gtd_search / gtd_now'),
         },
         annotations: { readOnlyHint: true },
       },
@@ -874,9 +876,7 @@ export class McpToolsService {
             content,
             projectId,
             dueDate,
-            context
-              ? { name: contextName, text: context }
-              : undefined,
+            context ? { name: contextName, text: context } : undefined,
           ),
         ),
     );

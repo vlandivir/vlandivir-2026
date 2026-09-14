@@ -7,11 +7,19 @@ export const LIMIT_CHARS = 500;
 export const POLL_MIN_OPTIONS = 2;
 export const POLL_MAX_OPTIONS = 4;
 export const POLL_OPTION_MAX_BYTES = 25;
-export const POLL_KEYS = ['option_a', 'option_b', 'option_c', 'option_d'] as const;
-export const MAX_IMAGES = 20;
+export const POLL_KEYS = [
+  'option_a',
+  'option_b',
+  'option_c',
+  'option_d',
+] as const;
+export const MAX_MEDIA = 20;
+export const MAX_IMAGES = MAX_MEDIA;
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
 export const ALLOWED_IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png']);
 export const ALLOWED_IMAGE_MIME = new Set(['image/jpeg', 'image/png']);
+export const ALLOWED_VIDEO_MIME = new Set(['video/mp4', 'video/quicktime']);
 
 const SENTENCE_SPLIT = /(?<=[.!?…])\s+/;
 const TOPIC_FORBIDDEN = /[.&\s]/;
@@ -151,16 +159,11 @@ export function normalizeTopicTag(raw: string): string {
 }
 
 export function parsePollOptions(raw: string | string[]): string[] {
-  const options = (
-    Array.isArray(raw) ? raw : raw.split('|')
-  )
+  const options = (Array.isArray(raw) ? raw : raw.split('|'))
     .map((part) => part.trim())
     .filter(Boolean);
   if (!options.length) return [];
-  if (
-    options.length < POLL_MIN_OPTIONS ||
-    options.length > POLL_MAX_OPTIONS
-  ) {
+  if (options.length < POLL_MIN_OPTIONS || options.length > POLL_MAX_OPTIONS) {
     throw new ThreadsTextError(
       `poll needs ${POLL_MIN_OPTIONS}–${POLL_MAX_OPTIONS} options`,
     );
@@ -200,5 +203,7 @@ export function mimeForFilename(filename: string): string {
 
 export function extForMime(mimeType: string): string {
   if (mimeType === 'image/png') return '.png';
+  if (mimeType === 'video/mp4') return '.mp4';
+  if (mimeType === 'video/quicktime') return '.mov';
   return '.jpg';
 }

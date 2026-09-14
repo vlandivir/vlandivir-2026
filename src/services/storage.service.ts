@@ -154,6 +154,37 @@ export class StorageService implements OnModuleInit {
     return this.getPublicUrl(this.getTripThumbKey(tripId, contentHash));
   }
 
+  async getThreadsMediaPresignedPutUrl(
+    filename: string,
+    mimeType: string,
+    expiresInSeconds = 3600,
+  ): Promise<{ uploadUrl: string; key: string; publicUrl: string }> {
+    const now = new Date();
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const ext =
+      {
+        'image/jpeg': '.jpg',
+        'image/png': '.png',
+        'video/mp4': '.mp4',
+        'video/quicktime': '.mov',
+      }[mimeType] || this.extensionFromFilename(filename);
+    const key = `threads/${now.getUTCFullYear()}/${month}/${uuidv4()}${ext}`;
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: mimeType,
+      ACL: 'public-read',
+    });
+    const uploadUrl = await getSignedUrl(this.s3, command, {
+      expiresIn: expiresInSeconds,
+    });
+    return {
+      uploadUrl,
+      key,
+      publicUrl: this.getPublicUrl(key),
+    };
+  }
+
   async uploadTripThumb(
     tripId: string,
     contentHash: string,

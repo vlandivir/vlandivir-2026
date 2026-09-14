@@ -49,7 +49,10 @@ function parseEnv(path: string): Record<string, string> {
     if (!raw || raw.startsWith('#') || !raw.includes('=')) continue;
     const eq = raw.indexOf('=');
     const key = raw.slice(0, eq).trim();
-    const value = raw.slice(eq + 1).trim().replace(/^['"]|['"]$/g, '');
+    const value = raw
+      .slice(eq + 1)
+      .trim()
+      .replace(/^['"]|['"]$/g, '');
     env[key] = value;
   }
   return env;
@@ -144,7 +147,14 @@ async function main(): Promise<void> {
       }
       const shortcode = permalinkKey(item.url || '');
       const repliesJson = conversations.get(shortcode) ?? null;
-      const images: { url: string; key: string; sortOrder: number }[] = [];
+      const images: {
+        url: string;
+        key: string;
+        sortOrder: number;
+        kind: string;
+        mimeType: string;
+        uploadStatus: string;
+      }[] = [];
       for (const relative of item.images || []) {
         const localPath = relative.startsWith('/')
           ? relative
@@ -154,6 +164,9 @@ async function main(): Promise<void> {
             url: `file://${localPath}`,
             key: relative,
             sortOrder: images.length,
+            kind: 'image',
+            mimeType: mimeForFilename(localPath),
+            uploadStatus: 'ready',
           });
           continue;
         }
@@ -164,7 +177,13 @@ async function main(): Promise<void> {
           localPath,
         );
         if (uploaded) {
-          images.push({ ...uploaded, sortOrder: images.length });
+          images.push({
+            ...uploaded,
+            sortOrder: images.length,
+            kind: 'image',
+            mimeType: mimeForFilename(localPath),
+            uploadStatus: 'ready',
+          });
         } else {
           console.log(`  missing image ${localPath}`);
         }
@@ -181,8 +200,7 @@ async function main(): Promise<void> {
           canvasId: item.id,
           text: item.text || '',
           status: item.status === 'published' ? 'published' : 'draft',
-          destination:
-            item.destination === 'diary' ? 'diary' : 'threads',
+          destination: item.destination === 'diary' ? 'diary' : 'threads',
           ghost: Boolean(item.ghost),
           topic: item.topic || null,
           poll: item.poll || [],
@@ -193,10 +211,12 @@ async function main(): Promise<void> {
           pollResults: (item.pollResults as Prisma.InputJsonValue) ?? undefined,
           repliesJson: (repliesJson as Prisma.InputJsonValue) ?? undefined,
           publishedAt:
-            item.status === 'published' && publishedAt && !Number.isNaN(publishedAt.getTime())
+            item.status === 'published' &&
+            publishedAt &&
+            !Number.isNaN(publishedAt.getTime())
               ? publishedAt
               : undefined,
-          images: images.length
+          media: images.length
             ? {
                 create: images,
               }

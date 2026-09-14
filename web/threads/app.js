@@ -18,6 +18,7 @@
     aiRunning: false,
     aiEditingId: null,
     aiUndo: null,
+    uploading: false,
   };
 
   const STAT_ICONS = {
@@ -71,7 +72,10 @@
       .filter(Boolean);
     if (lines.length > 1) {
       const packed = packChunks(lines, limit, '\n');
-      if (packed.length && Math.max(...packed.map((part) => part.length)) <= limit) {
+      if (
+        packed.length &&
+        Math.max(...packed.map((part) => part.length)) <= limit
+      ) {
         return packed;
       }
     }
@@ -81,14 +85,20 @@
       .filter(Boolean);
     if (sentences.length > 1) {
       const packed = packChunks(sentences, limit, ' ');
-      if (packed.length && Math.max(...packed.map((part) => part.length)) <= limit) {
+      if (
+        packed.length &&
+        Math.max(...packed.map((part) => part.length)) <= limit
+      ) {
         return packed;
       }
     }
     const words = text.split(/\s+/).filter(Boolean);
     if (words.length > 1) {
       const packed = packChunks(words, limit, ' ');
-      if (packed.length && Math.max(...packed.map((part) => part.length)) <= limit) {
+      if (
+        packed.length &&
+        Math.max(...packed.map((part) => part.length)) <= limit
+      ) {
         return packed;
       }
     }
@@ -349,8 +359,7 @@
     aiFormField('prompt').value = action?.prompt || '';
     aiFormField('responseMode').value = action?.responseMode || 'analysis';
     aiFormField('model').value = action?.model || 'gpt-5.6-terra';
-    aiFormField('reasoningEffort').value =
-      action?.reasoningEffort || 'none';
+    aiFormField('reasoningEffort').value = action?.reasoningEffort || 'none';
     aiFormField('sortOrder').value = String(action?.sortOrder ?? 0);
     aiFormField('webSearch').checked = Boolean(action?.webSearch);
     aiFormField('enabled').checked = action?.enabled ?? true;
@@ -539,12 +548,21 @@
     return state.posts.find((post) => post.id === state.selectedId) || null;
   }
 
+  function postMedia(post) {
+    if (Array.isArray(post?.media)) return post.media;
+    return (post?.images || []).map((image) => ({
+      ...image,
+      kind: 'image',
+      uploadStatus: 'ready',
+    }));
+  }
+
   function statusLabel(post) {
     const bits = [post.status === 'published' ? 'опубликовано' : 'черновик'];
     if ((post.poll || []).filter(Boolean).length >= 2) bits.push('опрос');
     if (post.destination === 'diary') bits.push('дневник');
     if (post.ghost) bits.push('ghost');
-    if ((post.images || []).length) bits.push(String(post.images.length));
+    if (postMedia(post).length) bits.push(String(postMedia(post).length));
     return bits.join(' · ');
   }
 
@@ -583,9 +601,7 @@
 
   function replyIds(post) {
     const items = post.replies?.replies || [];
-    return new Set(
-      items.map((item) => String(item.id || '')).filter(Boolean),
-    );
+    return new Set(items.map((item) => String(item.id || '')).filter(Boolean));
   }
 
   function freshIdsFor(post) {
@@ -643,13 +659,20 @@
         chevron.textContent = '▸';
         previewInner.append(chevron);
       }
-      const firstImage = (post.images || [])[0];
-      if (firstImage?.url) {
-        const img = document.createElement('img');
-        img.className = 'thumb';
-        img.src = firstImage.url;
-        img.alt = '';
-        previewInner.append(img);
+      const firstMedia = postMedia(post)[0];
+      if (firstMedia?.url) {
+        const media =
+          firstMedia.kind === 'video'
+            ? document.createElement('video')
+            : document.createElement('img');
+        media.className = 'thumb';
+        media.src = firstMedia.url;
+        media.alt = '';
+        if (media instanceof HTMLVideoElement) {
+          media.muted = true;
+          media.preload = 'metadata';
+        }
+        previewInner.append(media);
       } else {
         const dash = document.createElement('span');
         dash.className = 'thumb-empty';
@@ -805,24 +828,57 @@
     return options.length >= 2 ? options : [];
   }
 
-  function renderImages(post) {
-    const list = el('image-list');
-    const images = post.images || [];
+  function renderMedia(post) {
+    const list = el('media-list');
+    const mediaItems = postMedia(post);
     list.replaceChildren();
     el('file-btn').hidden = false;
-    for (const image of images) {
+    for (const item of mediaItems) {
       const chip = document.createElement('div');
-      chip.className = 'image-chip';
-      const img = document.createElement('img');
-      img.src = image.url;
-      img.alt = '';
+      chip.className = 'media-chip';
+      chip.dataset.mediaId = String(item.id);
+      const preview =
+        item.kind === 'video'
+          ? document.createElement('video')
+          : document.createElement('img');
+      preview.src = item.url;
+      preview.alt = '';
+      if (preview instanceof HTMLVideoElement) {
+        preview.muted = true;
+        preview.preload = 'metadata';
+      }
+      const info = document.createElement('div');
+      info.className = 'media-chip-info';
+      const name = document.createElement('span');
+      name.textContent =
+        item.originalFilename ||
+        (item.kind === 'video' ? 'Видео' : 'Изображение');
+      const progress = document.createElement('div');
+      progress.className = 'media-upload-progress';
+      const fill = document.createElement('span');
+      if (item.uploadStatus === 'ready') fill.style.width = '100%';
+      progress.append(fill);
+      const status = document.createElement('span');
+      status.className = 'muted media-upload-status';
+      status.textContent =
+        item.uploadStatus === 'ready' ? 'Готово' : 'Ожидает загрузки';
+      info.append(name, progress, status);
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.textContent = 'Убрать';
-      remove.addEventListener('click', () => removeImage(image.id));
-      chip.append(img, remove);
+      remove.disabled = state.uploading;
+      remove.addEventListener('click', () => removeMedia(item.id));
+      chip.append(preview, info, remove);
       list.append(chip);
     }
+  }
+
+  function updateMediaProgress(mediaId, percent, label) {
+    const chip = el('media-list').querySelector(`[data-media-id="${mediaId}"]`);
+    if (!chip) return;
+    chip.querySelector('.media-upload-progress > span').style.width =
+      `${Math.max(0, Math.min(100, percent))}%`;
+    chip.querySelector('.media-upload-status').textContent = label;
   }
 
   function metricLabel(current, previous) {
@@ -885,8 +941,7 @@
     const known = new Set(replies.map((item) => String(item.id || '')));
     known.add(rootId);
     for (const item of replies) {
-      let parent =
-        nestedId(item['replied_to'] || item.replied_to) || rootId;
+      let parent = nestedId(item['replied_to'] || item.replied_to) || rootId;
       if (!known.has(parent)) parent = rootId;
       const bucket = children.get(parent) || [];
       bucket.push(item);
@@ -1027,15 +1082,22 @@
     text.textContent = rootText(post);
     panel.append(text);
 
-    const images = post.images || [];
-    if (images.length) {
+    const mediaItems = postMedia(post);
+    if (mediaItems.length) {
       const media = document.createElement('div');
       media.className = 'post-media';
-      for (const image of images) {
-        const img = document.createElement('img');
-        img.src = image.url;
-        img.alt = '';
-        media.append(img);
+      for (const item of mediaItems) {
+        const preview =
+          item.kind === 'video'
+            ? document.createElement('video')
+            : document.createElement('img');
+        preview.src = item.url;
+        preview.alt = '';
+        if (preview instanceof HTMLVideoElement) {
+          preview.controls = true;
+          preview.preload = 'metadata';
+        }
+        media.append(preview);
       }
       panel.append(media);
     }
@@ -1067,12 +1129,12 @@
     el('ghost').checked = Boolean(post.ghost);
     el('destination-diary').disabled = false;
     el('ghost').disabled = false;
-    el('poll-on').disabled = (post.images || []).length > 0;
-    el('image-input').disabled = state.pollOn;
     state.pollOn = (post.poll || []).filter(Boolean).length >= 2;
+    el('poll-on').disabled = postMedia(post).length > 0 || state.uploading;
+    el('media-input').disabled = state.pollOn || state.uploading;
     updateCharCount();
     renderPoll(post);
-    renderImages(post);
+    renderMedia(post);
     renderAiButtons();
     updateActionButtons();
   }
@@ -1159,8 +1221,12 @@
     const post = selected();
     const editing = Boolean(post) && post.status !== 'published';
     el('save-draft').disabled = !editing || !state.dirty || state.saving;
-    el('publish').disabled = !editing || state.saving;
-    el('close-editor').disabled = state.saving;
+    el('publish').disabled =
+      !editing ||
+      state.saving ||
+      state.uploading ||
+      postMedia(post).some((item) => item.uploadStatus !== 'ready');
+    el('close-editor').disabled = state.saving || state.uploading;
     renderAiButtons();
   }
 
@@ -1228,7 +1294,9 @@
   function scrollEditorIntoView() {
     const editor = el('editor');
     if (editor.hidden) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches;
     editor.scrollIntoView({
       behavior: reduce ? 'auto' : 'smooth',
       block: 'start',
@@ -1397,33 +1465,173 @@
     }
   }
 
-  async function uploadImages(files) {
+  function mediaMime(file) {
+    if (file.type) return file.type.toLowerCase();
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.mp4')) return 'video/mp4';
+    if (name.endsWith('.mov')) return 'video/quicktime';
+    if (name.endsWith('.png')) return 'image/png';
+    if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+    return '';
+  }
+
+  function videoDuration(file) {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      const url = URL.createObjectURL(file);
+      const cleanup = () => URL.revokeObjectURL(url);
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        const duration = video.duration;
+        cleanup();
+        if (!Number.isFinite(duration)) {
+          reject(new Error(`${file.name}: не удалось определить длительность`));
+          return;
+        }
+        resolve(duration);
+      };
+      video.onerror = () => {
+        cleanup();
+        reject(new Error(`${file.name}: браузер не смог прочитать видео`));
+      };
+      video.src = url;
+    });
+  }
+
+  async function validateMediaFiles(files) {
+    const result = [];
+    for (const file of files) {
+      const mimeType = mediaMime(file);
+      const image = mimeType === 'image/jpeg' || mimeType === 'image/png';
+      const video = mimeType === 'video/mp4' || mimeType === 'video/quicktime';
+      if (!image && !video) {
+        throw new Error(`${file.name}: поддерживаются JPEG, PNG, MP4 и MOV`);
+      }
+      if (image && file.size > 8 * 1024 * 1024) {
+        throw new Error(`${file.name}: изображение больше 8 МБ`);
+      }
+      if (video && file.size > 1024 * 1024 * 1024) {
+        throw new Error(`${file.name}: видео больше 1 ГБ`);
+      }
+      if (video && (await videoDuration(file)) > 300) {
+        throw new Error(`${file.name}: видео длиннее 5 минут`);
+      }
+      result.push({ file, mimeType });
+    }
+    return result;
+  }
+
+  function putWithProgress(url, file, headers, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', url);
+      Object.entries(headers || {}).forEach(([name, value]) => {
+        xhr.setRequestHeader(name, value);
+      });
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else
+          reject(
+            new Error(
+              `${file.name}: загрузка завершилась с HTTP ${xhr.status}`,
+            ),
+          );
+      };
+      xhr.onerror = () => reject(new Error(`${file.name}: ошибка сети`));
+      xhr.send(file);
+    });
+  }
+
+  async function uploadMedia(files) {
     const post = selected();
     if (!post || !files.length) return;
-    const body = new FormData();
-    for (const file of files) body.append('images', file);
+    if (state.pollOn) {
+      setStatus('Опрос нельзя совмещать с медиа', true);
+      return;
+    }
+    state.uploading = true;
+    updateActionButtons();
     try {
-      const updated = await fetchJson(`${API}/posts/${post.id}/images`, {
-        method: 'POST',
-        body,
-      });
-      replacePost(updated);
-      renderImages(updated);
+      const validated = await validateMediaFiles(files);
+      const prepared = await fetchJson(
+        `${API}/posts/${post.id}/media/uploads`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            files: validated.map(({ file, mimeType }) => ({
+              name: file.name,
+              mimeType,
+              size: file.size,
+            })),
+          }),
+        },
+      );
+      replacePost(prepared.post);
+      renderMedia(prepared.post);
+      const failures = [];
+      for (let index = 0; index < prepared.uploads.length; index += 1) {
+        const upload = prepared.uploads[index];
+        const { file } = validated[index];
+        try {
+          await putWithProgress(
+            upload.uploadUrl,
+            file,
+            upload.headers,
+            (percent) =>
+              updateMediaProgress(
+                upload.mediaId,
+                percent,
+                `Загрузка ${percent}%`,
+              ),
+          );
+          updateMediaProgress(upload.mediaId, 100, 'Проверяю…');
+          const updated = await fetchJson(
+            `${API}/posts/${post.id}/media/${upload.mediaId}/complete`,
+            { method: 'POST' },
+          );
+          replacePost(updated);
+          renderMedia(updated);
+        } catch (error) {
+          failures.push(error.message);
+          updateMediaProgress(upload.mediaId, 0, 'Ошибка загрузки');
+        }
+      }
+      setStatus(
+        failures.length
+          ? `Не загружено: ${failures.join('; ')}`
+          : 'Медиа загружены',
+        failures.length > 0,
+      );
     } catch (error) {
       setStatus(error.message, true);
+    } finally {
+      state.uploading = false;
+      const current = selected();
+      if (current) {
+        el('poll-on').disabled = postMedia(current).length > 0;
+        el('media-input').disabled = state.pollOn;
+        renderMedia(current);
+      }
+      updateActionButtons();
     }
   }
 
-  async function removeImage(imageId) {
+  async function removeMedia(mediaId) {
     const post = selected();
     if (!post) return;
     try {
       const updated = await fetchJson(
-        `${API}/posts/${post.id}/images/${imageId}`,
+        `${API}/posts/${post.id}/media/${mediaId}`,
         { method: 'DELETE' },
       );
       replacePost(updated);
-      renderImages(updated);
+      renderMedia(updated);
     } catch (error) {
       setStatus(error.message, true);
     }
@@ -1479,13 +1687,14 @@
     state.pollOn = el('poll-on').checked;
     if (!state.pollOn) post.poll = [];
     else if (!post.poll?.length) post.poll = ['', ''];
+    el('media-input').disabled = state.pollOn;
     renderPoll(post);
     markDirty();
   });
-  el('image-input').addEventListener('change', (event) => {
+  el('media-input').addEventListener('change', (event) => {
     const files = [...event.target.files];
     event.target.value = '';
-    void uploadImages(files);
+    void uploadMedia(files);
   });
   window.addEventListener('beforeunload', (event) => {
     if (!state.dirty) return;
