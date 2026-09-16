@@ -13,7 +13,6 @@
     saving: false,
     dirty: false,
     pollOn: false,
-    freshReplyIds: {},
     aiActions: [],
     aiRunning: false,
     aiEditingId: null,
@@ -599,13 +598,10 @@
     row.append(item);
   }
 
-  function replyIds(post) {
-    const items = post.replies?.replies || [];
-    return new Set(items.map((item) => String(item.id || '')).filter(Boolean));
-  }
-
   function freshIdsFor(post) {
-    return state.freshReplyIds[String(post.id)] || null;
+    const ids = post.replies?.freshIds;
+    if (!Array.isArray(ids) || !ids.length) return null;
+    return new Set(ids.map((id) => String(id || '')).filter(Boolean));
   }
 
   function renderPollOptions(poll, box) {
@@ -1428,26 +1424,20 @@
         );
         return;
       }
-      const fresh = {};
       let freshTotal = 0;
       let failed = 0;
       for (const post of targets) {
-        const before = replyIds(post);
         try {
           const updated = await fetchJson(`${API}/posts/${post.id}/insights`, {
             method: 'POST',
           });
-          const added = [...replyIds(updated)].filter((id) => !before.has(id));
-          if (added.length) {
-            fresh[String(updated.id)] = new Set(added);
-            freshTotal += added.length;
-          }
+          const added = updated.replies?.freshIds;
+          if (Array.isArray(added)) freshTotal += added.length;
           replacePost(updated);
         } catch {
           failed += 1;
         }
       }
-      state.freshReplyIds = fresh;
       renderList();
       const bits = [];
       if (Array.isArray(adopted) && adopted.length) {

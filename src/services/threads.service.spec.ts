@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { ThreadsService } from './threads.service';
+import { ThreadsService, freshReplyIds } from './threads.service';
 
 type MediaItem = {
   id: number;
@@ -259,5 +259,96 @@ describe('ThreadsService media', () => {
         },
       }),
     });
+  });
+});
+
+describe('ThreadsService fresh replies', () => {
+  it('does not mark replies as new on the first dump', () => {
+    expect(freshReplyIds(null, [{ id: 'a' }])).toEqual([]);
+  });
+
+  it('marks only ids that appeared since the previous dump', () => {
+    expect(
+      freshReplyIds({ replies: [{ id: 'a' }, { id: 'b' }] }, [
+        { id: 'b' },
+        { id: 'c' },
+      ]),
+    ).toEqual(['c']);
+  });
+
+  it('clears the new set when a later dump has no additions', () => {
+    expect(
+      freshReplyIds({ replies: [{ id: 'a' }, { id: 'b' }] }, [
+        { id: 'a' },
+        { id: 'b' },
+      ]),
+    ).toEqual([]);
+  });
+
+  it('stores fresh reply ids when insights refresh pulls new comments', async () => {
+    const prisma = {
+      threadsPost: {
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
+    };
+    const service = new ThreadsService(
+      prisma as never,
+      { deleteByPublicUrl: jest.fn() } as never,
+      { get: jest.fn().mockReturnValue('token') } as never,
+      { sendApiNoteText: jest.fn() } as never,
+    );
+    const internals = service as unknown as {
+      graphGet(
+        path: string,
+        params: Record<string, string>,
+      ): Promise<Record<string, unknown>>;
+    };
+    const existing = {
+      ...post(),
+      status: 'published',
+      mediaId: 'media-1',
+      url: 'https://threads.net/t/live-1',
+      repliesJson: { replies: [{ id: 'old' }] },
+    };
+    const saved = {
+      ...existing,
+      repliesJson: {
+        replies: [{ id: 'old' }, { id: 'new-1' }],
+        freshIds: ['new-1'],
+      },
+    };
+    prisma.threadsPost.findUnique.mockResolvedValue(existing);
+    prisma.threadsPost.update.mockResolvedValue(saved);
+    const graphGet = jest
+      .spyOn(internals, 'graphGet')
+      .mockImplementation(async (path) => {
+        if (path.endsWith('/insights')) {
+          return {
+            data: [{ name: 'views', values: [{ value: 3 }] }],
+          };
+        }
+        if (path.endsWith('/conversation')) {
+          return { data: [{ id: 'old' }, { id: 'new-1' }] };
+        }
+        return { id: 'media-1', permalink: 'https://threads.net/t/live-1' };
+      });
+
+    const result = await service.refreshInsights(1);
+
+    expect(result.replies).toEqual(
+      expect.objectContaining({ freshIds: ['new-1'] }),
+    );
+    expect(prisma.threadsPost.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          repliesJson: expect.objectContaining({
+            freshIds: ['new-1'],
+            replies: [{ id: 'old' }, { id: 'new-1' }],
+          }),
+        }),
+      }),
+    );
+    expect(graphGet).toHaveBeenCalledTimes(5);
   });
 });
