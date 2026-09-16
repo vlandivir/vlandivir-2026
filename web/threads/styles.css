@@ -701,12 +701,13 @@
   margin-top: 4px;
 }
 
-.reply-new {
+.reply.reply-new,
+.reply[data-depth='0'].reply-new,
+.reply[data-depth='0']:first-child.reply-new {
   border-radius: calc(var(--radius) - 2px);
   background: hsl(var(--primary) / 0.1);
   box-shadow: inset 3px 0 0 hsl(var(--primary));
-  padding-left: 10px;
-  padding-right: 8px;
+  padding: var(--v-space-3) var(--v-space-3) var(--v-space-3) var(--v-space-4);
 }
 
 .reply-new-mark {

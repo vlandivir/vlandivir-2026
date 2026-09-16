@@ -103,6 +103,39 @@ export type ThreadsPollResults = {
   expires?: string;
 };
 
+type ConversationDump = {
+  fetched: string;
+  root: Record<string, unknown>;
+  replies: Record<string, unknown>[];
+  counts: Record<string, number>;
+  freshIds: string[];
+};
+
+export function replyIdsFromDump(dump: unknown): Set<string> {
+  if (!dump || typeof dump !== 'object') return new Set();
+  const replies = (dump as { replies?: unknown }).replies;
+  if (!Array.isArray(replies)) return new Set();
+  return new Set(
+    replies
+      .map((item) => {
+        if (!item || typeof item !== 'object' || !('id' in item)) return '';
+        return String((item as { id?: unknown }).id || '');
+      })
+      .filter(Boolean),
+  );
+}
+
+export function freshReplyIds(
+  previous: unknown,
+  nextReplies: Record<string, unknown>[],
+): string[] {
+  if (previous == null) return [];
+  const before = replyIdsFromDump(previous);
+  return [...replyIdsFromDump({ replies: nextReplies })].filter(
+    (id) => !before.has(id),
+  );
+}
+
 const postInclude = { media: { orderBy: { sortOrder: 'asc' as const } } };
 
 type PostWithMedia = Prisma.ThreadsPostGetPayload<{
@@ -438,10 +471,9 @@ export class ThreadsService {
       post.repliesJson;
     let conversationUpdated = false;
     try {
-      repliesJson = (await this.dumpConversation(
-        token,
-        mediaId,
-      )) as Prisma.InputJsonValue;
+      const dump = await this.dumpConversation(token, mediaId);
+      dump.freshIds = freshReplyIds(post.repliesJson, dump.replies);
+      repliesJson = dump as Prisma.InputJsonValue;
       conversationUpdated = true;
     } catch (error) {
       this.logger.error(
@@ -1065,7 +1097,10 @@ export class ThreadsService {
     return null;
   }
 
-  private async dumpConversation(token: string, mediaId: string) {
+  private async dumpConversation(
+    token: string,
+    mediaId: string,
+  ): Promise<ConversationDump> {
     const root = await this.graphGet(`/${mediaId}`, {
       fields: ROOT_FIELDS,
       access_token: token,
@@ -1105,6 +1140,7 @@ export class ThreadsService {
       root,
       replies,
       counts,
+      freshIds: [],
     };
   }
 
