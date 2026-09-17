@@ -27,6 +27,8 @@
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
     replies:
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+    reposts:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 1 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 23-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
   };
 
   const el = (id) => document.getElementById(id);
@@ -715,6 +717,7 @@
         appendStat(statRow, 'views', 'просмотры', stats.views, prev.views);
         appendStat(statRow, 'likes', 'лайки', stats.likes, prev.likes);
         appendStat(statRow, 'replies', 'ответы', stats.replies, prev.replies);
+        appendStat(statRow, 'reposts', 'репосты', stats.reposts, prev.reposts);
         if (statRow.childElementCount) statsCell.append(statRow);
         const poll = post.pollResults;
         if (poll?.options?.length) {
