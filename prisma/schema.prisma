@@ -588,6 +588,7 @@ model ThreadsPost {
   text        String         @db.Text
   status      String         @default("draft") // draft | published
   destination String         @default("threads") // threads | diary
+  source      String         @default("composer") // composer | external
   ghost       Boolean        @default(false)
   topic       String?
   poll        String[]       @default([])
@@ -614,6 +615,7 @@ model ThreadsMedia {
   size             BigInt?
   originalFilename String?
   url              String
+  thumbnailUrl     String?
   key              String
   sortOrder        Int         @default(0)
   uploadStatus     String      @default("ready") // uploading | ready

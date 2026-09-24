@@ -16,6 +16,7 @@ type MediaItem = {
 };
 
 type ThreadsInternals = {
+  graphGet(path: string, params: Record<string, string>): Promise<unknown>;
   createAndPublish(
     token: string,
     text: string,
@@ -83,7 +84,12 @@ function media(
 
 describe('ThreadsService media', () => {
   let prisma: {
-    threadsPost: { findUnique: jest.Mock; update: jest.Mock };
+    threadsPost: {
+      findUnique: jest.Mock;
+      findMany: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+    };
     threadsMedia: {
       create: jest.Mock;
       update: jest.Mock;
@@ -105,6 +111,8 @@ describe('ThreadsService media', () => {
     prisma = {
       threadsPost: {
         findUnique: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
         update: jest.fn(),
       },
       threadsMedia: {
@@ -256,6 +264,57 @@ describe('ThreadsService media', () => {
         },
         videos: {
           create: [{ url: 'https://example.com/1.mp4', description: null }],
+        },
+      }),
+    });
+  });
+
+  it('discovers external video posts with a thumbnail and skips existing posts', async () => {
+    prisma.threadsPost.findMany.mockResolvedValue([
+      {
+        id: 1,
+        mediaId: 'known',
+        url: 'https://threads.net/t/known',
+        source: 'composer',
+      },
+    ]);
+    prisma.threadsPost.create.mockResolvedValue({ id: 2 });
+    jest.spyOn(internals, 'graphGet').mockResolvedValue({
+      data: [
+        {
+          id: 'known',
+          text: 'Already here',
+          permalink: 'https://threads.net/t/known',
+        },
+        {
+          id: 'new-video',
+          text: 'A video',
+          permalink: 'https://threads.net/t/new-video',
+          timestamp: '2026-09-23T12:00:00Z',
+          media_type: 'VIDEO',
+          media_url: 'https://cdn.example.com/video.mp4',
+          thumbnail_url: 'https://cdn.example.com/cover.jpg',
+        },
+        { id: 'reply', text: 'A reply', is_reply: true },
+      ],
+    });
+
+    await expect(service.discoverPublishedPosts()).resolves.toEqual({
+      scanned: 2,
+      imported: 1,
+    });
+    expect(prisma.threadsPost.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        mediaId: 'new-video',
+        source: 'external',
+        media: {
+          create: [
+            expect.objectContaining({
+              kind: 'video',
+              url: 'https://cdn.example.com/video.mp4',
+              thumbnailUrl: 'https://cdn.example.com/cover.jpg',
+            }),
+          ],
         },
       }),
     });

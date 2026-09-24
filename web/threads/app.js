@@ -560,6 +560,7 @@
 
   function statusLabel(post) {
     const bits = [post.status === 'published' ? 'опубликовано' : 'черновик'];
+    if (post.source === 'external') bits.push('из Threads');
     if ((post.poll || []).filter(Boolean).length >= 2) bits.push('опрос');
     if (post.destination === 'diary') bits.push('дневник');
     if (post.ghost) bits.push('ghost');
@@ -669,6 +670,7 @@
         if (media instanceof HTMLVideoElement) {
           media.muted = true;
           media.preload = 'metadata';
+          if (firstMedia.thumbnailUrl) media.poster = firstMedia.thumbnailUrl;
         }
         previewInner.append(media);
       } else {
@@ -1095,6 +1097,7 @@
         if (preview instanceof HTMLVideoElement) {
           preview.controls = true;
           preview.preload = 'metadata';
+          if (item.thumbnailUrl) preview.poster = item.thumbnailUrl;
         }
         media.append(preview);
       }
@@ -1415,6 +1418,8 @@
       if (Array.isArray(adopted)) {
         for (const post of adopted) replacePost(post);
       }
+      const discovered = await fetchJson(`${API}/discover`, { method: 'POST' });
+      await loadPosts();
       const targets = state.posts.filter(
         (post) => post.status === 'published' && (post.mediaId || post.url),
       );
@@ -1446,6 +1451,9 @@
       if (Array.isArray(adopted) && adopted.length) {
         bits.push(`подобрано черновиков: ${adopted.length}`);
       }
+      if (discovered.imported)
+        bits.push(`найдено постов: ${discovered.imported}`);
+      if (discovered.truncated) bits.push('обход ограничен 100 страницами');
       bits.push(
         freshTotal ? `новых ответов: ${freshTotal}` : 'данные обновлены',
       );

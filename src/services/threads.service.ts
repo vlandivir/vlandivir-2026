@@ -168,6 +168,144 @@ export class ThreadsService {
     return posts.map((post) => this.serialize(post));
   }
 
+  async discoverPublishedPosts() {
+    const token = this.requireToken();
+    const known = await this.prisma.threadsPost.findMany({
+      where: { destination: 'threads', status: 'published' },
+      select: { id: true, mediaId: true, url: true, source: true },
+    });
+    const byMediaId = new Map(
+      known.filter((post) => post.mediaId).map((post) => [post.mediaId, post]),
+    );
+    const byPermalink = new Map(
+      known
+        .filter((post) => post.url)
+        .map((post) => [this.permalinkKey(post.url || ''), post]),
+    );
+    let after = '';
+    const cursors = new Set<string>();
+    let scanned = 0;
+    let imported = 0;
+    for (let page = 0; page < 100; page += 1) {
+      const params: Record<string, string> = {
+        fields:
+          'id,text,permalink,timestamp,is_reply,media_type,media_url,thumbnail_url,children',
+        limit: '25',
+        access_token: token,
+      };
+      if (after) params.after = after;
+      const payload = await this.graphGet('/me/threads', params);
+      for (const value of payload.data || []) {
+        if (!value || typeof value !== 'object') continue;
+        const row = value as ThreadsGraphPost;
+        if (
+          !row.id ||
+          row.is_reply === true ||
+          row.is_reply === 1 ||
+          row.is_reply === 'true'
+        )
+          continue;
+        scanned += 1;
+        const permalink =
+          typeof row.permalink === 'string' ? row.permalink : null;
+        const existing =
+          byMediaId.get(String(row.id)) ||
+          (permalink
+            ? byPermalink.get(this.permalinkKey(permalink))
+            : undefined);
+        if (existing && existing.source !== 'external') continue;
+        const publishedAt = row.timestamp ? new Date(row.timestamp) : null;
+        const media = await this.remoteMedia(token, row);
+        const data = {
+          text: typeof row.text === 'string' ? row.text : '',
+          url: permalink,
+          mediaId: String(row.id),
+          publishedAt:
+            publishedAt && !Number.isNaN(publishedAt.getTime())
+              ? publishedAt
+              : null,
+        };
+        if (existing) {
+          await this.prisma.threadsPost.update({
+            where: { id: existing.id },
+            data: {
+              ...data,
+              ...(media.length
+                ? { media: { deleteMany: {}, create: media } }
+                : {}),
+            },
+          });
+        } else {
+          const created = await this.prisma.threadsPost.create({
+            data: {
+              ...data,
+              status: 'published',
+              destination: 'threads',
+              source: 'external',
+              media: { create: media },
+            },
+          });
+          const found = {
+            id: created.id,
+            mediaId: String(row.id),
+            url: permalink,
+            source: 'external',
+          };
+          byMediaId.set(String(row.id), found);
+          if (permalink) byPermalink.set(this.permalinkKey(permalink), found);
+          imported += 1;
+        }
+      }
+      const next = payload.paging?.cursors?.after || '';
+      if (!next || cursors.has(next)) return { scanned, imported };
+      cursors.add(next);
+      after = next;
+    }
+    this.logger.warn('Threads discovery stopped after 100 pages');
+    return { scanned, imported, truncated: true };
+  }
+
+  private async remoteMedia(token: string, post: ThreadsGraphPost) {
+    const items: ThreadsGraphPost[] = [];
+    if (post.media_type === 'CAROUSEL') {
+      const children = post.children?.data || [];
+      for (const child of children) {
+        if (!child?.id) continue;
+        try {
+          const detail = await this.graphGet(`/${child.id}`, {
+            fields: 'id,media_type,media_url,thumbnail_url',
+            access_token: token,
+          });
+          items.push(detail as ThreadsGraphPost);
+        } catch (error) {
+          this.logger.warn(
+            `Could not load Threads media ${child.id}: ${String(error)}`,
+          );
+        }
+      }
+    } else {
+      items.push(post);
+    }
+    return items.flatMap((item, sortOrder) => {
+      const video = item.media_type === 'VIDEO';
+      const url = typeof item.media_url === 'string' ? item.media_url : '';
+      const thumbnailUrl =
+        typeof item.thumbnail_url === 'string' ? item.thumbnail_url : null;
+      if (!url && !thumbnailUrl) return [];
+      return [
+        {
+          kind: video && url ? 'video' : 'image',
+          mimeType: video && url ? 'video/mp4' : 'image/jpeg',
+          url: url || thumbnailUrl || '',
+          thumbnailUrl,
+          key: '',
+          sortOrder,
+          uploadStatus: 'ready',
+        },
+      ];
+    });
+  }
+
   async getPost(id: number) {
     return this.serialize(await this.requirePost(id));
   }
@@ -559,6 +697,7 @@ export class ThreadsService {
       size: item.size === null ? null : Number(item.size),
       originalFilename: item.originalFilename,
       url: item.url,
+      thumbnailUrl: item.thumbnailUrl,
       key: item.key,
       sortOrder: item.sortOrder,
       uploadStatus: item.uploadStatus,
@@ -569,6 +708,7 @@ export class ThreadsService {
       text: post.text,
       status: post.status,
       destination: post.destination,
+      source: post.source,
       ghost: post.ghost,
       topic: post.topic,
       poll: post.poll,
@@ -1149,6 +1289,7 @@ export class ThreadsService {
       where: {
         status: 'published',
         destination: 'threads',
+        source: 'composer',
         diaryNoteId: null,
       },
       include: postInclude,
@@ -1334,4 +1475,16 @@ type GraphPayload = {
   poll_attachment?: unknown;
   error?: { message?: string };
   [key: string]: unknown;
+};
+
+type ThreadsGraphPost = {
+  id?: string;
+  text?: string;
+  permalink?: string;
+  timestamp?: string;
+  is_reply?: boolean | number | string;
+  media_type?: string;
+  media_url?: string;
+  thumbnail_url?: string;
+  children?: { data?: { id?: string }[] };
 };
