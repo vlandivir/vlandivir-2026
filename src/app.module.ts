@@ -28,7 +28,6 @@ import { UserPagesController } from './user-pages.controller';
 import { ThreadsApiController } from './threads-api.controller';
 import { ThreadsPagesController } from './threads-pages.controller';
 import { ThreadsService } from './services/threads.service';
-import { ThreadsAiService } from './services/threads-ai.service';
 
 @Module({
   imports: [
@@ -66,7 +65,6 @@ import { ThreadsAiService } from './services/threads-ai.service';
     AppService,
     McpToolsService,
     ThreadsService,
-    ThreadsAiService,
     MapSearchThrottleGuard,
   ],
 })

@@ -4,24 +4,18 @@ Last reviewed: 13 September 2026.
 
 The shared model identifiers live in
 [`src/openai-models.ts`](../src/openai-models.ts). Use those constants instead
-of adding model strings to application code. Threads AI actions are the
-exception: their selected model is stored in `ThreadsAiAction` so it can be
-changed from the browser, but the API only accepts models from the shared
-catalog.
+of adding model strings to application code. Former Threads AI button settings
+remain archived in `ThreadsAiAction`; this app no longer runs those actions.
 
 ## Current choices
 
-- **`gpt-5.6-sol` — high accuracy.** Image description, handwriting
-  recognition/refinement and Threads fact-checking. Fact-checking uses the
-  Responses API with required `web_search`, medium reasoning and visible
-  clickable citations.
+- **`gpt-5.6-sol` — high accuracy.** Image description and handwriting
+  recognition/refinement.
 - **`gpt-5.6-terra` — balanced default.** Translations, reels title/vision/text
-  cleanup, reels and diary RAG answers, email classification, Email → GTD and
-  Threads spelling correction. This is the default for bounded user-facing
-  text tasks.
+  cleanup, reels and diary RAG answers, email classification and Email → GTD.
+  This is the default for bounded user-facing text tasks.
 - **`gpt-5.6-luna` — economical auxiliary model.** Third independent
-  handwriting-recognition pass and an optional choice for simple custom
-  Threads actions. Do not make it the default for fact-checking.
+  handwriting-recognition pass.
 - **`whisper-1` — timestamped transcription.** Kept for Subs and reels because
   `verbose_json` and word/segment timestamp granularities are only supported
   by Whisper. Newer transcribe models can be more accurate but do not satisfy
@@ -42,15 +36,8 @@ Official references:
 ## API conventions
 
 - Existing single-turn text and vision calls use Chat Completions.
-- Configurable Threads actions use the Responses API. `replace_text` actions
-  use strict JSON Schema with `{ text, message }`; `analysis` actions return
-  text plus URL annotations.
 - GPT-5.6 uses reasoning effort `none`, `low`, `medium` or `high`. Do not copy
   the older `minimal` value into GPT-5.6 requests.
-- Draft text is always a separate user input, not interpolated into the
-  editable action prompt.
-- When web search is enabled, the caller must use `tool_choice: "required"` and
-  the UI must render inline URL citations as visible clickable links.
 
 ## Overrides
 
@@ -71,11 +58,10 @@ GitHub secrets according to `AGENTS.md`.
 ## Verification record
 
 On 13 September 2026 the current OpenAI account returned HTTP 200 for Sol,
-Terra and Luna. A live mixed RU/SR/EN spelling sample on Terra corrected only
-the deliberately misspelled words, and a Sol fact-check used web search,
-rejected a false population claim and returned an inline citation.
+Terra and Luna. The former Threads AI buttons passed live spelling and
+fact-check samples before their removal. Those samples are historical evidence,
+not active behavior in this app.
 
 When changing defaults, repeat a small task-specific evaluation rather than
-assuming that a newer or larger model is automatically better. At minimum test
-mixed-language spelling preservation, fact-check citations, image input and
-the structured-output parsers affected by the change.
+assuming that a newer or larger model is automatically better. Test the inputs
+and structured-output parsers affected by the change.
