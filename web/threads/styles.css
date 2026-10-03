@@ -35,11 +35,12 @@
 
 .list-card {
   margin-bottom: var(--v-space-4);
-  overflow: hidden;
+  overflow: clip;
 }
 
 .table-wrap {
   overflow-x: auto;
+  max-width: 100%;
 }
 
 .threads-table {
@@ -119,6 +120,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--v-group-gap);
+  min-width: 0;
+  max-width: 100%;
   padding: var(--v-space-3);
   border: 1px solid hsl(var(--shadcn-border));
   border-radius: calc(var(--radius) - 2px);
@@ -481,8 +484,15 @@
   display: flex;
   flex-direction: column;
   gap: var(--v-space-2);
+  min-width: 0;
   padding-top: var(--v-space-3);
   border-top: 1px solid hsl(var(--shadcn-border));
+}
+
+.metrics a {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .metric-row {
@@ -505,13 +515,12 @@
 }
 
 .reply {
-  padding: 6px 0 6px 10px;
-  border-left: 2px solid hsl(var(--shadcn-border));
+  min-width: 0;
+  max-width: 100%;
+  padding: 6px 0;
 }
 
 .reply[data-depth='0'] {
-  padding-left: 0;
-  border-left: 0;
   padding-top: 8px;
   border-top: 1px solid hsl(var(--shadcn-border));
 }
@@ -560,7 +569,18 @@
 }
 
 .reply-children {
+  min-width: 0;
   margin-top: 4px;
+  margin-left: 12px;
+  padding-left: 8px;
+  border-left: 2px solid hsl(var(--shadcn-border));
+}
+
+/* Keep deep threads readable: stop growing indent after two levels */
+.reply-children .reply-children .reply-children {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
 }
 
 .reply.reply-new,
@@ -569,7 +589,7 @@
   border-radius: calc(var(--radius) - 2px);
   background: hsl(var(--primary) / 0.1);
   box-shadow: inset 3px 0 0 hsl(var(--primary));
-  padding: var(--v-space-3) var(--v-space-3) var(--v-space-3) var(--v-space-4);
+  padding: var(--v-space-3);
 }
 
 .reply-new-mark {
@@ -584,5 +604,57 @@
   .threads-top {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .list-card {
+    overflow: visible;
+  }
+
+  .table-wrap {
+    overflow-x: visible;
+  }
+
+  .threads-table {
+    table-layout: fixed;
+  }
+
+  /* Status + link: secondary on a phone; keep preview/date/text/stats */
+  .threads-table th:nth-child(2),
+  .threads-table td:nth-child(2),
+  .threads-table th:nth-child(5),
+  .threads-table td:nth-child(5) {
+    display: none;
+  }
+
+  .threads-table th,
+  .threads-table td {
+    padding: 6px 4px;
+  }
+
+  .thumb {
+    width: 56px;
+    height: 56px;
+  }
+
+  .cell-text {
+    max-width: none;
+  }
+
+  .threads-table tbody tr.post-detail td {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .thread-panel {
+    padding: var(--v-space-2);
+  }
+
+  .reply-children {
+    margin-left: 8px;
+    padding-left: 6px;
+  }
+
+  .metric-row {
+    gap: 6px 8px;
   }
 }
