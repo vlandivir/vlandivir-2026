@@ -25,6 +25,8 @@
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
     reposts:
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 1 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 23-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+    shares:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
   };
 
   const el = (id) => document.getElementById(id);
@@ -247,14 +249,15 @@
     return wrap;
   }
 
-  function appendStat(row, kind, label, current, previous) {
-    if (typeof current !== 'number') return;
+  function appendStat(row, kind, label, current, previous, showMissing = false) {
+    if (typeof current !== 'number' && !showMissing) return;
     const item = document.createElement('span');
     item.className = 'stat-item';
     item.title = label;
     item.append(statIcon(kind));
     const value = document.createElement('span');
-    value.textContent = String(current);
+    value.textContent = typeof current === 'number' ? String(current) : '—';
+    item.setAttribute('aria-label', `${label}: ${value.textContent}`);
     item.append(value);
     const change = delta(current, previous);
     if (change) {
@@ -384,7 +387,10 @@
         appendStat(statRow, 'views', 'просмотры', stats.views, prev.views);
         appendStat(statRow, 'likes', 'лайки', stats.likes, prev.likes);
         appendStat(statRow, 'replies', 'ответы', stats.replies, prev.replies);
-        appendStat(statRow, 'reposts', 'репосты', stats.reposts, prev.reposts);
+        if (stats.reposts > 0) {
+          appendStat(statRow, 'reposts', 'репосты', stats.reposts, prev.reposts);
+        }
+        appendStat(statRow, 'shares', 'поделились', stats.shares, prev.shares, true);
         if (statRow.childElementCount) statsCell.append(statRow);
         const poll = post.pollResults;
         if (poll?.options?.length) {
@@ -564,7 +570,10 @@
       ['Просмотры', metricLabel(stats.views, prev.views)],
       ['Лайки', metricLabel(stats.likes, prev.likes)],
       ['Ответы', metricLabel(stats.replies, prev.replies)],
-      ['Репосты', metricLabel(stats.reposts, prev.reposts)],
+      ...(stats.reposts > 0
+        ? [['Репосты', metricLabel(stats.reposts, prev.reposts)]]
+        : []),
+      ['Поделились', metricLabel(stats.shares, prev.shares)],
     ];
     for (const [label, value] of items) {
       const chip = document.createElement('span');
