@@ -587,8 +587,8 @@ model ThreadsPost {
   canvasId    String?        @unique // original threads-poster canvas id, for import
   text        String         @db.Text
   status      String         @default("draft") // draft | published
-  destination String         @default("threads") // threads | diary
-  source      String         @default("composer") // composer | external
+  destination String         @default("threads") // threads | diary | watch (separate monitoring list)
+  source      String         @default("composer") // composer | external (own posts) | watch (public links)
   ghost       Boolean        @default(false)
   topic       String?
   poll        String[]       @default([])

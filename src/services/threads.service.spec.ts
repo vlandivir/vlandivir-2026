@@ -269,6 +269,14 @@ describe('ThreadsService media', () => {
     });
   });
 
+  it('does not expose monitored posts through the composer API', async () => {
+    prisma.threadsPost.findUnique.mockResolvedValue({
+      ...post(),
+      destination: 'watch',
+    });
+    await expect(service.getPost(1)).rejects.toThrow('Post not found');
+  });
+
   it('discovers external video posts with a thumbnail and skips existing posts', async () => {
     prisma.threadsPost.findMany.mockResolvedValue([
       {

@@ -72,6 +72,7 @@ loopback `http://127.0.0.1|localhost` (для отладки).
 | Записная книжка рилсов (страницы) | `GET /reels`, `GET /reels/:id` | `src/reels-pages.controller.ts` |
 | Дашборд почты (страница) | `GET /email` | `src/email-pages.controller.ts` |
 | Композер Threads (страница) | `GET /threads` | `src/threads-pages.controller.ts` |
+| Мониторинг чужих Threads | `GET /threads-watch`, `/threads-watch/en`; `GET/POST /threads-watch-api/posts`, `POST /threads-watch-api/posts/:id/refresh`, `DELETE /threads-watch-api/posts/:id`, `GET/POST /threads-watch-api/posts/:id/replies` | `src/threads-watch.controller.ts`, `AdminSessionGuard` на обоих классах; операции ограничены `destination=watch` |
 | API Threads | `GET/POST/PATCH/DELETE /threads-api/*` для черновиков, медиа, публикации и статистики; маршруты `/ai-actions` удалены | `src/threads-api.controller.ts` (`AdminSessionGuard` на классе) |
 | API почты | `GET/POST /email-api/*` (stats, messages, sync, `POST /messages/:id/to-gtd`) | `src/email-api.controller.ts` (guard на классе) |
 | Дневник (страницы) | `GET /diary`, `GET /diary/:MM-DD`, `GET /diary/archive` | `src/diary-pages.controller.ts`; записи скоупятся к личному чату владельца |

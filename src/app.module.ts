@@ -28,6 +28,11 @@ import { UserPagesController } from './user-pages.controller';
 import { ThreadsApiController } from './threads-api.controller';
 import { ThreadsPagesController } from './threads-pages.controller';
 import { ThreadsService } from './services/threads.service';
+import { ThreadsWatchService } from './services/threads-watch.service';
+import {
+  ThreadsWatchApiController,
+  ThreadsWatchPagesController,
+} from './threads-watch.controller';
 
 @Module({
   imports: [
@@ -59,12 +64,15 @@ import { ThreadsService } from './services/threads.service';
     UserPagesController,
     ThreadsApiController,
     ThreadsPagesController,
+    ThreadsWatchApiController,
+    ThreadsWatchPagesController,
     McpController,
   ],
   providers: [
     AppService,
     McpToolsService,
     ThreadsService,
+    ThreadsWatchService,
     MapSearchThrottleGuard,
   ],
 })

@@ -72,6 +72,11 @@ async function bootstrap() {
       index: false,
       redirect: false,
     });
+    app.useStaticAssets(path.join(process.cwd(), 'web', 'threads-watch'), {
+      prefix: '/threads-watch',
+      index: false,
+      redirect: false,
+    });
     const threadsPage = path.join(process.cwd(), 'web', 'threads');
     app.useStaticAssets(threadsPage, {
       prefix: '/threads',
@@ -192,6 +197,11 @@ async function bootstrap() {
     const emailPage = path.join(process.cwd(), 'web', 'email');
     app.useStaticAssets(emailPage, {
       prefix: '/email',
+      index: false,
+      redirect: false,
+    });
+    app.useStaticAssets(path.join(process.cwd(), 'web', 'threads-watch'), {
+      prefix: '/threads-watch',
       index: false,
       redirect: false,
     });

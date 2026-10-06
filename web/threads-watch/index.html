@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title data-i18n="title">Чужие Threads</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/shared/site-theme.css?v=20260816-1" />
+    <link rel="stylesheet" href="/shared/site-header.css?v=20260816-2" />
+    <link rel="stylesheet" href="/threads-watch/styles.css?v=20261006-4" />
+    <script src="/threads-watch/i18n.js?v=20261006-2"></script>
+    <script src="/shared/i18n.js?v=20260816-1"></script>
+    <script src="/shared/site-header.js?v=20260816-1" defer></script>
+    <script src="/threads-watch/app.js?v=20261006-2" defer></script>
+  </head>
+  <body>
+    <header
+      data-site-header
+      data-active="threads"
+      data-lang-ru="/threads-watch"
+      data-lang-en="/threads-watch/en"
+    ></header>
+    <main class="page-shell watch-page">
+      <section class="watch-top">
+        <div>
+          <p class="eyebrow" data-i18n="kicker">Наблюдение</p>
+          <h1 data-i18n="title">Чужие Threads</h1>
+        </div>
+        <div class="watch-actions">
+          <a class="ghost-btn" href="/threads" data-i18n="myPosts">Мои посты</a>
+          <button
+            class="ghost-btn"
+            id="refresh-all"
+            type="button"
+            data-i18n="refreshAll"
+          >
+            Обновить данные
+          </button>
+        </div>
+      </section>
+      <form id="add-form" class="editor-card add-form">
+        <label for="post-url" data-i18n="urlLabel"
+          >Ссылка на публичный пост</label
+        >
+        <div class="add-controls">
+          <input
+            id="post-url"
+            name="url"
+            type="url"
+            required
+            placeholder="https://www.threads.com/@username/post/…"
+          />
+          <button class="primary-btn" type="submit" data-i18n="add">
+            Добавить
+          </button>
+        </div>
+        <p class="muted" data-i18n="hint">
+          Добавляй посты по ссылке и обновляй данные кнопкой. Счётчики берём из
+          публичного поста; округлённые числа отмечены ≈, недоступные —
+          прочерком.
+        </p>
+      </form>
+      <p id="status" class="muted" role="status" aria-live="polite"></p>
+      <section class="editor-card list-card">
+        <div class="table-wrap">
+          <table class="watch-table">
+            <thead>
+              <tr>
+                <th data-i18n="author">Автор</th>
+                <th data-i18n="post">Пост</th>
+                <th data-i18n="stats">Статистика</th>
+                <th data-i18n="sync">Обновление</th>
+                <th data-i18n="actions">Действия</th>
+              </tr>
+            </thead>
+            <tbody id="post-list"></tbody>
+          </table>
+        </div>
+        <p id="empty" class="muted" hidden data-i18n="empty">
+          Пока нет постов. Добавь первую ссылку выше.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

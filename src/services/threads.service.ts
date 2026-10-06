@@ -161,7 +161,7 @@ export class ThreadsService {
 
   async listPosts(status?: ThreadsStatus) {
     const posts = await this.prisma.threadsPost.findMany({
-      where: status ? { status } : undefined,
+      where: { destination: { not: 'watch' }, ...(status ? { status } : {}) },
       include: postInclude,
       orderBy: { updatedAt: 'desc' },
     });
@@ -732,7 +732,8 @@ export class ThreadsService {
       where: { id },
       include: postInclude,
     });
-    if (!post) throw new NotFoundException('Post not found');
+    if (!post || post.destination === 'watch')
+      throw new NotFoundException('Post not found');
     return post;
   }
 
