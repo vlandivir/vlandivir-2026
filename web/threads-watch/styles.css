@@ -1,26 +1,7 @@
-/* Layout only; shared theme owns component styling. */
-.watch-page {
-  padding-bottom: var(--v-space-6);
-}
-.watch-page [hidden] {
-  display: none !important;
-}
-.watch-top {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--v-space-3);
+/* Page-specific form layout; table, panel and replies use /shared/threads.css. */
+.add-form {
+  padding: var(--v-space-3);
   margin-bottom: var(--v-space-3);
-}
-.watch-top h1 {
-  margin: 0;
-  font-size: 22px;
-}
-.watch-actions,
-.row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--v-space-2);
 }
 .add-controls {
   display: flex;
@@ -31,140 +12,31 @@
   flex: 1;
   min-width: 0;
 }
+.add-actions {
+  display: flex;
+  margin-top: var(--v-space-3);
+}
 .add-form p {
   margin-bottom: 0;
 }
-.table-wrap {
-  overflow-x: auto;
-}
-.watch-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.watch-table th,
-.watch-table td {
-  text-align: left;
-  vertical-align: top;
-  padding: var(--v-space-2);
-  border-bottom: 1px solid hsl(var(--shadcn-border));
-}
-.watch-table th {
-  font-size: 13px;
-  color: var(--v-muted);
-}
-.watch-table td:nth-child(2) {
-  width: 40%;
-  min-width: 220px;
-}
-.post-text {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  max-height: 160px;
-  overflow-y: auto;
-  margin: 0 0 var(--v-space-2);
-}
-.post-date {
-  display: block;
-  font-size: 13px;
-  margin-top: var(--v-space-2);
-}
-.sync-date {
-  font-size: 13px;
-}
-.stat-row {
+.thread-actions,
+.replies-heading {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--v-space-2) var(--v-space-3);
+  justify-content: space-between;
+  gap: var(--v-space-2);
 }
-.stat-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--v-space-1);
-  white-space: nowrap;
-}
-.stat-icon {
-  display: inline-flex;
-  width: 14px;
-  height: 14px;
-  color: var(--v-muted);
-}
-.stat-icon svg {
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.row-error {
-  color: hsl(var(--destructive));
-  margin-top: var(--v-space-2);
-}
-.comments-head,
-.comment-meta {
+.thread-actions-main {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
   gap: var(--v-space-2);
 }
-.comments-head {
-  justify-content: space-between;
+.row-error {
+  color: hsl(var(--destructive));
 }
-.comments-head h2 {
-  margin: 0;
-  font-size: 18px;
-}
-.comments-section {
-  padding: var(--v-space-3) 0;
-}
-.comment {
-  margin: var(--v-space-3) 0 var(--v-space-3)
-    calc(var(--comment-depth) * var(--v-space-3));
-  padding: var(--v-space-3);
-  border-left: 2px solid hsl(var(--shadcn-border));
-}
-.comment-fresh {
-  border-left-color: hsl(var(--primary));
-  background: hsl(var(--primary) / 0.05);
-}
-.comment-meta {
-  font-size: 13px;
-}
-.comment-text {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  margin: var(--v-space-2) 0;
-}
-@media (max-width: 700px) {
-  .watch-top {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+@media (max-width: 640px) {
   .add-controls {
     flex-direction: column;
-  }
-  .watch-table,
-  .watch-table tbody {
-    display: block;
-  }
-  .watch-table thead {
-    display: none;
-  }
-  .watch-table tr {
-    display: grid;
-    gap: var(--v-space-2);
-    padding: var(--v-space-3) 0;
-    border-bottom: 1px solid hsl(var(--shadcn-border));
-  }
-  .watch-table td {
-    display: block;
-    padding: 0;
-    border: 0;
-  }
-  .watch-table td:nth-child(2) {
-    width: auto;
-    min-width: 0;
   }
 }

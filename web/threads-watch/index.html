@@ -2,7 +2,10 @@
 <html lang="ru">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
     <meta name="robots" content="noindex, nofollow" />
     <title data-i18n="title">Чужие Threads</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -13,11 +16,15 @@
     />
     <link rel="stylesheet" href="/shared/site-theme.css?v=20260816-1" />
     <link rel="stylesheet" href="/shared/site-header.css?v=20260816-2" />
-    <link rel="stylesheet" href="/threads-watch/styles.css?v=20261006-4" />
-    <script src="/threads-watch/i18n.js?v=20261006-2"></script>
+    <link rel="stylesheet" href="/shared/app-dialog.css?v=20260805-1" />
+    <link rel="stylesheet" href="/shared/threads.css?v=20261006-1" />
+    <link rel="stylesheet" href="/threads-watch/styles.css?v=20261006-5" />
+    <script src="/threads-watch/i18n.js?v=20261006-3"></script>
     <script src="/shared/i18n.js?v=20260816-1"></script>
+    <script src="/shared/app-dialog.js?v=20260805-1"></script>
+    <script src="/shared/threads-ui.js?v=20261006-1" defer></script>
     <script src="/shared/site-header.js?v=20260816-1" defer></script>
-    <script src="/threads-watch/app.js?v=20261006-2" defer></script>
+    <script src="/threads-watch/app.js?v=20261006-3" defer></script>
   </head>
   <body>
     <header
@@ -26,14 +33,22 @@
       data-lang-ru="/threads-watch"
       data-lang-en="/threads-watch/en"
     ></header>
-    <main class="page-shell watch-page">
-      <section class="watch-top">
+    <main class="page-shell threads-page watch-page">
+      <section class="threads-top">
         <div>
           <p class="eyebrow" data-i18n="kicker">Наблюдение</p>
-          <h1 data-i18n="title">Чужие Threads</h1>
+          <h1 class="page-title" data-i18n="title">Чужие Threads</h1>
         </div>
-        <div class="watch-actions">
+        <div class="threads-actions">
           <a class="ghost-btn" href="/threads" data-i18n="myPosts">Мои посты</a>
+          <button
+            class="ghost-btn"
+            id="new-watch"
+            type="button"
+            data-i18n="addLink"
+          >
+            Добавить по ссылке
+          </button>
           <button
             class="ghost-btn"
             id="refresh-all"
@@ -44,7 +59,7 @@
           </button>
         </div>
       </section>
-      <form id="add-form" class="editor-card add-form">
+      <form id="add-form" class="editor-card add-form" hidden>
         <label for="post-url" data-i18n="urlLabel"
           >Ссылка на публичный пост</label
         >
@@ -65,18 +80,29 @@
           публичного поста; округлённые числа отмечены ≈, недоступные —
           прочерком.
         </p>
+        <div class="add-actions">
+          <button
+            id="close-add"
+            class="ghost-btn"
+            type="button"
+            data-i18n="close"
+          >
+            Закрыть
+          </button>
+        </div>
       </form>
-      <p id="status" class="muted" role="status" aria-live="polite"></p>
+      <p id="status" class="muted" role="status" aria-live="polite" hidden></p>
       <section class="editor-card list-card">
         <div class="table-wrap">
-          <table class="watch-table">
+          <table class="threads-table">
             <thead>
               <tr>
-                <th data-i18n="author">Автор</th>
-                <th data-i18n="post">Пост</th>
-                <th data-i18n="stats">Статистика</th>
-                <th data-i18n="sync">Обновление</th>
-                <th data-i18n="actions">Действия</th>
+                <th scope="col" data-i18n="preview">Превью</th>
+                <th scope="col" data-i18n="author">Автор</th>
+                <th scope="col" data-i18n="date">Дата</th>
+                <th scope="col" data-i18n="post">Текст</th>
+                <th scope="col" data-i18n="link">Ссылка</th>
+                <th scope="col" data-i18n="stats">Статистика</th>
               </tr>
             </thead>
             <tbody id="post-list"></tbody>

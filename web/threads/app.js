@@ -3,7 +3,6 @@
   const LIMIT = 500;
   const OWN_USERNAME = 'vlandivir';
 
-  const COLUMNS = 6;
   const SENTENCE_SPLIT = /(?<=[.!?…])\s+/;
 
   const state = {
@@ -14,19 +13,6 @@
     dirty: false,
     pollOn: false,
     uploading: false,
-  };
-
-  const STAT_ICONS = {
-    views:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
-    likes:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
-    replies:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-    reposts:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 1 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 23-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
-    shares:
-      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>',
   };
 
   const el = (id) => document.getElementById(id);
@@ -151,14 +137,7 @@
     line.classList.toggle('muted', !isError);
   }
 
-  function preview(text) {
-    const line = (text || '')
-      .split('\n')
-      .map((item) => item.trim())
-      .find(Boolean);
-    if (!line) return 'Пустой черновик';
-    return line.length > 140 ? `${line.slice(0, 139)}…` : line;
-  }
+  const preview = window.ThreadsUI.preview;
 
   function postDate(post) {
     if (post.status === 'published') {
@@ -173,16 +152,7 @@
     );
   }
 
-  function formatWhen(stamp) {
-    if (!stamp) return '—';
-    const parsed = new Date(stamp);
-    if (Number.isNaN(parsed.getTime())) return stamp.slice(0, 16);
-    const day = String(parsed.getDate()).padStart(2, '0');
-    const month = String(parsed.getMonth() + 1).padStart(2, '0');
-    const hours = String(parsed.getHours()).padStart(2, '0');
-    const minutes = String(parsed.getMinutes()).padStart(2, '0');
-    return `${day}.${month} ${hours}:${minutes}`;
-  }
+  const formatWhen = window.ThreadsUI.formatWhen;
 
   function compactText(value) {
     return String(value || '')
@@ -242,32 +212,7 @@
     return `${sign}${current - previous}`;
   }
 
-  function statIcon(kind) {
-    const wrap = document.createElement('span');
-    wrap.className = 'stat-icon';
-    wrap.innerHTML = STAT_ICONS[kind] || '';
-    return wrap;
-  }
-
-  function appendStat(row, kind, label, current, previous, showMissing = false) {
-    if (typeof current !== 'number' && !showMissing) return;
-    const item = document.createElement('span');
-    item.className = 'stat-item';
-    item.title = label;
-    item.append(statIcon(kind));
-    const value = document.createElement('span');
-    value.textContent = typeof current === 'number' ? String(current) : '—';
-    item.setAttribute('aria-label', `${label}: ${value.textContent}`);
-    item.append(value);
-    const change = delta(current, previous);
-    if (change) {
-      const extra = document.createElement('span');
-      extra.className = 'muted';
-      extra.textContent = change;
-      item.append(extra);
-    }
-    row.append(item);
-  }
+  const appendStat = window.ThreadsUI.appendStat;
 
   function freshIdsFor(post) {
     const ids = post.replies?.freshIds;
@@ -388,9 +333,22 @@
         appendStat(statRow, 'likes', 'лайки', stats.likes, prev.likes);
         appendStat(statRow, 'replies', 'ответы', stats.replies, prev.replies);
         if (stats.reposts > 0) {
-          appendStat(statRow, 'reposts', 'репосты', stats.reposts, prev.reposts);
+          appendStat(
+            statRow,
+            'reposts',
+            'репосты',
+            stats.reposts,
+            prev.reposts,
+          );
         }
-        appendStat(statRow, 'shares', 'поделились', stats.shares, prev.shares, true);
+        appendStat(
+          statRow,
+          'shares',
+          'поделились',
+          stats.shares,
+          prev.shares,
+          true,
+        );
         if (statRow.childElementCount) statsCell.append(statRow);
         const poll = post.pollResults;
         if (poll?.options?.length) {
@@ -434,7 +392,7 @@
         const detail = document.createElement('tr');
         detail.className = 'post-detail';
         const cell = document.createElement('td');
-        cell.colSpan = COLUMNS;
+        cell.colSpan = window.ThreadsUI.detailColumns();
         const panel = document.createElement('div');
         panel.className = 'thread-panel';
         renderThreadPanel(post, panel);
@@ -606,109 +564,6 @@
     }
   }
 
-  function nestedId(value) {
-    if (value && typeof value === 'object') return String(value.id || '');
-    return value ? String(value) : '';
-  }
-
-  function buildChildren(rootId, replies) {
-    const children = new Map();
-    const known = new Set(replies.map((item) => String(item.id || '')));
-    known.add(rootId);
-    for (const item of replies) {
-      let parent = nestedId(item['replied_to'] || item.replied_to) || rootId;
-      if (!known.has(parent)) parent = rootId;
-      const bucket = children.get(parent) || [];
-      bucket.push(item);
-      children.set(parent, bucket);
-    }
-    return children;
-  }
-
-  function renderReplyNode(item, children, depth, freshIds) {
-    const article = document.createElement('article');
-    article.className = 'reply';
-    article.dataset.depth = String(Math.min(depth, 4));
-    const id = String(item.id || '');
-    const isFresh = Boolean(freshIds?.has(id));
-    if (isFresh) article.classList.add('reply-new');
-    const username = String(item.username || 'unknown');
-    const own =
-      item['is_reply_owned_by_me'] === true ||
-      item.is_reply_owned_by_me === true ||
-      username === OWN_USERNAME;
-
-    const head = document.createElement('header');
-    head.className = 'reply-head';
-    const who = document.createElement('a');
-    who.className = 'reply-who';
-    who.textContent = `@${username}`;
-    if (item.permalink) {
-      who.href = String(item.permalink);
-      who.target = '_blank';
-      who.rel = 'noopener noreferrer';
-    } else {
-      who.href = '#';
-      who.addEventListener('click', (event) => event.preventDefault());
-    }
-    head.append(who);
-    if (own) {
-      const you = document.createElement('span');
-      you.className = 'reply-you';
-      you.textContent = 'вы';
-      head.append(you);
-    }
-    if (item.timestamp) {
-      const time = document.createElement('time');
-      time.className = 'muted';
-      time.textContent = formatWhen(String(item.timestamp));
-      head.append(time);
-    }
-    const hide = String(
-      item['hide_status'] || item.hide_status || 'NOT_HUSHED',
-    );
-    if (hide && hide !== 'NOT_HUSHED') {
-      const badge = document.createElement('span');
-      badge.className = 'muted';
-      badge.textContent = hide.toLowerCase();
-      head.append(badge);
-    }
-    if (isFresh) {
-      const mark = document.createElement('span');
-      mark.className = 'reply-new-mark';
-      mark.textContent = 'новое';
-      head.append(mark);
-    }
-    article.append(head);
-
-    if (item.text) {
-      const text = document.createElement('p');
-      text.className = 'reply-text';
-      text.textContent = String(item.text);
-      article.append(text);
-    }
-
-    const mediaUrl = item.thumbnail_url || item.media_url || item.gif_url;
-    if (mediaUrl) {
-      const media = document.createElement('img');
-      media.className = 'reply-media';
-      media.src = String(mediaUrl);
-      media.alt = '';
-      article.append(media);
-    }
-
-    const kids = children.get(String(item.id || '')) || [];
-    if (kids.length) {
-      const nest = document.createElement('div');
-      nest.className = 'reply-children';
-      for (const kid of kids) {
-        nest.append(renderReplyNode(kid, children, depth + 1, freshIds));
-      }
-      article.append(nest);
-    }
-    return article;
-  }
-
   function renderReplies(post, box) {
     const dump = post.replies;
     const replies = (dump?.replies || []).filter(
@@ -733,16 +588,7 @@
         : `Ответы · ${counts.total ?? replies.length}`;
     box.replaceChildren(title);
     const rootId = String(dump.root?.id || post.mediaId || '');
-    if (!rootId) {
-      for (const item of replies) {
-        box.append(renderReplyNode(item, new Map(), 0, freshIds));
-      }
-      return;
-    }
-    const children = buildChildren(rootId, replies);
-    for (const item of children.get(rootId) || []) {
-      box.append(renderReplyNode(item, children, 0, freshIds));
-    }
+    window.ThreadsUI.appendReplies(box, replies, rootId, freshIds || new Set());
   }
 
   function renderThreadPanel(post, panel) {

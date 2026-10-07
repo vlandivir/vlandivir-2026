@@ -66,3 +66,9 @@ also literal data previews.
 When changing a stylesheet, update its `?v=YYYYMMDD-N` cache key in every HTML
 entrypoint that loads it. Validate both system themes and mobile/desktop sizes.
 
+The own-post composer (`/threads`) and public-post monitor (`/threads-watch`)
+share `/shared/threads.css` and `/shared/threads-ui.js` for their list, expanded
+post panel, statistics icons, date/preview formatting, and nested replies. Keep
+these surfaces visually aligned; page-specific styles cover the composer or
+URL-entry form only. Both lists expand a post by clicking its row or pressing
+Enter/Space, and use the same responsive column layout.
