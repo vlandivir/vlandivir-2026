@@ -142,6 +142,97 @@ describe('LlmService', () => {
     });
   });
 
+  describe('summarizeForTelegramCaption', () => {
+    it('returns a trimmed summary on success', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            choices: [
+              {
+                finish_reason: 'stop',
+                message: { content: '  Краткое саммари заметки  ' },
+              },
+            ],
+          }),
+      });
+
+      const result = await service.summarizeForTelegramCaption(
+        'Очень длинный текст заметки с транскриптом рилса '.repeat(40),
+      );
+
+      expect(result).toBe('Краткое саммари заметки');
+      const [, request] = (global.fetch as jest.Mock).mock.calls[0];
+      const body = JSON.parse(request.body);
+      expect(body.model).toBe('gpt-5.6-terra');
+      expect(body.max_completion_tokens).toBe(500);
+      expect(body.reasoning_effort).toBe('none');
+    });
+
+    it('uses DIARY_LLM_MODEL when configured', async () => {
+      jest.spyOn(configService, 'get').mockImplementation((key: string) => {
+        if (key === 'OPENAI_API_KEY') return 'test-api-key';
+        if (key === 'DIARY_LLM_MODEL') return 'gpt-5.6-sol';
+        return undefined;
+      });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            choices: [
+              {
+                message: { content: [{ type: 'text', text: 'Саммари' }] },
+              },
+            ],
+          }),
+      });
+
+      await service.summarizeForTelegramCaption('длинный текст '.repeat(100));
+
+      const [, request] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(JSON.parse(request.body).model).toBe('gpt-5.6-sol');
+    });
+
+    it('returns empty string when API key is missing', async () => {
+      jest.spyOn(configService, 'get').mockReturnValue(undefined);
+      global.fetch = jest.fn();
+
+      const result = await service.summarizeForTelegramCaption(
+        'длинный текст '.repeat(100),
+      );
+      expect(result).toBe('');
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('returns empty string on API failure so callers can hard-truncate', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+
+      const result = await service.summarizeForTelegramCaption(
+        'длинный текст '.repeat(100),
+      );
+      expect(result).toBe('');
+    });
+
+    it('returns empty string when fetch throws', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('network down'));
+
+      const result = await service.summarizeForTelegramCaption(
+        'длинный текст '.repeat(100),
+      );
+      expect(result).toBe('');
+    });
+
+    it('returns empty string for blank input without calling the API', async () => {
+      global.fetch = jest.fn();
+      expect(await service.summarizeForTelegramCaption('   ')).toBe('');
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe('recognizeHandwriting', () => {
     it('runs one vision pass per model and merges the drafts', async () => {
       const describe = jest
