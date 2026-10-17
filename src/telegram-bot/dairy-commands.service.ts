@@ -3,6 +3,7 @@ import { Context } from 'telegraf';
 import { PrismaService } from '../prisma/prisma.service';
 import { DateParserService } from '../services/date-parser.service';
 import { DebugLogService } from '../services/debug-log.service';
+import { LlmService } from '../services/llm.service';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import * as sharp from 'sharp';
@@ -11,12 +12,22 @@ const MAX_TELEGRAM_PHOTO_UPLOAD_BYTES = 10 * 1024 * 1024;
 const TARGET_TELEGRAM_PHOTO_BYTES = 9 * 1024 * 1024;
 const MAX_TELEGRAM_PHOTO_DIMENSION_SUM = 10000;
 
+/** Telegram media caption limit. */
+export const CAPTION_MAX = 1024;
+/** Telegram plain message limit. */
+export const MESSAGE_MAX = 4096;
+/** Above this length, prefer an AI summary for media captions. */
+export const SUMMARY_TRIGGER = 800;
+/** Chunk size for long reply text (under MESSAGE_MAX with headroom). */
+export const CHUNK_MAX = 4000;
+
 @Injectable()
 export class DairyCommandsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dateParser: DateParserService,
     private readonly debugLogService: DebugLogService,
+    private readonly llmService: LlmService,
   ) {}
 
   async handleDairyCommand(ctx: Context) {
@@ -170,48 +181,7 @@ export class DairyCommandsService {
     }
 
     for (const note of notes) {
-      let hasMedia = false;
-      if (note.images && note.images.length > 0) {
-        hasMedia = true;
-        for (const image of note.images) {
-          await this.sendDairyImage(ctx, image.url, note.content || undefined);
-        }
-      }
-      if (note.videos && note.videos.length > 0) {
-        hasMedia = true;
-        this.debugLogService.info('dairy-send', 'Sending videos from /d', {
-          chatId: ctx.chat?.id,
-          videosCount: note.videos.length,
-        });
-        for (const video of note.videos) {
-          try {
-            await ctx.replyWithVideo(video.url, {
-              caption: note.content || undefined,
-            });
-          } catch (e) {
-            this.debugLogService.warn(
-              'dairy-send',
-              'replyWithVideo failed, falling back to URL',
-              {
-                chatId: ctx.chat?.id,
-                videoUrl: video.url,
-                error: e instanceof Error ? e.message : 'unknown',
-              },
-            );
-            console.warn(
-              'Failed to send video via Telegram, falling back to URL',
-              e,
-            );
-            const caption = note.content
-              ? `⚠️ ${note.content}\n\n(Ссылка на видео: ${video.url})`
-              : `⚠️ Ссылка на видео: ${video.url}`;
-            await ctx.reply(caption);
-          }
-        }
-      }
-      if (!hasMedia) {
-        await ctx.reply(note.content || '');
-      }
+      await this.sendOneDairyNote(ctx, note);
     }
   }
 
@@ -245,40 +215,111 @@ export class DairyCommandsService {
       await ctx.reply(`${dateStr} ${year}:`);
 
       for (const note of notes) {
-        let hasMedia = false;
-        if (note.images && note.images.length > 0) {
-          hasMedia = true;
-          for (const image of note.images) {
-            await this.sendDairyImage(
-              ctx,
-              image.url,
-              note.content || undefined,
-            );
+        await this.sendOneDairyNote(ctx, note);
+      }
+    }
+  }
+
+  private async sendOneDairyNote(
+    ctx: Context,
+    note: {
+      content: string | null;
+      images: { url: string }[];
+      videos: { url: string }[];
+    },
+  ): Promise<void> {
+    let hasMedia = false;
+    if (note.images && note.images.length > 0) {
+      hasMedia = true;
+      for (const image of note.images) {
+        await this.sendDairyImage(ctx, image.url, note.content || undefined);
+      }
+    }
+    if (note.videos && note.videos.length > 0) {
+      hasMedia = true;
+      this.debugLogService.info('dairy-send', 'Sending videos from /d', {
+        chatId: ctx.chat?.id,
+        videosCount: note.videos.length,
+      });
+      const { caption, sendFullText } = await this.captionForMedia(
+        note.content || undefined,
+      );
+      let sentFullText = false;
+      for (const video of note.videos) {
+        try {
+          await ctx.replyWithVideo(video.url, {
+            caption,
+          });
+          if (sendFullText && note.content && !sentFullText) {
+            await this.replyTextChunks(ctx, note.content);
+            sentFullText = true;
           }
-        }
-        if (note.videos && note.videos.length > 0) {
-          hasMedia = true;
-          for (const video of note.videos) {
-            try {
-              await ctx.replyWithVideo(video.url, {
-                caption: note.content || undefined,
-              });
-            } catch (e) {
-              console.warn(
-                'Failed to send video via Telegram (all years), falling back to URL',
-                e,
-              );
-              const caption = note.content
-                ? `⚠️ ${note.content}\n\n(Ссылка на видео: ${video.url})`
-                : `⚠️ Ссылка на видео: ${video.url}`;
-              await ctx.reply(caption);
-            }
-          }
-        }
-        if (!hasMedia) {
-          await ctx.reply(note.content || '');
+        } catch (e) {
+          this.debugLogService.warn(
+            'dairy-send',
+            'replyWithVideo failed, falling back to URL',
+            {
+              chatId: ctx.chat?.id,
+              videoUrl: video.url,
+              error: e instanceof Error ? e.message : 'unknown',
+            },
+          );
+          console.warn(
+            'Failed to send video via Telegram, falling back to URL',
+            e,
+          );
+          const fallback = note.content
+            ? `⚠️ ${note.content}\n\n(Ссылка на видео: ${video.url})`
+            : `⚠️ Ссылка на видео: ${video.url}`;
+          await this.replyTextChunks(ctx, fallback);
+          sentFullText = true;
         }
       }
+    }
+    if (!hasMedia) {
+      const text = note.content || '';
+      if (text.length > MESSAGE_MAX) {
+        await this.replyTextChunks(ctx, text);
+      } else {
+        await ctx.reply(text);
+      }
+    }
+  }
+
+  /**
+   * Build a Telegram media caption. Long notes get an AI summary; full text
+   * is sent separately when `sendFullText` is true.
+   */
+  async captionForMedia(
+    content?: string,
+  ): Promise<{ caption?: string; sendFullText: boolean }> {
+    if (!content) {
+      return { caption: undefined, sendFullText: false };
+    }
+
+    if (content.length <= SUMMARY_TRIGGER) {
+      return {
+        caption: this.toTelegramCaption(content),
+        sendFullText: false,
+      };
+    }
+
+    const summary =
+      await this.llmService.summarizeForTelegramCaption(content);
+    if (summary && summary.length > 0 && summary.length <= CAPTION_MAX) {
+      return { caption: summary, sendFullText: true };
+    }
+
+    return {
+      caption: this.toTelegramCaption(content),
+      sendFullText: true,
+    };
+  }
+
+  async replyTextChunks(ctx: Context, text: string): Promise<void> {
+    if (!text) return;
+    for (const chunk of splitTelegramTextChunks(text, CHUNK_MAX)) {
+      await ctx.reply(chunk);
     }
   }
 
@@ -296,7 +337,8 @@ export class DairyCommandsService {
       const originalBuffer = await this.downloadImage(imageUrl);
       const preparedBuffer =
         await this.prepareDairyImageForTelegram(originalBuffer);
-      const safeCaption = this.toTelegramCaption(caption);
+      const { caption: safeCaption, sendFullText } =
+        await this.captionForMedia(caption);
 
       if (preparedBuffer.length > MAX_TELEGRAM_PHOTO_UPLOAD_BYTES) {
         await ctx.replyWithDocument(
@@ -320,8 +362,8 @@ export class DairyCommandsService {
         );
       }
 
-      if (caption && safeCaption && caption !== safeCaption) {
-        await ctx.reply(caption);
+      if (sendFullText && caption) {
+        await this.replyTextChunks(ctx, caption);
       }
     } catch (error) {
       this.debugLogService.warn(
@@ -336,7 +378,7 @@ export class DairyCommandsService {
       const fallback = caption
         ? `⚠️ ${caption}\n\n(Ссылка на картинку: ${imageUrl})`
         : `⚠️ Ссылка на картинку: ${imageUrl}`;
-      await ctx.reply(fallback);
+      await this.replyTextChunks(ctx, fallback);
     }
   }
 
@@ -427,8 +469,8 @@ export class DairyCommandsService {
 
   private toTelegramCaption(caption?: string): string | undefined {
     if (!caption) return undefined;
-    if (caption.length <= 1024) return caption;
-    return `${caption.slice(0, 1021)}...`;
+    if (caption.length <= CAPTION_MAX) return caption;
+    return `${caption.slice(0, CAPTION_MAX - 3)}...`;
   }
 
   private getImageFileName(imageUrl: string): string {
@@ -440,4 +482,34 @@ export class DairyCommandsService {
       return 'diary-image.jpg';
     }
   }
+}
+
+/** Split long text into Telegram-safe chunks, preferring paragraph breaks. */
+export function splitTelegramTextChunks(
+  text: string,
+  maxLen: number = CHUNK_MAX,
+): string[] {
+  if (!text) return [];
+  if (text.length <= maxLen) return [text];
+
+  const chunks: string[] = [];
+  let remaining = text;
+  while (remaining.length > maxLen) {
+    let splitAt = remaining.lastIndexOf('\n\n', maxLen);
+    if (splitAt < maxLen * 0.4) {
+      splitAt = remaining.lastIndexOf('\n', maxLen);
+    }
+    if (splitAt < maxLen * 0.4) {
+      splitAt = remaining.lastIndexOf(' ', maxLen);
+    }
+    if (splitAt < maxLen * 0.4) {
+      splitAt = maxLen;
+    }
+    chunks.push(remaining.slice(0, splitAt).trimEnd());
+    remaining = remaining.slice(splitAt).trimStart();
+  }
+  if (remaining.length > 0) {
+    chunks.push(remaining);
+  }
+  return chunks;
 }
