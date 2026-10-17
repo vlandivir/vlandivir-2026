@@ -78,8 +78,53 @@ describe('DairyCommandsService', () => {
     });
   });
 
+  describe('captionForVideo', () => {
+    it('returns undefined caption when content is missing', async () => {
+      const result = await service.captionForVideo(undefined);
+      expect(result).toEqual({ caption: undefined, sendFullText: false });
+      expect(llmService.summarizeForTelegramCaption).not.toHaveBeenCalled();
+    });
+
+    it('always summarizes short content and never sends full text', async () => {
+      llmService.summarizeForTelegramCaption.mockResolvedValue('Короткое саммари');
+
+      const result = await service.captionForVideo('короткая заметка');
+      expect(llmService.summarizeForTelegramCaption).toHaveBeenCalledWith(
+        'короткая заметка',
+      );
+      expect(result).toEqual({
+        caption: 'Короткое саммари',
+        sendFullText: false,
+      });
+    });
+
+    it('uses AI summary for long content without sendFullText', async () => {
+      const long = 'x'.repeat(900);
+      llmService.summarizeForTelegramCaption.mockResolvedValue(
+        'Саммари видео',
+      );
+
+      const result = await service.captionForVideo(long);
+      expect(llmService.summarizeForTelegramCaption).toHaveBeenCalledWith(long);
+      expect(result).toEqual({
+        caption: 'Саммари видео',
+        sendFullText: false,
+      });
+    });
+
+    it('falls back to truncated caption when summary fails, still no full text', async () => {
+      const long = 'y'.repeat(2000);
+      llmService.summarizeForTelegramCaption.mockResolvedValue('');
+
+      const result = await service.captionForVideo(long);
+      expect(result.sendFullText).toBe(false);
+      expect(result.caption?.endsWith('...')).toBe(true);
+      expect(result.caption!.length).toBe(1024);
+    });
+  });
+
   describe('video send path', () => {
-    it('summarizes huge captions and does not throw on long fallback', async () => {
+    it('falls back to summary caption plus URL, not full transcript', async () => {
       const longContent = 'reel transcript '.repeat(500);
       llmService.summarizeForTelegramCaption.mockResolvedValue(
         'Саммари рилса',
@@ -107,13 +152,15 @@ describe('DairyCommandsService', () => {
         'https://example.com/v.mp4',
         { caption: 'Саммари рилса' },
       );
-      expect(replies.length).toBeGreaterThan(1);
+      expect(replies.length).toBe(1);
+      expect(replies[0]).toContain('⚠️');
+      expect(replies[0]).toContain('Саммари рилса');
+      expect(replies[0]).toContain('https://example.com/v.mp4');
+      expect(replies.join('')).not.toContain(longContent.slice(0, 100));
       expect(replies.every((chunk) => chunk.length <= 4000)).toBe(true);
-      expect(replies.join('')).toContain('⚠️');
-      expect(replies.join('')).toContain(longContent.slice(0, 100));
     });
 
-    it('sends summary caption then full text chunks when video succeeds', async () => {
+    it('sends summary caption only when video succeeds (no full-text reply)', async () => {
       const longContent = 'reel transcript '.repeat(500);
       llmService.summarizeForTelegramCaption.mockResolvedValue(
         'Саммари рилса',
@@ -138,12 +185,8 @@ describe('DairyCommandsService', () => {
         'https://example.com/v.mp4',
         { caption: 'Саммари рилса' },
       );
-      // Chunk splitter may drop the break whitespace between messages.
-      expect(replies.join('')).toContain(longContent.slice(0, 80));
-      expect(replies.every((chunk) => chunk.length <= 4000)).toBe(true);
-      expect(replies.reduce((n, c) => n + c.length, 0)).toBeGreaterThan(
-        longContent.length - replies.length,
-      );
+      expect(replies).toEqual([]);
+      expect(ctx.reply).not.toHaveBeenCalled();
     });
   });
 });
