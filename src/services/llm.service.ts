@@ -35,10 +35,6 @@ function extractTextFromAssistantContent(content: unknown): {
 
 const IMAGE_DESCRIPTION_MAX_COMPLETION_TOKENS = 1600;
 const TEXT_REFINE_MAX_COMPLETION_TOKENS = 1600;
-const TELEGRAM_CAPTION_SUMMARY_MAX_COMPLETION_TOKENS = 500;
-const TELEGRAM_CAPTION_SUMMARY_TIMEOUT_MS = 30_000;
-/** Cap input sent to the summarizer so huge reel transcripts stay cheap. */
-const TELEGRAM_CAPTION_SUMMARY_INPUT_MAX_CHARS = 12_000;
 
 type ReasoningEffort = 'none' | 'low' | 'medium' | 'high';
 
@@ -167,10 +163,8 @@ export class LlmService {
         },
       );
 
-      // Convert buffer to base64
       const base64Image = imageBuffer.toString('base64');
 
-      // Create timeout signal with fallback for older Node.js versions
       let timeoutId: NodeJS.Timeout | undefined;
       const timeoutSignal =
         typeof AbortSignal.timeout === 'function'
@@ -244,7 +238,6 @@ export class LlmService {
           },
         );
 
-        // Clear timeout if request completes successfully
         if (timeoutId) {
           clearTimeout(timeoutId);
         }
@@ -274,7 +267,6 @@ export class LlmService {
 
         const data: unknown = await response.json();
 
-        // Validate the response structure
         if (!data || typeof data !== 'object') {
           console.error('Invalid OpenAI response - not an object:', data);
           throw new Error('Invalid response format from OpenAI');
@@ -289,7 +281,6 @@ export class LlmService {
           error?: unknown;
         };
 
-        // Check for OpenAI API errors in the response body
         if (responseData.error) {
           console.error(
             'OpenAI API error in response body:',
@@ -303,7 +294,6 @@ export class LlmService {
           throw new Error('OpenAI API returned an error');
         }
 
-        // Add detailed logging to understand the response structure
         console.log('OpenAI API response:', JSON.stringify(data, null, 2));
 
         if (
@@ -331,6 +321,379 @@ export class LlmService {
         }
 
         const choice = responseData.choices[0] as {
-          finishReason?: string;
+          finish_reason?: string;
           message?: { content?: unknown };
         };
+        if (!choice || !choice.message) {
+          console.error('Unexpected choice structure:', choice);
+          this.debugLogService?.error(
+            'llm.describeImage',
+            'Missing message on choice',
+            {
+              choiceKeys: choice ? Object.keys(choice) : [],
+            },
+          );
+          throw new Error('Invalid choice structure from OpenAI');
+        }
+
+        const rawContent = choice.message.content;
+        const { text: description, refusals } =
+          extractTextFromAssistantContent(rawContent);
+
+        this.debugLogService?.info(
+          'llm.describeImage',
+          'Parsed assistant content',
+          {
+            finishReason: choice.finish_reason,
+            contentKind: Array.isArray(rawContent)
+              ? 'array'
+              : rawContent === null || rawContent === undefined
+                ? 'null'
+                : typeof rawContent,
+            contentParts: Array.isArray(rawContent)
+              ? rawContent.length
+              : undefined,
+            refusalCount: refusals.length,
+            hasText: Boolean(description && description.length > 0),
+          },
+        );
+
+        if (refusals.length > 0 && !description) {
+          console.error('OpenAI refusal (no text):', refusals);
+          this.debugLogService?.warn(
+            'llm.describeImage',
+            'Model refusal only',
+            {
+              refusals,
+            },
+          );
+          throw new Error('OpenAI model refused to describe the image');
+        }
+
+        if (!description) {
+          console.error('No valid description content received:', rawContent);
+          this.debugLogService?.error(
+            'llm.describeImage',
+            'No extractable text from assistant content',
+            {
+              rawContentPreview:
+                typeof rawContent === 'string'
+                  ? rawContent.slice(0, 500)
+                  : JSON.stringify(rawContent)?.slice(0, 1500),
+            },
+          );
+          throw new Error('No description received from OpenAI');
+        }
+
+        if (description.trim().length === 0) {
+          console.error('Empty description received from OpenAI');
+          throw new Error('Empty description received from OpenAI');
+        }
+
+        console.log(
+          'Successfully received description:',
+          description.substring(0, 100) + '...',
+        );
+
+        this.debugLogService?.info('llm.describeImage', 'Description OK', {
+          previewLen: Math.min(description.length, 120),
+        });
+
+        return description.trim();
+      } catch (error) {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+
+        console.error('Error describing image:', error);
+
+        if (error instanceof Error) {
+          if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+            return 'Превышено время ожидания ответа от OpenAI';
+          }
+          if (error.message.includes('OPENAI_API_KEY')) {
+            return 'Ошибка конфигурации API ключа';
+          }
+          if (error.message.includes('OpenAI API error')) {
+            return 'Ошибка API OpenAI';
+          }
+          if (error.message.includes('Invalid response structure')) {
+            return 'Неожиданный формат ответа от OpenAI';
+          }
+          if (error.message.includes('No description received')) {
+            return 'Не удалось получить описание от OpenAI';
+          }
+          if (error.message.includes('OpenAI model refused')) {
+            return 'Модель отказалась описать изображение';
+          }
+          if (error.message.includes('Failed to parse')) {
+            return 'Ошибка при обработке ответа от OpenAI';
+          }
+        }
+
+        return 'Не удалось описать изображение';
+      }
+    } catch (error) {
+      console.error('Error describing image (outer):', error);
+      if (error instanceof Error) {
+        if (error.message.includes('OPENAI_API_KEY')) {
+          return 'Ошибка конфигурации API ключа';
+        }
+      }
+      return 'Не удалось описать изображение';
+    }
+  }
+
+  /**
+   * Handwriting pipeline: independent vision passes on different models in
+   * parallel, then a text pass that reconciles disagreements / OCR-like errors.
+   */
+  async recognizeHandwriting(
+    imageBuffer: Buffer,
+    noteContext?: string,
+    options?: RecognizeHandwritingOptions,
+  ): Promise<string> {
+    const models = this.handwritingModels(options?.models);
+    const reasoningEffort = options?.reasoningEffort ?? 'medium';
+
+    const drafts = await Promise.all(
+      models.map(async (model) => {
+        const text = await this.describeImage(
+          imageBuffer,
+          undefined,
+          noteContext,
+          {
+            handwriting: true,
+            reasoningEffort,
+            model,
+            timeoutMs: 60_000,
+          },
+        );
+        return { model, text: text.trim() };
+      }),
+    );
+
+    const good = drafts.filter(
+      (draft) => draft.text.length > 0 && !isDescribeFailure(draft.text),
+    );
+
+    this.debugLogService?.info('llm.recognizeHandwriting', 'Passes finished', {
+      models,
+      good: good.map((draft) => draft.model),
+    });
+
+    if (good.length === 0) {
+      return drafts[0]?.text || 'Не удалось описать изображение';
+    }
+
+    const labeled = good.map(
+      (draft) => `--- Вариант (${draft.model}) ---\n${draft.text}`,
+    );
+    return this.refineHandwrittenText(
+      good.length === 1 ? good[0].text : labeled,
+      noteContext,
+    );
+  }
+
+  private handwritingModels(override?: string[]): string[] {
+    if (override?.length) {
+      return override
+        .map((model) => model.trim())
+        .filter(Boolean)
+        .slice(0, 3);
+    }
+    const fromEnv = this.configService.get<string>('HANDWRITING_LLM_MODELS');
+    if (fromEnv?.trim()) {
+      const parsed = fromEnv
+        .split(',')
+        .map((model) => model.trim())
+        .filter(Boolean)
+        .slice(0, 3);
+      if (parsed.length > 0) return parsed;
+    }
+    return [...DEFAULT_HANDWRITING_MODELS];
+  }
+
+  /**
+   * Short AI summary of a diary note for a Telegram media caption (~700 chars).
+   * Returns empty string on missing key / HTTP error / empty model output so
+   * callers can fall back to a hard truncate.
+   */
+  async summarizeForTelegramCaption(text: string): Promise<string> {
+    const trimmed = text?.trim() ?? '';
+    if (!trimmed) return '';
+
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    if (!apiKey) {
+      this.debugLogService?.warn(
+        'llm.summarizeForTelegramCaption',
+        'OPENAI_API_KEY missing; skipping summary',
+      );
+      return '';
+    }
+
+    const model =
+      this.configService.get<string>('DIARY_LLM_MODEL')?.trim() ||
+      OPENAI_MODELS.balanced;
+    const input =
+      trimmed.length > 12000 ? trimmed.slice(0, 12000) : trimmed;
+
+    let timeoutId: NodeJS.Timeout | undefined;
+    const timeoutSignal =
+      typeof AbortSignal.timeout === 'function'
+        ? AbortSignal.timeout(30_000)
+        : (() => {
+            const controller = new AbortController();
+            timeoutId = setTimeout(() => controller.abort(), 30_000);
+            return controller.signal;
+          })();
+
+    try {
+      const prompt = [
+        'Сделай краткое саммари заметки дневника для подписи к медиа в Telegram.',
+        'Максимум около 700 символов.',
+        'Сохрани смысл, имена и смесь языков оригинала.',
+        'Без вступления, заголовков и пояснений — только текст саммари.',
+      ].join(' ');
+
+      const response = await fetch(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: prompt },
+              { role: 'user', content: input },
+            ],
+            max_completion_tokens: 500,
+            ...(supportsReasoningEffort(model)
+              ? { reasoning_effort: 'none' as ReasoningEffort }
+              : {}),
+          }),
+          signal: timeoutSignal,
+        },
+      );
+      if (timeoutId) clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        this.debugLogService?.warn(
+          'llm.summarizeForTelegramCaption',
+          'OpenAI HTTP error',
+          { status: response.status },
+        );
+        return '';
+      }
+
+      const data = (await response.json()) as {
+        choices?: { message?: { content?: unknown } }[];
+      };
+      const { text: summary } = extractTextFromAssistantContent(
+        data?.choices?.[0]?.message?.content,
+      );
+      return summary?.trim() ?? '';
+    } catch (error) {
+      if (timeoutId) clearTimeout(timeoutId);
+      this.debugLogService?.warn(
+        'llm.summarizeForTelegramCaption',
+        'Summary failed',
+        {
+          error: error instanceof Error ? error.message : 'unknown',
+        },
+      );
+      return '';
+    }
+  }
+
+  async refineHandwrittenText(
+    rawText: string | string[],
+    noteContext?: string,
+  ): Promise<string> {
+    const drafts = (Array.isArray(rawText) ? rawText : [rawText])
+      .map((text) => text.trim())
+      .filter((text) => text.length > 0);
+    if (drafts.length === 0) return '';
+
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    if (!apiKey) return drafts[0];
+
+    let timeoutId: NodeJS.Timeout | undefined;
+    const timeoutSignal =
+      typeof AbortSignal.timeout === 'function'
+        ? AbortSignal.timeout(45_000)
+        : (() => {
+            const controller = new AbortController();
+            timeoutId = setTimeout(() => controller.abort(), 45_000);
+            return controller.signal;
+          })();
+
+    try {
+      const multi = drafts.length > 1;
+      const instructions = [
+        multi
+          ? 'Ниже несколько независимых расшифровок одной и той же рукописной страницы от разных моделей (варианты подписаны именем модели).'
+          : 'Ниже — черновая расшифровка рукописного текста, полученная распознаванием. В ней могут быть ошибки: перепутанные буквы, неправильно прочитанные слова, лишние пометки вида слово(?).',
+        multi
+          ? 'Собери одну наиболее точную версию: где варианты совпадают — бери это; где расходятся — выбирай наиболее правдоподобный по смыслу, орфографии и контексту соседних слов; сомнительные слово(?) разрешай, если хотя бы в одном варианте чтение уверенное и согласуется с остальным текстом.'
+          : 'Аккуратно исправь очевидные ошибки распознавания, опираясь на смысл и контекст, восстанови естественные слова, пунктуацию и разбивку на абзацы.',
+        'Сохрани исходный язык, порядок абзацев и смысл. Не добавляй ничего от себя и не убирай содержание. Если фрагмент действительно непонятен во всех вариантах, оставь наиболее близкое чтение.',
+        'Если в черновиках после расшифровки есть краткое описание обстановки/рисунков — сохрани его отдельным абзацем в конце.',
+        'Верни только итоговый текст, без пояснений, сравнений вариантов и заголовков.',
+        noteContext ? `Контекст заметки: ${noteContext}` : null,
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      const userContent = multi ? drafts.join('\n\n') : drafts[0];
+
+      const response = await fetch(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: OPENAI_MODELS.highAccuracy,
+            messages: [
+              { role: 'system', content: instructions },
+              { role: 'user', content: userContent },
+            ],
+            max_completion_tokens: TEXT_REFINE_MAX_COMPLETION_TOKENS,
+            reasoning_effort: multi ? 'medium' : 'low',
+          }),
+          signal: timeoutSignal,
+        },
+      );
+      if (timeoutId) clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        this.debugLogService?.warn(
+          'llm.refineHandwrittenText',
+          'OpenAI HTTP error',
+          { status: response.status },
+        );
+        return drafts[0];
+      }
+
+      const data = (await response.json()) as {
+        choices?: { message?: { content?: unknown } }[];
+      };
+      const { text } = extractTextFromAssistantContent(
+        data?.choices?.[0]?.message?.content,
+      );
+      return text && text.trim().length > 0 ? text.trim() : drafts[0];
+    } catch (error) {
+      if (timeoutId) clearTimeout(timeoutId);
+      this.debugLogService?.warn('llm.refineHandwrittenText', 'Refine failed', {
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+      return drafts[0];
+    }
+  }
+}
