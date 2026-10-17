@@ -241,19 +241,14 @@ export class DairyCommandsService {
         chatId: ctx.chat?.id,
         videosCount: note.videos.length,
       });
-      const { caption, sendFullText } = await this.captionForMedia(
+      const { caption } = await this.captionForVideo(
         note.content || undefined,
       );
-      let sentFullText = false;
       for (const video of note.videos) {
         try {
           await ctx.replyWithVideo(video.url, {
             caption,
           });
-          if (sendFullText && note.content && !sentFullText) {
-            await this.replyTextChunks(ctx, note.content);
-            sentFullText = true;
-          }
         } catch (e) {
           this.debugLogService.warn(
             'dairy-send',
@@ -268,11 +263,10 @@ export class DairyCommandsService {
             'Failed to send video via Telegram, falling back to URL',
             e,
           );
-          const fallback = note.content
-            ? `⚠️ ${note.content}\n\n(Ссылка на видео: ${video.url})`
-            : `⚠️ Ссылка на видео: ${video.url}`;
+          const fallback = caption
+            ? `⚠️ ${caption}\n\n(Ссылка на видео: ${video.url})`
+            : video.url;
           await this.replyTextChunks(ctx, fallback);
-          sentFullText = true;
         }
       }
     }
@@ -313,6 +307,29 @@ export class DairyCommandsService {
     return {
       caption: this.toTelegramCaption(content),
       sendFullText: true,
+    };
+  }
+
+  /**
+   * Video captions always use an AI summary (no full transcript, no length
+   * trigger). `sendFullText` is always false.
+   */
+  async captionForVideo(
+    content?: string,
+  ): Promise<{ caption?: string; sendFullText: boolean }> {
+    if (!content) {
+      return { caption: undefined, sendFullText: false };
+    }
+
+    const summary =
+      await this.llmService.summarizeForTelegramCaption(content);
+    if (summary && summary.length > 0 && summary.length <= CAPTION_MAX) {
+      return { caption: summary, sendFullText: false };
+    }
+
+    return {
+      caption: this.toTelegramCaption(content),
+      sendFullText: false,
     };
   }
 
