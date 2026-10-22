@@ -27,11 +27,22 @@ export class ThreadsNewsApiController {
   @Get('posts') posts(
     @Query('sourceId') sourceId?: string,
     @Query('page') page?: string,
+    @Query('feedback') feedback?: string,
   ) {
     return this.news.posts(
       sourceId === undefined ? undefined : Number(sourceId),
       page === undefined ? 1 : Number(page),
+      feedback ?? 'all',
     );
+  }
+  @Get('review') review() {
+    return this.news.review();
+  }
+  @Post('posts/:id/feedback') feedback(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { value?: unknown },
+  ) {
+    return this.news.setFeedback(id, body?.value);
   }
   @Post('sources') add(@Body() body: { profile?: unknown; topics?: unknown }) {
     return this.news.add(body || {});

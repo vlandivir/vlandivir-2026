@@ -672,11 +672,14 @@ model ThreadsNewsPost {
   translationRu        String?           @db.Text
   translationCheckedAt DateTime?
   translationStartedAt DateTime?
+  feedback             String?
+  feedbackAt           DateTime?
   firstSeenAt          DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 
   @@index([sourceId, publishedAt])
   @@index([publishedAt, id])
+  @@index([feedback, publishedAt, id])
 }
 
 model ThreadsNewsTranslationQuota {

@@ -13,11 +13,11 @@
     />
     <link rel="stylesheet" href="/shared/site-theme.css?v=20260816-1" />
     <link rel="stylesheet" href="/shared/site-header.css?v=20260816-2" />
-    <link rel="stylesheet" href="/threads-news/styles.css?v=20261022-2" />
-    <script src="/threads-news/i18n.js?v=20261022-3"></script>
+    <link rel="stylesheet" href="/threads-news/styles.css?v=20261022-4" />
+    <script src="/threads-news/i18n.js?v=20261022-4"></script>
     <script src="/shared/i18n.js?v=20260816-1"></script>
     <script src="/shared/site-header.js?v=20260816-1" defer></script>
-    <script src="/threads-news/app.js?v=20261022-3" defer></script>
+    <script src="/threads-news/app.js?v=20261022-4" defer></script>
   </head>
   <body>
     <header
@@ -39,6 +39,53 @@
           >Чужие Threads</a
         >
       </div>
+      <p id="status" role="status" aria-live="polite" hidden></p>
+      <section class="tool-block review-section" aria-labelledby="review-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow" data-i18n="reviewKicker">Твой выбор</p>
+            <h2 id="review-title" data-i18n="reviewTitle">Разбор новостей</h2>
+          </div>
+          <span id="review-count" class="badge"></span>
+        </div>
+        <p class="muted" data-i18n="reviewHint">
+          Отмечай посты кнопками или свайпом: влево — неинтересно, вправо —
+          интересно. Оценки сохраняются для будущего фильтра.
+        </p>
+        <div
+          id="review-card"
+          class="editor-card review-card"
+          aria-live="polite"
+        ></div>
+        <div class="review-actions">
+          <button
+            id="review-no"
+            class="ghost-btn"
+            type="button"
+            data-i18n="notInteresting"
+          >
+            Неинтересно
+          </button>
+          <button
+            id="review-undo"
+            class="mini-btn"
+            type="button"
+            data-i18n="undo"
+            disabled
+          >
+            Отменить
+          </button>
+          <button
+            id="review-yes"
+            class="primary-btn"
+            type="button"
+            data-i18n="interesting"
+          >
+            Интересно
+          </button>
+        </div>
+        <p class="muted review-progress" id="review-progress"></p>
+      </section>
       <div
         class="news-summary"
         aria-label="Статистика"
@@ -57,7 +104,6 @@
           ><strong id="error-count">—</strong>
         </div>
       </div>
-      <p id="status" role="status" aria-live="polite" hidden></p>
       <div class="news-layout">
         <aside
           class="news-sidebar"
@@ -135,6 +181,19 @@
           <label for="source-filter" data-i18n="filter">Источник</label>
           <select id="source-filter">
             <option value="" data-i18n="allSources">Все источники</option>
+          </select>
+          <label for="feedback-filter" data-i18n="feedbackFilter"
+            >Моя оценка</label
+          >
+          <select id="feedback-filter">
+            <option value="all" data-i18n="allRatings">Все</option>
+            <option value="unrated" data-i18n="unrated">Не оценено</option>
+            <option value="interesting" data-i18n="interesting">
+              Интересно
+            </option>
+            <option value="uninteresting" data-i18n="notInteresting">
+              Неинтересно
+            </option>
           </select>
           <p class="muted" data-i18n="coverage">
             Показываем сохранённые публикации. Сбор ограничен последними

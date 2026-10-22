@@ -72,16 +72,22 @@ export class ThreadsNewsService {
     return this.refresh(source.id);
   }
 
-  async posts(sourceId?: number, page = 1) {
+  async posts(sourceId?: number, page = 1, feedback = 'all') {
     if (
       (sourceId !== undefined &&
         (!Number.isSafeInteger(sourceId) || sourceId < 1)) ||
       !Number.isSafeInteger(page) ||
       page < 1 ||
-      page > 10_000
+      page > 10_000 ||
+      !['all', 'unrated', 'interesting', 'uninteresting'].includes(feedback)
     )
       throw new BadRequestException('INVALID_FILTER');
-    const where = sourceId === undefined ? {} : { sourceId };
+    const where = {
+      ...(sourceId === undefined ? {} : { sourceId }),
+      ...(feedback === 'all'
+        ? {}
+        : { feedback: feedback === 'unrated' ? null : feedback }),
+    };
     const [items, total] = await Promise.all([
       this.prisma.threadsNewsPost.findMany({
         where,
@@ -97,6 +103,41 @@ export class ThreadsNewsService {
       this.prisma.threadsNewsPost.count({ where }),
     ]);
     return { items, total, page, hasMore: page * 30 < total };
+  }
+
+  async review() {
+    const [post, unrated, interesting, uninteresting] = await Promise.all([
+      this.prisma.threadsNewsPost.findFirst({
+        where: { feedback: null },
+        orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+        include: {
+          source: {
+            select: { username: true, displayName: true, topics: true },
+          },
+        },
+      }),
+      this.prisma.threadsNewsPost.count({ where: { feedback: null } }),
+      this.prisma.threadsNewsPost.count({ where: { feedback: 'interesting' } }),
+      this.prisma.threadsNewsPost.count({
+        where: { feedback: 'uninteresting' },
+      }),
+    ]);
+    return { post, counts: { unrated, interesting, uninteresting } };
+  }
+
+  async setFeedback(id: number, value: unknown) {
+    if (value !== null && value !== 'interesting' && value !== 'uninteresting')
+      throw new BadRequestException('INVALID_FEEDBACK');
+    const post = await this.prisma.threadsNewsPost.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!post) throw new NotFoundException('POST_NOT_FOUND');
+    return this.prisma.threadsNewsPost.update({
+      where: { id },
+      data: { feedback: value, feedbackAt: value ? new Date() : null },
+      select: { id: true, feedback: true, feedbackAt: true },
+    });
   }
 
   async update(id: number, body: { enabled?: unknown; topics?: unknown }) {

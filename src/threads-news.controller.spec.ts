@@ -17,6 +17,11 @@ describe('Threads news admin boundary', () => {
     refresh: jest.fn(),
     update: jest.fn(),
     posts: jest.fn(),
+    review: jest.fn().mockResolvedValue({
+      post: null,
+      counts: { unrated: 0, interesting: 0, uninteresting: 0 },
+    }),
+    setFeedback: jest.fn(),
     remove: jest.fn(),
     translate: jest.fn(),
   };
@@ -60,9 +65,17 @@ describe('Threads news admin boundary', () => {
     await request(app.getHttpServer())
       .post('/threads-news-api/posts/1/translate')
       .expect(401);
+    await request(app.getHttpServer())
+      .get('/threads-news-api/review')
+      .expect(401);
+    await request(app.getHttpServer())
+      .post('/threads-news-api/posts/1/feedback')
+      .send({ value: 'interesting' })
+      .expect(401);
     expect(news.add).not.toHaveBeenCalled();
     expect(news.remove).not.toHaveBeenCalled();
     expect(news.translate).not.toHaveBeenCalled();
+    expect(news.setFeedback).not.toHaveBeenCalled();
   });
   it('rejects a signed-in non-owner', async () => {
     await request(app.getHttpServer())
@@ -97,5 +110,9 @@ describe('Threads news admin boundary', () => {
       .get('/threads-news-api/dashboard')
       .set('x-test-role', 'owner')
       .expect(200, { sources: [], postCount: 0 });
+    await request(app.getHttpServer())
+      .get('/threads-news-api/review')
+      .set('x-test-role', 'owner')
+      .expect(200);
   });
 });

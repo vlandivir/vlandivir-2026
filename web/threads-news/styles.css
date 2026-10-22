@@ -29,6 +29,42 @@
   display: block;
   font-size: 2rem;
 }
+.review-section {
+  width: min(100%, 860px);
+  margin-inline: auto;
+  margin-bottom: var(--v-space-5);
+}
+.review-section h2 {
+  margin: var(--v-space-1) 0 0;
+}
+.review-card {
+  min-height: 240px;
+  margin-top: var(--v-space-4);
+  touch-action: pan-y;
+  transition: transform 160ms ease;
+}
+.review-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--v-space-3);
+  margin-top: var(--v-space-4);
+}
+.review-progress {
+  text-align: center;
+  margin-bottom: 0;
+}
+.review-card .post-text {
+  max-height: 55vh;
+  overflow: auto;
+}
+.post-feedback {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--v-space-2);
+  margin-top: var(--v-space-3);
+}
 .news-layout {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);

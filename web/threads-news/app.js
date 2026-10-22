@@ -9,10 +9,14 @@
     page: 1,
     total: 0,
     hasMore: false,
+    review: null,
+    reviewCounts: { unrated: 0, interesting: 0, uninteresting: 0 },
   };
   let busy = false;
   let poll;
   let feedVersion = 0;
+  let reviewVersion = 0;
+  let lastFeedback = null;
   const candidates = [
     ['ethan_mollick', 'topicAI'],
     ['gergelyorosz_', 'topicDev'],
@@ -260,6 +264,98 @@
       el('recommendations').append(row);
     }
   }
+  function renderReview() {
+    const post = state.review;
+    const counts = state.reviewCounts;
+    el('review-count').textContent = t('reviewRemaining').replace(
+      '{count}',
+      counts.unrated,
+    );
+    el('review-progress').textContent = t('reviewProgress')
+      .replace('{yes}', counts.interesting)
+      .replace('{no}', counts.uninteresting);
+    const card = el('review-card');
+    card.replaceChildren();
+    if (post) {
+      const heading = node('div', 'post-heading');
+      heading.append(
+        link(
+          `@${post.source.username}`,
+          `https://www.threads.com/@${post.source.username}`,
+        ),
+        node('time', 'muted', date(post.publishedAt)),
+      );
+      card.append(heading, node('p', 'post-text', post.text || t('noText')));
+      if (post.text && post.translationRu)
+        card.append(
+          node(
+            'p',
+            'post-text translation',
+            `${t('translationLabel')}: ${post.translationRu}`,
+          ),
+        );
+      else if (post.text && !post.translationCheckedAt) {
+        const translation = node('p', 'muted translation', t('translating'));
+        translation.id = 'review-translation';
+        card.append(translation);
+      }
+      card.append(link(t('inThreads'), post.url));
+      if (post.likes !== null)
+        card.append(node('p', 'muted', `${t('likes')}: ${post.likes}`));
+      const chips = node('div', 'post-topics');
+      post.source.topics.forEach((topic) =>
+        chips.append(node('span', 'meta-chip', topic)),
+      );
+      card.append(chips);
+    } else card.append(node('p', 'muted', t('reviewEmpty')));
+    el('review-no').dataset.unavailable = String(!post);
+    el('review-yes').dataset.unavailable = String(!post);
+    el('review-undo').dataset.unavailable = String(!lastFeedback);
+    lock(busy);
+  }
+  async function translateReview(version) {
+    const post = state.review;
+    if (!post?.text || post.translationCheckedAt) return;
+    const target = el('review-translation');
+    if (!target) return;
+    try {
+      const result = await request(`/posts/${post.id}/translate`, 'POST');
+      if (version !== reviewVersion || state.review?.id !== post.id) return;
+      post.translationCheckedAt = new Date().toISOString();
+      post.translationRu = result.translationRu;
+      if (result.translationRu) {
+        target.textContent = `${t('translationLabel')}: ${result.translationRu}`;
+        target.classList.remove('muted');
+        target.classList.add('post-text');
+      } else target.remove();
+    } catch (error) {
+      if (version === reviewVersion && state.review?.id === post.id)
+        target.textContent = error.message;
+    }
+  }
+  async function loadReview() {
+    const version = ++reviewVersion;
+    const data = await request('/review');
+    if (version !== reviewVersion) return;
+    state.review = data.post;
+    state.reviewCounts = data.counts;
+    renderReview();
+    void translateReview(version);
+  }
+  async function saveFeedback(post, value, remember = true) {
+    await request(`/posts/${post.id}/feedback`, 'POST', { value });
+    lastFeedback = remember
+      ? { id: post.id, previous: post.feedback ?? null }
+      : null;
+    await loadReview();
+    await loadPosts();
+    message(t(!remember || value === null ? 'ratingUndone' : 'ratingSaved'));
+  }
+  function rateReview(value) {
+    if (!state.review) return;
+    const post = state.review;
+    void run(() => saveFeedback(post, value));
+  }
   function renderPosts() {
     el('post-list').replaceChildren();
     el('feed-count').textContent = state.total;
@@ -298,6 +394,34 @@
         chips.append(node('span', 'meta-chip', topic)),
       );
       article.append(chips);
+      const feedback = node('div', 'post-feedback');
+      if (post.feedback)
+        feedback.append(
+          node(
+            'span',
+            'badge',
+            t(
+              post.feedback === 'interesting'
+                ? 'interesting'
+                : 'notInteresting',
+            ),
+          ),
+        );
+      feedback.append(
+        button(
+          'notInteresting',
+          () => void run(() => saveFeedback(post, 'uninteresting')),
+        ),
+        button(
+          'interesting',
+          () => void run(() => saveFeedback(post, 'interesting')),
+        ),
+      );
+      if (post.feedback)
+        feedback.append(
+          button('clearRating', () => void run(() => saveFeedback(post, null))),
+        );
+      article.append(feedback);
       el('post-list').append(article);
     }
     el('load-more').hidden = !state.hasMore;
@@ -306,7 +430,12 @@
   async function translateVisible(version) {
     for (const post of state.posts) {
       if (version !== feedVersion) return;
-      if (!post.text || post.translationCheckedAt) continue;
+      if (
+        !post.text ||
+        post.translationCheckedAt ||
+        post.id === state.review?.id
+      )
+        continue;
       const target = el('post-list').querySelector(
         `.translation[data-post-id="${post.id}"]`,
       );
@@ -341,8 +470,9 @@
     const version = ++feedVersion;
     const page = append ? state.page + 1 : 1;
     const filter = el('source-filter').value;
+    const feedback = el('feedback-filter').value;
     const data = await request(
-      `/posts?page=${page}${filter ? `&sourceId=${encodeURIComponent(filter)}` : ''}`,
+      `/posts?page=${page}&feedback=${encodeURIComponent(feedback)}${filter ? `&sourceId=${encodeURIComponent(filter)}` : ''}`,
     );
     if (version !== feedVersion) return;
     state.posts = append
@@ -362,6 +492,7 @@
     state.sources = dashboard.sources;
     state.postCount = dashboard.postCount;
     renderSources();
+    await loadReview();
     await loadPosts();
     schedulePoll();
   }
@@ -403,7 +534,57 @@
     void addSource(el('profile').value, topics(el('topics').value));
   });
   el('source-filter').addEventListener('change', () => run(() => loadPosts()));
+  el('feedback-filter').addEventListener('change', () =>
+    run(() => loadPosts()),
+  );
   el('load-more').addEventListener('click', () => run(() => loadPosts(true)));
+  el('review-no').addEventListener('click', () => rateReview('uninteresting'));
+  el('review-yes').addEventListener('click', () => rateReview('interesting'));
+  el('review-undo').addEventListener('click', () => {
+    if (lastFeedback)
+      void run(() =>
+        saveFeedback({ id: lastFeedback.id }, lastFeedback.previous, false),
+      );
+  });
+  document.addEventListener('keydown', (event) => {
+    if (
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '') ||
+      document.activeElement?.isContentEditable
+    )
+      return;
+    if (event.key === 'ArrowLeft' && state.review && !busy) {
+      event.preventDefault();
+      rateReview('uninteresting');
+    } else if (event.key === 'ArrowRight' && state.review && !busy) {
+      event.preventDefault();
+      rateReview('interesting');
+    } else if (event.key === 'Backspace' && lastFeedback && !busy) {
+      event.preventDefault();
+      void run(() =>
+        saveFeedback({ id: lastFeedback.id }, lastFeedback.previous, false),
+      );
+    }
+  });
+  let swipeStart;
+  el('review-card').addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'mouse' || event.target.closest('a')) return;
+    swipeStart = { x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  });
+  el('review-card').addEventListener('pointerup', (event) => {
+    if (!swipeStart || busy || !state.review) return;
+    const dx = event.clientX - swipeStart.x;
+    const dy = event.clientY - swipeStart.y;
+    swipeStart = null;
+    if (Math.abs(dx) < 80 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    rateReview(dx > 0 ? 'interesting' : 'uninteresting');
+  });
+  el('review-card').addEventListener('pointercancel', () => {
+    swipeStart = null;
+  });
   el('refresh-all').addEventListener('click', () =>
     run(async () => {
       // Sequential refreshes avoid bursts of requests to Threads.

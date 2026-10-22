@@ -2,6 +2,45 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ThreadsNewsService } from './threads-news.service';
 import * as profiles from './threads-public-profile';
 
+describe('Threads news feedback boundary', () => {
+  const prisma = {
+    threadsNewsPost: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+  };
+  const service = new ThreadsNewsService(prisma as unknown as PrismaService);
+  beforeEach(() => jest.clearAllMocks());
+
+  it('rejects invalid feedback before touching the database', async () => {
+    await expect(service.setFeedback(1, 'unsure')).rejects.toThrow(
+      'INVALID_FEEDBACK',
+    );
+    expect(prisma.threadsNewsPost.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('reports a missing post instead of creating a rating', async () => {
+    prisma.threadsNewsPost.findUnique.mockResolvedValue(null);
+    await expect(service.setFeedback(99, 'interesting')).rejects.toThrow(
+      'POST_NOT_FOUND',
+    );
+    expect(prisma.threadsNewsPost.update).not.toHaveBeenCalled();
+  });
+
+  it('accepts clearing a rating for undo', async () => {
+    prisma.threadsNewsPost.findUnique.mockResolvedValue({ id: 1 });
+    prisma.threadsNewsPost.update.mockResolvedValue({ id: 1, feedback: null });
+    await expect(service.setFeedback(1, null)).resolves.toMatchObject({
+      feedback: null,
+    });
+    expect(prisma.threadsNewsPost.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { feedback: null, feedbackAt: null },
+      }),
+    );
+  });
+});
+
 // Opt-in isolated DB integration: never use POSTGRES_CONNECTION_STRING here.
 const testUrl = process.env.THREADS_NEWS_TEST_DATABASE_URL;
 if (testUrl) {
@@ -140,6 +179,33 @@ integration('Threads news persistence', () => {
     expect(
       (await service.update(source.id, { topics: ['AI', 'Dev'] })).topics,
     ).toEqual(['AI', 'Dev']);
+  });
+  it('keeps feedback across refreshes and allows changing or clearing it', async () => {
+    const source = await service.add({ profile: 'author' });
+    const post = await prisma.threadsNewsPost.findFirstOrThrow();
+    expect((await service.review()).counts.unrated).toBe(1);
+    await service.setFeedback(post.id, 'interesting');
+    expect((await service.review()).counts).toMatchObject({
+      unrated: 0,
+      interesting: 1,
+      uninteresting: 0,
+    });
+    expect((await service.posts(undefined, 1, 'interesting')).total).toBe(1);
+    await service.refresh(source.id);
+    expect(
+      (
+        await prisma.threadsNewsPost.findUniqueOrThrow({
+          where: { id: post.id },
+        })
+      ).feedback,
+    ).toBe('interesting');
+    await service.setFeedback(post.id, 'uninteresting');
+    expect((await service.posts(undefined, 1, 'uninteresting')).total).toBe(1);
+    await service.setFeedback(post.id, null);
+    expect((await service.review()).post?.id).toBe(post.id);
+    await expect(service.setFeedback(post.id, 'maybe')).rejects.toThrow(
+      'INVALID_FEEDBACK',
+    );
   });
   it('removes a source and its saved posts', async () => {
     const source = await service.add({ profile: 'author' });
