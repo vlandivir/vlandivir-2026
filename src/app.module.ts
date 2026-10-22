@@ -28,6 +28,11 @@ import { UserPagesController } from './user-pages.controller';
 import { ThreadsApiController } from './threads-api.controller';
 import { ThreadsPagesController } from './threads-pages.controller';
 import { ThreadsService } from './services/threads.service';
+import { ThreadsNewsService } from './services/threads-news.service';
+import {
+  ThreadsNewsApiController,
+  ThreadsNewsPagesController,
+} from './threads-news.controller';
 import { ThreadsWatchService } from './services/threads-watch.service';
 import {
   ThreadsWatchApiController,
@@ -64,6 +69,8 @@ import {
     UserPagesController,
     ThreadsApiController,
     ThreadsPagesController,
+    ThreadsNewsApiController,
+    ThreadsNewsPagesController,
     ThreadsWatchApiController,
     ThreadsWatchPagesController,
     McpController,
@@ -73,6 +80,7 @@ import {
     McpToolsService,
     ThreadsService,
     ThreadsWatchService,
+    ThreadsNewsService,
     MapSearchThrottleGuard,
   ],
 })

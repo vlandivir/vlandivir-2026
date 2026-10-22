@@ -72,6 +72,7 @@ loopback `http://127.0.0.1|localhost` (для отладки).
 | Записная книжка рилсов (страницы) | `GET /reels`, `GET /reels/:id` | `src/reels-pages.controller.ts` |
 | Дашборд почты (страница) | `GET /email` | `src/email-pages.controller.ts` |
 | Композер Threads (страница) | `GET /threads` | `src/threads-pages.controller.ts` |
+| Новостная лента Threads | `GET /threads-news`, `/threads-news/en`, `/threads-news/index.html` и ресурсы страницы; `GET /threads-news-api/dashboard`, `/posts`; `POST /threads-news-api/sources`, `/sources/:id/refresh`, `/posts/:id/translate`; `PATCH /threads-news-api/sources/:id`; `DELETE /threads-news-api/sources/:id` | `src/threads-news.controller.ts`, `AdminSessionGuard` на обоих классах; отдельные таблицы источников, постов и квоты перевода; анонимное чтение публичных профилей без токена Threads; перевод через серверный OpenAI API key |
 | Мониторинг чужих Threads | `GET /threads-watch`, `/threads-watch/en`; `GET/POST /threads-watch-api/posts`, `POST /threads-watch-api/posts/:id/refresh`, `DELETE /threads-watch-api/posts/:id`, `GET/POST /threads-watch-api/posts/:id/replies` | `src/threads-watch.controller.ts`, `AdminSessionGuard` на обоих классах; операции ограничены `destination=watch` |
 | API Threads | `GET/POST/PATCH/DELETE /threads-api/*` для черновиков, медиа, публикации и статистики; маршруты `/ai-actions` удалены | `src/threads-api.controller.ts` (`AdminSessionGuard` на классе) |
 | API почты | `GET/POST /email-api/*` (stats, messages, sync, `POST /messages/:id/to-gtd`) | `src/email-api.controller.ts` (guard на классе) |

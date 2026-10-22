@@ -641,3 +641,45 @@ model ThreadsAiAction {
 
   @@index([enabled, sortOrder])
 }
+
+// Personal Threads news inbox. Separate from composer drafts and watched links.
+model ThreadsNewsSource {
+  id            Int               @id @default(autoincrement())
+  username      String            @unique
+  displayName   String?
+  topics        String[]          @default([])
+  enabled       Boolean           @default(true)
+  syncStatus    String            @default("idle")
+  lastAttemptAt DateTime?
+  lastSuccessAt DateTime?
+  lastError     String?
+  lastNewCount  Int               @default(0)
+  coverageLimited Boolean         @default(false)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  posts         ThreadsNewsPost[]
+}
+
+model ThreadsNewsPost {
+  id                   Int               @id @default(autoincrement())
+  sourceId             Int
+  source               ThreadsNewsSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  remoteId             String            @unique
+  text                 String            @db.Text
+  url                  String
+  publishedAt          DateTime
+  likes                Int?
+  translationRu        String?           @db.Text
+  translationCheckedAt DateTime?
+  translationStartedAt DateTime?
+  firstSeenAt          DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@index([sourceId, publishedAt])
+  @@index([publishedAt, id])
+}
+
+model ThreadsNewsTranslationQuota {
+  month String @id
+  used Int    @default(0)
+}

@@ -50,6 +50,7 @@ Each page is `web/<name>/` (`index.html`, optional `app.js` / `styles.css` / `i1
 | `diary/` | `/diary` | Google session |
 | `email/` | `/email` | Google session, IMAP-backed mail UI |
 | `threads/` | `/threads` | Google session; composer for @vlandivir Threads posts |
+| `threads-news/` | `/threads-news`, `/threads-news/en` | Admin session; author sources, manual collection and news inbox |
 | `threads-watch/` | `/threads-watch`, `/threads-watch/en` | Admin session; manually saved public Threads links and counters |
 | `reels/` | `/reels` | Unlisted catalog; Google or API key |
 | `subs/` | `/subs` | Vertical-video subtitles (dark workbench palette allowed) |
