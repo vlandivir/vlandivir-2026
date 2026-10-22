@@ -47,6 +47,10 @@ window.PAGE_I18N = {
       'Скетч: ведьмочка сшивает ниткой цепочку облачков разговора',
     threadsText: 'Черновики и публикация в Threads, с копией в дневник.',
     threadsHref: '/threads',
+    threadsNewsTitle: 'Новости Threads',
+    threadsNewsAlt: 'Скетч: ведьмочка рассматривает летящие заметки через лупу',
+    threadsNewsText: 'Личная лента интересных авторов с переводом на русский.',
+    threadsNewsHref: '/threads-news',
   },
   en: {
     title: 'vlandivir',
@@ -96,5 +100,9 @@ window.PAGE_I18N = {
       'Sketch: a little witch sews a chain of speech bubbles together with yarn',
     threadsText: 'Drafts and publishing to Threads, with a copy in the diary.',
     threadsHref: '/threads',
+    threadsNewsTitle: 'Threads news',
+    threadsNewsAlt: 'Sketch: a little witch inspects floating notes through a magnifying glass',
+    threadsNewsText: 'A personal feed of interesting authors with Russian translations.',
+    threadsNewsHref: '/threads-news/en',
   },
 };

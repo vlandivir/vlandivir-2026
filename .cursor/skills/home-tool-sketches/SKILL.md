@@ -50,6 +50,7 @@ Witch character reference (pass before the style reference): [references/witch-r
 | Email | Side view, riding a giant envelope down a curved trail of smaller envelopes |
 | Reels | Rear three-quarter view, sitting in a director's chair facing a portrait projection screen while blank vertical film frames arc around it |
 | Threads | Top-down craft-table view, sewing blank speech bubbles into a yarn chain |
+| Threads news | Eye-level side view, seated in an armchair and examining floating blank news sheets through a magnifying glass |
 
 ### Quote illustrations already used
 
