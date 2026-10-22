@@ -660,6 +660,12 @@ model ThreadsNewsSource {
   posts         ThreadsNewsPost[]
 }
 
+model ThreadsNewsExcludedSource {
+  username  String   @id
+  reason    String   @default("removed")
+  removedAt DateTime @default(now())
+}
+
 model ThreadsNewsPost {
   id                   Int               @id @default(autoincrement())
   sourceId             Int

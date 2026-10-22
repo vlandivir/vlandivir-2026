@@ -33,12 +33,15 @@ export class ThreadsNewsService {
   }
 
   async dashboard() {
-    const [sources, postCount] = await Promise.all([
+    const [sources, postCount, excludedSources] = await Promise.all([
       this.prisma.threadsNewsSource.findMany({
         orderBy: { createdAt: 'desc' },
         include: { _count: { select: { posts: true } } },
       }),
       this.prisma.threadsNewsPost.count(),
+      this.prisma.threadsNewsExcludedSource.findMany({
+        orderBy: { removedAt: 'desc' },
+      }),
     ]);
     return {
       sources: sources.map((source) =>
@@ -49,6 +52,7 @@ export class ThreadsNewsService {
           : source,
       ),
       postCount,
+      excludedSources,
     };
   }
 
@@ -60,6 +64,10 @@ export class ThreadsNewsService {
       throw new BadRequestException('INVALID_PROFILE');
     }
     const topics = this.topics(body.topics ?? []);
+    const excluded = await this.prisma.threadsNewsExcludedSource.findUnique({
+      where: { username },
+    });
+    if (excluded) throw new ConflictException('SOURCE_EXCLUDED');
     const existing = await this.prisma.threadsNewsSource.findUnique({
       where: { username },
     });
@@ -157,12 +165,37 @@ export class ThreadsNewsService {
     });
   }
 
-  async remove(id: number) {
+  async remove(id: number, reason: unknown = 'removed') {
     const source = await this.requireSource(id);
     if (source.syncStatus === 'running')
       throw new ConflictException('ALREADY_RUNNING');
-    await this.prisma.threadsNewsSource.delete({ where: { id } });
+    if (
+      typeof reason !== 'string' ||
+      !['removed', 'too_many_ads', 'no_personal_view'].includes(reason)
+    )
+      throw new BadRequestException('INVALID_EXCLUSION_REASON');
+    await this.prisma.$transaction([
+      this.prisma.threadsNewsExcludedSource.upsert({
+        where: { username: source.username },
+        create: { username: source.username, reason },
+        update: { reason, removedAt: new Date() },
+      }),
+      this.prisma.threadsNewsSource.delete({ where: { id } }),
+    ]);
     return { removed: true };
+  }
+
+  async allowSource(profile: unknown) {
+    let username: string;
+    try {
+      username = normalizeThreadsProfile(profile);
+    } catch {
+      throw new BadRequestException('INVALID_PROFILE');
+    }
+    await this.prisma.threadsNewsExcludedSource.deleteMany({
+      where: { username },
+    });
+    return { allowed: true };
   }
 
   async translate(id: number) {

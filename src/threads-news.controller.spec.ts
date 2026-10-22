@@ -12,7 +12,11 @@ import { AuthService } from './auth/auth.service';
 describe('Threads news admin boundary', () => {
   let app: INestApplication;
   const news = {
-    dashboard: jest.fn().mockResolvedValue({ sources: [], postCount: 0 }),
+    dashboard: jest.fn().mockResolvedValue({
+      sources: [],
+      postCount: 0,
+      excludedSources: [],
+    }),
     add: jest.fn(),
     refresh: jest.fn(),
     update: jest.fn(),
@@ -23,6 +27,7 @@ describe('Threads news admin boundary', () => {
     }),
     setFeedback: jest.fn(),
     remove: jest.fn(),
+    allowSource: jest.fn(),
     translate: jest.fn(),
   };
   beforeAll(async () => {
@@ -63,6 +68,9 @@ describe('Threads news admin boundary', () => {
       .delete('/threads-news-api/sources/1')
       .expect(401);
     await request(app.getHttpServer())
+      .delete('/threads-news-api/excluded/someone')
+      .expect(401);
+    await request(app.getHttpServer())
       .post('/threads-news-api/posts/1/translate')
       .expect(401);
     await request(app.getHttpServer())
@@ -74,6 +82,7 @@ describe('Threads news admin boundary', () => {
       .expect(401);
     expect(news.add).not.toHaveBeenCalled();
     expect(news.remove).not.toHaveBeenCalled();
+    expect(news.allowSource).not.toHaveBeenCalled();
     expect(news.translate).not.toHaveBeenCalled();
     expect(news.setFeedback).not.toHaveBeenCalled();
   });
@@ -109,7 +118,7 @@ describe('Threads news admin boundary', () => {
     await request(app.getHttpServer())
       .get('/threads-news-api/dashboard')
       .set('x-test-role', 'owner')
-      .expect(200, { sources: [], postCount: 0 });
+      .expect(200, { sources: [], postCount: 0, excludedSources: [] });
     await request(app.getHttpServer())
       .get('/threads-news-api/review')
       .set('x-test-role', 'owner')

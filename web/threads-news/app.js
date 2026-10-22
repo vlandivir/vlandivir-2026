@@ -4,6 +4,7 @@
   const el = (id) => document.getElementById(id);
   const state = {
     sources: [],
+    excludedSources: [],
     postCount: 0,
     posts: [],
     page: 1,
@@ -18,10 +19,9 @@
   let reviewVersion = 0;
   let lastFeedback = null;
   const candidates = [
-    ['ethan_mollick', 'topicAI'],
-    ['gergelyorosz_', 'topicDev'],
-    ['olja_srbija', 'topicSerbia'],
-    ['nomadicmatt', 'topicTravel'],
+    ['griucci', 'topicSerbia', 'candidateGriucci'],
+    ['mmyshkin', 'topicSerbia', 'candidateMmyshkin'],
+    ['serbia_polako', 'topicSerbia', 'candidatePolako'],
   ];
   function node(tag, className, text) {
     const item = document.createElement(tag);
@@ -190,6 +190,15 @@
           }),
         ),
       );
+      const excludeReason = node('select');
+      excludeReason.setAttribute('aria-label', t('excludeReason'));
+      for (const [value, key] of [
+        ['removed', 'reasonRemoved'],
+        ['too_many_ads', 'reasonAds'],
+        ['no_personal_view', 'reasonNoView'],
+      ])
+        excludeReason.append(new Option(t(key), value));
+      actions.append(excludeReason);
       actions.append(
         button('remove', () => {
           if (
@@ -199,7 +208,9 @@
           )
             return;
           void run(async () => {
-            await request(`/sources/${source.id}`, 'DELETE');
+            await request(`/sources/${source.id}`, 'DELETE', {
+              reason: excludeReason.value,
+            });
             await load();
             message(t('removed'));
           });
@@ -244,17 +255,21 @@
       ),
     );
     renderCandidates();
+    renderExcluded();
     lock(busy);
   }
   function renderCandidates() {
     el('recommendations').replaceChildren();
-    for (const [username, topic] of candidates) {
+    for (const [username, topic, description] of candidates) {
+      if (state.excludedSources.some((item) => item.username === username))
+        continue;
       const exists = state.sources.some(
         (source) => source.username === username,
       );
       const row = node('div', 'recommendation');
       const text = node('span');
       text.append(link(`@${username}`, `https://www.threads.com/@${username}`));
+      text.append(node('small', 'muted recommendation-note', t(description)));
       row.append(text);
       const add = button(exists ? 'addedShort' : 'addShort', () =>
         addSource(username, [t(topic)]),
@@ -262,6 +277,38 @@
       add.dataset.unavailable = String(exists);
       row.append(add);
       el('recommendations').append(row);
+    }
+  }
+  function renderExcluded() {
+    el('excluded-sources').replaceChildren();
+    if (!state.excludedSources.length) {
+      el('excluded-sources').append(node('p', 'muted', t('excludedEmpty')));
+      return;
+    }
+    for (const source of state.excludedSources) {
+      const row = node('div', 'recommendation');
+      const text = node('span');
+      text.append(node('span', '', `@${source.username}`));
+      const reasonKey =
+        {
+          too_many_ads: 'reasonAds',
+          no_personal_view: 'reasonNoView',
+        }[source.reason] || 'reasonRemoved';
+      text.append(node('small', 'muted recommendation-note', t(reasonKey)));
+      row.append(text);
+      row.append(
+        button('allowAgain', () =>
+          run(async () => {
+            await request(
+              `/excluded/${encodeURIComponent(source.username)}`,
+              'DELETE',
+            );
+            await load();
+            message(t('allowedAgain'));
+          }),
+        ),
+      );
+      el('excluded-sources').append(row);
     }
   }
   function renderReview() {
@@ -490,6 +537,7 @@
   async function load() {
     const dashboard = await request('/dashboard');
     state.sources = dashboard.sources;
+    state.excludedSources = dashboard.excludedSources;
     state.postCount = dashboard.postCount;
     renderSources();
     await loadReview();

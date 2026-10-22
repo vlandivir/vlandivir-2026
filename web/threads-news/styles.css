@@ -120,6 +120,9 @@
   justify-content: start;
   flex-wrap: wrap;
 }
+.source-actions select {
+  max-width: 100%;
+}
 .source-settings summary {
   cursor: pointer;
 }
@@ -157,6 +160,10 @@
 }
 .recommendation span {
   overflow-wrap: anywhere;
+}
+.recommendation-note {
+  display: block;
+  margin-top: var(--v-space-1);
 }
 #load-more {
   margin-top: var(--v-space-4);

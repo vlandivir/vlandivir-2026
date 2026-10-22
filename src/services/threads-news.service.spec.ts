@@ -41,6 +41,50 @@ describe('Threads news feedback boundary', () => {
   });
 });
 
+describe('Threads news source exclusions', () => {
+  const prisma = {
+    threadsNewsSource: {
+      findUnique: jest.fn(),
+      delete: jest.fn(),
+    },
+    threadsNewsExcludedSource: {
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+    $transaction: jest.fn(),
+  };
+  const service = new ThreadsNewsService(prisma as unknown as PrismaService);
+  beforeEach(() => jest.clearAllMocks());
+
+  it('refuses to re-add an excluded author before fetching the profile', async () => {
+    prisma.threadsNewsExcludedSource.findUnique.mockResolvedValue({
+      username: 'author',
+    });
+    await expect(service.add({ profile: '@Author' })).rejects.toThrow(
+      'SOURCE_EXCLUDED',
+    );
+    expect(prisma.threadsNewsSource.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('records an ad-heavy exclusion and deletes the source atomically', async () => {
+    prisma.threadsNewsSource.findUnique.mockResolvedValue({
+      id: 7,
+      username: 'author',
+      syncStatus: 'ok',
+    });
+    prisma.threadsNewsExcludedSource.upsert.mockReturnValue('exclude');
+    prisma.threadsNewsSource.delete.mockReturnValue('delete');
+    await service.remove(7, 'too_many_ads');
+    expect(prisma.$transaction).toHaveBeenCalledWith(['exclude', 'delete']);
+    expect(prisma.threadsNewsExcludedSource.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: { username: 'author', reason: 'too_many_ads' },
+      }),
+    );
+  });
+});
+
 // Opt-in isolated DB integration: never use POSTGRES_CONNECTION_STRING here.
 const testUrl = process.env.THREADS_NEWS_TEST_DATABASE_URL;
 if (testUrl) {
@@ -77,12 +121,14 @@ integration('Threads news persistence', () => {
   });
   beforeEach(async () => {
     await prisma.threadsNewsSource.deleteMany();
+    await prisma.threadsNewsExcludedSource.deleteMany();
     await prisma.threadsNewsTranslationQuota.deleteMany();
     jest.spyOn(profiles, 'fetchThreadsProfile').mockResolvedValue(snapshot);
   });
   afterEach(() => jest.restoreAllMocks());
   afterAll(async () => {
     await prisma.threadsNewsSource.deleteMany();
+    await prisma.threadsNewsExcludedSource.deleteMany();
     await prisma.threadsNewsTranslationQuota.deleteMany();
     await prisma.$disconnect();
   });
@@ -104,6 +150,20 @@ integration('Threads news persistence', () => {
     expect(profiles.fetchThreadsProfile).toHaveBeenCalledTimes(1);
     expect((await service.refresh(first.id)).lastNewCount).toBe(0);
     expect(await prisma.threadsNewsPost.count()).toBe(1);
+  });
+  it('keeps a removed author excluded until explicitly allowed', async () => {
+    const source = await service.add({ profile: 'author' });
+    await service.remove(source.id, 'no_personal_view');
+    expect((await service.dashboard()).excludedSources).toMatchObject([
+      { username: 'author', reason: 'no_personal_view' },
+    ]);
+    await expect(service.add({ profile: 'author' })).rejects.toThrow(
+      'SOURCE_EXCLUDED',
+    );
+    expect(await prisma.threadsNewsPost.count()).toBe(0);
+    await service.allowSource('author');
+    expect((await service.dashboard()).excludedSources).toHaveLength(0);
+    expect((await service.add({ profile: 'author' })).username).toBe('author');
   });
   it('preserves posts and the last successful timestamp on network failure', async () => {
     const source = await service.add({ profile: 'author' });

@@ -56,8 +56,16 @@ export class ThreadsNewsApiController {
   @Post('sources/:id/refresh') refresh(@Param('id', ParseIntPipe) id: number) {
     return this.news.refresh(id);
   }
-  @Delete('sources/:id') remove(@Param('id', ParseIntPipe) id: number) {
-    return this.news.remove(id);
+  @Delete('sources/:id') remove(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { reason?: unknown },
+  ) {
+    return this.news.remove(id, body?.reason);
+  }
+  @Delete('excluded/:username') allowSource(
+    @Param('username') username: string,
+  ) {
+    return this.news.allowSource(username);
   }
   @Post('posts/:id/translate') translate(
     @Param('id', ParseIntPipe) id: number,
