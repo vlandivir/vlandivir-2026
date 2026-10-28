@@ -62,6 +62,7 @@ export class McpToolsService {
         'Для любой незакрытой задачи, включая отложенные, используй gtd_search',
         '(status=active включает snoozed). Закрытые — status=done или all.',
         'Короткое название задачи, детали — в контексте (gtd_capture.context / gtd_add_context).',
+        'Выполненную задачу закрывай через gtd_complete.',
       );
     }
     if (!auth.authorized && !auth.gtdWorkspaceId) {
@@ -901,6 +902,36 @@ export class McpToolsService {
         withWorkspace((auth) =>
           this.gtd.addContext(auth.workspaceId, taskId, { name, text }),
         ),
+    );
+
+    server.registerTool(
+      'gtd_complete',
+      {
+        title: 'Закрыть задачу GTD',
+        description:
+          'Отмечает задачу выполненной (как галочка в приложении). ' +
+          'Только для незакрытых задач, включая отложенные.',
+        inputSchema: {
+          taskId: z
+            .string()
+            .min(1)
+            .describe('Id задачи из gtd_search / gtd_now'),
+        },
+      },
+      async ({ taskId }) =>
+        withWorkspace(async (auth) => {
+          const task = await this.gtd.act(
+            auth.workspaceId,
+            taskId,
+            'COMPLETE',
+          );
+          return {
+            id: task.id,
+            content: task.content,
+            status: task.status,
+            completedAt: task.completedAt,
+          };
+        }),
     );
   }
 
