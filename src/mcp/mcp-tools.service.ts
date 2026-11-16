@@ -3,7 +3,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { endOfDay, startOfDay } from 'date-fns';
 import { z } from 'zod';
 import type { GtdAuthContext } from '../gtd/gtd-auth.service';
-import { GtdService } from '../gtd/gtd.service';
+import { GTD_SNOOZE_ACTIONS, GtdService } from '../gtd/gtd.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DiaryQaService } from '../services/diary-qa.service';
 import { DiarySearchService } from '../services/diary-search.service';
@@ -63,6 +63,7 @@ export class McpToolsService {
         '(status=active включает snoozed). Закрытые — status=done или all.',
         'Короткое название задачи, детали — в контексте (gtd_capture.context / gtd_add_context).',
         'Выполненную задачу закрывай через gtd_complete.',
+        'Отложить, отменить или отправить в конец очереди — gtd_act.',
       );
     }
     if (!auth.authorized && !auth.gtdWorkspaceId) {
@@ -930,6 +931,36 @@ export class McpToolsService {
             content: task.content,
             status: task.status,
             completedAt: task.completedAt,
+          };
+        }),
+    );
+    server.registerTool(
+      'gtd_act',
+      {
+        title: 'Отложить, отменить или прокрутить задачу GTD',
+        description:
+          'Действие как в приложении: SNOOZE_* откладывает задачу ' +
+          '(HOUR, HOURS_2, HOURS_4, EVENING, TOMORROW, DAYS_2/7/14/30, ' +
+          'ближайший день недели), ROTATE ставит в конец очереди, ' +
+          'CANCEL отменяет. Закрывать выполненную — gtd_complete. ' +
+          'Только для незакрытых задач.',
+        inputSchema: {
+          taskId: z
+            .string()
+            .min(1)
+            .describe('Id задачи из gtd_search / gtd_now'),
+          action: z.enum([...GTD_SNOOZE_ACTIONS, 'ROTATE', 'CANCEL']),
+        },
+      },
+      async ({ taskId, action }) =>
+        withWorkspace(async (auth) => {
+          const task = await this.gtd.act(auth.workspaceId, taskId, action);
+          return {
+            id: task.id,
+            content: task.content,
+            status: task.status,
+            snoozedUntil: task.snoozedUntil,
+            canceledAt: task.canceledAt,
           };
         }),
     );
