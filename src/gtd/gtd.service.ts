@@ -57,7 +57,7 @@ export type GtdAction =
   | 'COMPLETE'
   | 'CANCEL';
 
-const GTD_SNOOZE_ACTIONS: GtdAction[] = [
+export const GTD_SNOOZE_ACTIONS = [
   'SNOOZE_HOUR',
   'SNOOZE_HOURS_2',
   'SNOOZE_HOURS_4',
@@ -74,7 +74,7 @@ const GTD_SNOOZE_ACTIONS: GtdAction[] = [
   'SNOOZE_FRIDAY',
   'SNOOZE_SATURDAY',
   'SNOOZE_SUNDAY',
-];
+] as const satisfies readonly GtdAction[];
 
 const WEEKDAY_SNOOZE: Partial<Record<GtdAction, number>> = {
   SNOOZE_SUNDAY: 0,

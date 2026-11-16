@@ -92,4 +92,50 @@ describe('McpToolsService GTD tools', () => {
     ]);
     await client.close();
   });
+
+  it('snoozes and cancels through GtdService.act', async () => {
+    const act = jest.fn().mockResolvedValue({
+      id: 'task-1',
+      content: 'Ship gtd_act',
+      status: GtdTaskStatus.ACTIVE,
+      snoozedUntil: '2026-11-17T09:00:00.000Z',
+      canceledAt: null,
+      orderKey: '42',
+    });
+    const client = await connect({ act } as Partial<GtdService>);
+
+    const { tools } = await client.listTools();
+    expect(tools.map((tool) => tool.name)).toContain('gtd_act');
+    expect(client.getInstructions()).toContain('gtd_act');
+
+    const result = await client.callTool({
+      name: 'gtd_act',
+      arguments: { taskId: 'task-1', action: 'SNOOZE_TOMORROW' },
+    });
+
+    expect(act).toHaveBeenCalledWith('ws', 'task-1', 'SNOOZE_TOMORROW');
+    const [content] = result.content as { type: 'text'; text: string }[];
+    expect(JSON.parse(content.text)).toEqual({
+      id: 'task-1',
+      content: 'Ship gtd_act',
+      status: GtdTaskStatus.ACTIVE,
+      snoozedUntil: '2026-11-17T09:00:00.000Z',
+      canceledAt: null,
+    });
+    await client.close();
+  });
+
+  it('rejects COMPLETE in gtd_act', async () => {
+    const act = jest.fn();
+    const client = await connect({ act } as Partial<GtdService>);
+
+    const result = await client.callTool({
+      name: 'gtd_act',
+      arguments: { taskId: 'task-1', action: 'COMPLETE' },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(act).not.toHaveBeenCalled();
+    await client.close();
+  });
 });
