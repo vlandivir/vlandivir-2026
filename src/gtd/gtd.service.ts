@@ -30,7 +30,6 @@ import {
 
 const MAX_CONTENT = 10_000;
 const MAX_PROJECT_NAME = 120;
-export const GTD_MAX_ATTACHMENTS = 10;
 export const GTD_MAX_FILE_BYTES = 20 * 1024 * 1024;
 type Scope = {
   kind: 'all' | 'inbox' | 'project' | 'today';
@@ -574,11 +573,6 @@ export class GtdService {
       throw new BadRequestException('Unsupported file type');
     if (file.size <= 0 || file.size > GTD_MAX_FILE_BYTES)
       throw new BadRequestException('File is too large');
-    if (
-      (await this.prisma.gtdAttachment.count({ where: { taskId } })) >=
-      GTD_MAX_ATTACHMENTS
-    )
-      throw new BadRequestException('Attachment limit reached');
     const safeName =
       file.originalname.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(-180) || 'file';
     const storageKey = `gtd/${workspaceId}/${taskId}/${randomUUID()}-${safeName}`;
