@@ -568,7 +568,7 @@
     for (const def of ACTIONS) {
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'mini-btn icon-btn thread-action';
+      button.className = 'icon-btn action-btn thread-action';
       button.textContent = def.icon;
       const active =
         def.key === 'label'
