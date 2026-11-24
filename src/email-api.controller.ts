@@ -185,6 +185,65 @@ export class EmailApiController {
     };
   }
 
+  // Resolve the whole conversation on the server, including messages outside
+  // the dashboard's 500-row window or current filters.
+  @Post('messages/:id/thread-action')
+  async threadAction(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { action?: string; param?: string },
+  ) {
+    const action = body.action as EmailAction;
+    if (!ALLOWED_ACTIONS.includes(action)) {
+      throw new BadRequestException(`Unknown action: ${body.action}`);
+    }
+    if (
+      (action === 'label' || action === 'unlabel') &&
+      (typeof body.param !== 'string' || !body.param.trim())
+    ) {
+      throw new BadRequestException('Label name is required');
+    }
+    const anchor = await this.prisma.emailMessage.findUnique({
+      where: { id },
+      select: { account: true, threadId: true },
+    });
+    if (!anchor) throw new NotFoundException('Message not found');
+    const members = await this.prisma.emailMessage.findMany({
+      where: { account: anchor.account, threadId: anchor.threadId },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    });
+    const messages: {
+      id: number;
+      seen: boolean;
+      archived: boolean;
+      hidden: boolean;
+      important: boolean;
+      labels: string[];
+    }[] = [];
+    const failedIds: number[] = [];
+    // Keep IMAP work sequential and retain individual action/undo journal entries.
+    for (const member of members) {
+      try {
+        const updated = await this.emailExecutorService.apply(
+          member.id,
+          action,
+          body.param,
+        );
+        messages.push({
+          id: updated.id,
+          seen: updated.seen,
+          archived: updated.archived,
+          hidden: updated.hidden,
+          important: updated.important,
+          labels: updated.labels,
+        });
+      } catch {
+        failedIds.push(member.id);
+      }
+    }
+    return { messages, failedIds };
+  }
+
   @Get('undo-last')
   async undoLastStatus() {
     const entry = await this.emailExecutorService.getLastUndoableAction();

@@ -402,17 +402,43 @@
 .thread-group-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 10px 6px 14px;
-  border: 0;
+  flex-wrap: wrap;
+  gap: var(--v-space-2);
+  padding: var(--v-space-2) var(--v-space-3);
   border-bottom: 1px solid hsl(var(--shadcn-border));
   background: hsl(var(--shadcn-muted) / 0.55);
+}
+
+.thread-group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1 1 16rem;
+  min-width: 0;
+  gap: var(--v-space-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: inherit;
   font: inherit;
   cursor: pointer;
   text-align: left;
+}
+
+.thread-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--v-space-1);
+  margin-left: auto;
+}
+
+.thread-actions > span {
+  font-size: 12px;
+}
+
+.thread-action.active {
+  background: hsl(var(--primary) / 0.14);
 }
 
 .thread-group-title {

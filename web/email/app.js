@@ -12,6 +12,7 @@
     importantCollapsed: false,
     // Thread keys (`account:threadId`) the user has expanded to see older mail.
     expandedThreads: new Set(),
+    pendingThreads: new Set(),
     undo: null,
   };
 
@@ -289,6 +290,50 @@
     }
   }
 
+  async function applyThreadAction(message, action, param) {
+    const key = threadKey(message);
+    if (state.pendingThreads.has(key)) return;
+    state.pendingThreads.add(key);
+    renderList();
+    try {
+      const result = await fetchJson(
+        `${API_BASE}/messages/${message.id}/thread-action`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action, param }),
+        },
+      );
+      for (const updated of result.messages) {
+        const current = state.messages.find((m) => m.id === updated.id);
+        if (current) Object.assign(current, updated);
+        if (state.detail?.id === updated.id) {
+          Object.assign(state.detail, updated);
+        }
+      }
+      if (state.detail) renderDetail();
+      if (result.failedIds.length) {
+        alert(
+          `Не удалось обработать ${result.failedIds.length} писем. Остальные письма группы обновлены.`,
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      alert(
+        'Не удалось применить действие ко всей группе. Обновляю состояние писем.',
+      );
+      // The server may have applied part of a long IMAP operation before a
+      // connection loss; fetch authoritative state rather than roll it back.
+      await loadMessages().catch(console.error);
+    } finally {
+      state.pendingThreads.delete(key);
+      renderList();
+      void loadStats();
+      void loadUndoState();
+      if (!el('log-panel').classList.contains('hidden')) void loadLog();
+    }
+  }
+
   const ACTION_LABELS = {
     mark_read: 'пометку прочитанным',
     mark_unread: 'пометку непрочитанным',
@@ -384,6 +429,8 @@
     button.classList.toggle('active', def.active(message));
     button.textContent = def.icon;
     button.title = def.title(message);
+    button.setAttribute('aria-label', button.title);
+    button.disabled = state.pendingThreads.has(threadKey(message));
     button.addEventListener('click', (event) => {
       event.stopPropagation();
       if (def.key === 'label') {
@@ -478,10 +525,12 @@
     wrap.classList.toggle('collapsed', !expanded);
     wrap.style.borderLeftColor = accountColor(group[0].account, 1);
 
-    const head = document.createElement('button');
-    head.type = 'button';
+    const head = document.createElement('div');
     head.className = 'thread-group-head';
-    head.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'thread-group-toggle';
+    toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     const title = document.createElement('span');
     title.className = 'thread-group-title';
     title.textContent = group[0].subject || '(без темы)';
@@ -490,13 +539,57 @@
     count.textContent = expanded
       ? `▾ ${group.length} писем`
       : `▸ ${group.length} писем`;
-    head.append(title, count);
-    head.addEventListener('click', (event) => {
+    toggle.append(title, count);
+    toggle.addEventListener('click', (event) => {
       event.stopPropagation();
       if (expanded) state.expandedThreads.delete(key);
       else state.expandedThreads.add(key);
       renderList();
     });
+
+    const actions = document.createElement('div');
+    actions.className = 'thread-actions';
+    actions.setAttribute('role', 'group');
+    actions.setAttribute('aria-label', 'Действия со всей группой писем');
+    const caption = document.createElement('span');
+    caption.className = 'muted';
+    const pending = state.pendingThreads.has(key);
+    caption.textContent = pending ? 'Применяю…' : 'Вся группа';
+    actions.append(caption);
+    // Use all loaded members, even when filters split them across sections.
+    const members = state.messages.filter((m) => threadKey(m) === key);
+    const aggregate = {
+      ...group[0],
+      seen: members.every((m) => m.seen),
+      important: members.every((m) => m.important),
+      archived: members.every((m) => m.archived),
+      hidden: members.every((m) => m.hidden),
+    };
+    for (const def of ACTIONS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'mini-btn icon-btn thread-action';
+      button.textContent = def.icon;
+      const active =
+        def.key === 'label'
+          ? members.every((m) => def.active(m))
+          : def.active(aggregate);
+      button.classList.toggle('active', active);
+      button.disabled = pending;
+      button.title = `${def.title(aggregate)} — вся группа`;
+      button.setAttribute('aria-label', button.title);
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (def.key === 'label') {
+          openLabelPicker(button, group[0], members);
+        } else {
+          void applyThreadAction(group[0], def.action(aggregate));
+        }
+      });
+      actions.append(button);
+    }
+    head.append(toggle, actions);
+    head.setAttribute('aria-busy', String(pending));
 
     const nested = document.createElement('ul');
     nested.className = 'thread-messages';
@@ -881,25 +974,33 @@ a{color:#1a73e8;}
     }
   }
 
-  function openLabelPicker(anchor, message) {
+  function openLabelPicker(anchor, message, group = null) {
     closeLabelPicker();
     const picker = document.createElement('div');
     picker.className = 'label-picker editor-card';
     picker.addEventListener('click', (event) => event.stopPropagation());
 
     // Existing labels as toggles
-    const known = [...new Set([...state.labels, ...message.labels])]
+    const members = group || [message];
+    const apply = (action, label) =>
+      group
+        ? applyThreadAction(message, action, label)
+        : applyAction(message.id, action, label);
+    const known = [
+      ...new Set([...state.labels, ...members.flatMap((m) => m.labels)]),
+    ]
       .filter((l) => !l.startsWith('\\'))
       .sort();
     for (const label of known) {
-      const on = message.labels.includes(label);
+      const on = members.every((m) => m.labels.includes(label));
       const chip = document.createElement('button');
       chip.type = 'button';
       chip.className = `mini-btn label-option${on ? ' active' : ''}`;
       chip.textContent = `${on ? '✓ ' : ''}${label}`;
+      chip.title = `${on ? 'Убрать ярлык' : 'Добавить ярлык'}${group ? ' — вся группа' : ''}`;
       chip.addEventListener('click', () => {
         closeLabelPicker();
-        applyAction(message.id, on ? 'unlabel' : 'label', label);
+        void apply(on ? 'unlabel' : 'label', label);
       });
       picker.append(chip);
     }
@@ -920,7 +1021,7 @@ a{color:#1a73e8;}
       const name = input.value.trim();
       if (!name) return;
       closeLabelPicker();
-      applyAction(message.id, 'label', name);
+      void apply('label', name);
     });
     picker.append(form);
 
