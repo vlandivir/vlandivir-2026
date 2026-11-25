@@ -437,10 +437,6 @@
   font-size: 12px;
 }
 
-.thread-action.active {
-  background: hsl(var(--primary) / 0.14);
-}
-
 .thread-group-title {
   min-width: 0;
   font-size: 12px;
@@ -523,23 +519,9 @@
 }
 
 .action-btn {
+  flex: none;
   min-height: 26px;
   min-width: 26px;
-  padding: 0;
-  font-size: 13px;
-  line-height: 1;
-  border-radius: calc(var(--radius) - 3px);
-  opacity: 0.55;
-}
-
-.action-btn:hover {
-  opacity: 1;
-  background: hsl(var(--secondary));
-}
-
-.action-btn.active {
-  opacity: 1;
-  background: hsl(var(--primary) / 0.14);
 }
 
 /* Floating label picker */

@@ -586,6 +586,44 @@ button.upload-button {
   padding: 0 var(--v-space-3);
 }
 
+/* Compact, flat toolbars. Opt-in so other page controls keep their sizing. */
+.flat-icon-btn {
+  appearance: none;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  box-shadow: none;
+  background: transparent;
+  color: var(--v-muted);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.flat-icon-btn:hover:not(:disabled) {
+  background: hsl(var(--primary) / 0.08);
+  color: hsl(var(--primary));
+}
+
+.flat-icon-btn.active {
+  background: hsl(var(--primary) / 0.14);
+  color: hsl(var(--primary));
+}
+
+.flat-icon-btn.active:hover:not(:disabled) {
+  background: hsl(var(--primary) / 0.2);
+}
+
+.flat-icon-btn svg {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
 .primary-link,
 .primary-btn,
 .file-card__button--primary,

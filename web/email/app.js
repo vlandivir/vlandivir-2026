@@ -24,40 +24,71 @@
   const ACTIONS = [
     {
       key: 'read',
-      icon: '✓',
       title: (m) => (m.seen ? 'Пометить непрочитанным' : 'Пометить прочитанным'),
       active: (m) => m.seen,
       action: (m) => (m.seen ? 'mark_unread' : 'mark_read'),
     },
     {
       key: 'important',
-      icon: '⭐',
       title: (m) => (m.important ? 'Убрать из «Важное»' : 'В «Важное»'),
       active: (m) => m.important,
       action: (m) => (m.important ? 'unmark_important' : 'mark_important'),
     },
     {
       key: 'archive',
-      icon: '📥',
       title: (m) => (m.archived ? 'Вернуть во «Входящие»' : 'В архив'),
       active: (m) => m.archived,
       action: (m) => (m.archived ? 'unarchive' : 'archive'),
     },
     {
       key: 'hide',
-      icon: '🙈',
       title: (m) => (m.hidden ? 'Показывать' : 'Скрыть из вида'),
       active: (m) => m.hidden,
       action: (m) => (m.hidden ? 'unhide' : 'hide'),
     },
     {
       key: 'label',
-      icon: '🏷',
       title: () => 'Ярлык',
       active: (m) => m.labels.some((l) => l.startsWith('agent/')),
       action: () => null, // opens the label picker instead
     },
   ];
+
+  const ACTION_PATHS = {
+    read: ['M5 12l4 4L19 6'],
+    important: [
+      'm12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9Z',
+    ],
+    archive: ['M4 4h16v4H4z', 'M5 8v12h14V8', 'M10 12h4'],
+    hide: [
+      'm3 3 18 18',
+      'M10.6 10.6a2 2 0 0 0 2.8 2.8',
+      'M9.9 4.3A10 10 0 0 1 12 4c5 0 9 8 9 8a19 19 0 0 1-2.5 3.6',
+      'M6.5 6.5A23 23 0 0 0 3 12s4 8 9 8a9 9 0 0 0 5.5-2.5',
+    ],
+    label: [
+      'M20 13 13 20a2 2 0 0 1-2.8 0L3 12.8V3h9.8l7.2 7.2a2 2 0 0 1 0 2.8Z',
+      'M7.5 7.5h.01',
+    ],
+  };
+
+  function actionIcon(key) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.7');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    for (const d of ACTION_PATHS[key]) {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      svg.append(path);
+    }
+    return svg;
+  }
 
   const dateFormat = new Intl.DateTimeFormat('ru-RU', {
     day: '2-digit',
@@ -425,9 +456,12 @@
   function actionButton(message, def, extraClass) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `icon-btn action-btn${extraClass ? ` ${extraClass}` : ''}`;
+    button.className = `flat-icon-btn icon-btn action-btn${extraClass ? ` ${extraClass}` : ''}`;
     button.classList.toggle('active', def.active(message));
-    button.textContent = def.icon;
+    button.append(actionIcon(def.key));
+    if (def.key !== 'label') {
+      button.setAttribute('aria-pressed', String(def.active(message)));
+    }
     button.title = def.title(message);
     button.setAttribute('aria-label', button.title);
     button.disabled = state.pendingThreads.has(threadKey(message));
@@ -568,13 +602,16 @@
     for (const def of ACTIONS) {
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'icon-btn action-btn thread-action';
-      button.textContent = def.icon;
+      button.className = 'flat-icon-btn icon-btn action-btn thread-action';
+      button.append(actionIcon(def.key));
       const active =
         def.key === 'label'
           ? members.every((m) => def.active(m))
           : def.active(aggregate);
       button.classList.toggle('active', active);
+      if (def.key !== 'label') {
+        button.setAttribute('aria-pressed', String(active));
+      }
       button.disabled = pending;
       button.title = `${def.title(aggregate)} — вся группа`;
       button.setAttribute('aria-label', button.title);
